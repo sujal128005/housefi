@@ -62,8 +62,9 @@ export async function waitFor(sel, timeoutMs = 15000) {
     if (n) return n;
     await sleep(400);
   }
-  const visible = nodes.filter((n) => n.id || n.text).map((n) => n.id || n.text).slice(0, 60).join(' | ');
-  throw new Error(`Timed out waiting for ${JSON.stringify(sel)}. On screen: ${visible}`);
+  const visible = nodes.filter((n) => n.id || n.text).map((n) => (n.id ? `${n.id}${n.text ? `="${n.text}"` : ''}${n.enabled ? '' : '(disabled)'}` : n.text)).slice(0, 60).join(' | ');
+  const { w, h } = screen();
+  throw new Error(`Timed out waiting for ${JSON.stringify(sel)} (screen ${w}x${h}). On screen: ${visible}`);
 }
 
 export async function exists(sel) {

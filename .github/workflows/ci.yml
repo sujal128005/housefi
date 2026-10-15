@@ -11,8 +11,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Runs are long (iOS ~1-2 h); queue new pushes instead of cancelling a running build.
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   checks:
@@ -70,6 +69,7 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
+          profile: pixel_6
           disable-animations: true
           script: |
             adb logcat -c
@@ -106,15 +106,21 @@ jobs:
           echo "SIM_NAME=$NAME" >> "$GITHUB_ENV"
           xcrun simctl boot "$NAME" || true
           xcrun simctl bootstatus "$NAME" -b
-      - name: Build, install and launch (Release, JS bundled in)
+      - name: Build and install (Release, JS bundled in)
         run: |
-          set -o pipefail
+          # expo run:ios builds and installs, then tries to open a dev-server link, which a Release build does not
+          # need (and which times out on CI). Success is judged by the build result, then the app is launched directly.
+          set +e
           npx expo run:ios --configuration Release --device "$SIM_NAME" --no-bundler 2>&1 | tee ios-build.log
-      - name: Capture the first screen
+          set -e
+          grep -q "Build Succeeded" ios-build.log
+          grep -q "Installing on" ios-build.log
+      - name: Launch and capture the first screens
         run: |
+          xcrun simctl launch booted app.housefi.mobile
           sleep 25
           mkdir -p ios-screens
-          xcrun simctl io booted screenshot ios-screens/launch.png
+          xcrun simctl io booted screenshot ios-screens/01-launch.png
       - name: Show build errors
         if: failure()
         run: grep -nE "error:|BUILD FAILED|failed" ios-build.log | head -80 || true
