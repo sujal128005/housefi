@@ -98,7 +98,9 @@ export function Screen({ children, header, footer, wash, scroll = true, contentS
   return (
     <View testID={testID} style={styles.root}>
       {wash ? <Wash name={wash} fade style={styles.wash} /> : null}
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* Padding on both platforms: Android draws edge-to-edge, so the window is not resized for the keyboard. The
+          view adds only the overlap, so it stays correct if a device does resize. */}
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         {header}
         {body}
         {footer ? <Footer>{footer}</Footer> : null}
