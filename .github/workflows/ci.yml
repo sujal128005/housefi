@@ -84,7 +84,8 @@ jobs:
     name: iOS simulator build
     runs-on: macos-26
     needs: checks
-    timeout-minutes: 60
+    # A clean Release build compiles every native module from source; it took longer than an hour on the hosted runner.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
