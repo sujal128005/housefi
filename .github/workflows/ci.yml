@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Typecheck, tests, expo-doctor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test -- --ci
+      - run: npx expo-doctor
+
+  android:
+    name: Android build and Path 1 journey (emulator)
+    runs-on: ubuntu-latest
+    needs: checks
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - run: npx expo prebuild --platform android --no-install
+      - name: Build release APK (debug-signed, JS bundled in)
+        working-directory: android
+        run: ./gradlew app:assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the Path 1 journey on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            node tools/path1-journey.mjs en ci-screens/en
+            node tools/path1-journey.mjs te ci-screens/te
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-path1-screens
+          path: ci-screens
+
+  ios:
+    name: iOS simulator build
+    runs-on: macos-15
+    needs: checks
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx expo prebuild --platform ios
+      - name: Build for the iOS simulator
+        run: |
+          xcodebuild -workspace ios/Housefi.xcworkspace -scheme Housefi -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO | tail -n 40
+      - name: Launch on a simulator and capture the first screen
+        run: |
+          UDID=$(xcrun simctl list devices available -j | node -e "const d=JSON.parse(require('fs').readFileSync(0));const all=Object.values(d.devices).flat();const p=all.find(x=>/^iPhone 1[5-7]( Pro)?$/.test(x.name))||all.find(x=>x.name.startsWith('iPhone'));console.log(p.udid)")
+          xcrun simctl boot "$UDID"
+          xcrun simctl install "$UDID" build/Build/Products/Release-iphonesimulator/Housefi.app
+          xcrun simctl launch "$UDID" app.housefi.mobile
+          sleep 20
+          mkdir -p ios-screens
+          xcrun simctl io "$UDID" screenshot ios-screens/launch.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-screens
+          path: ios-screens
