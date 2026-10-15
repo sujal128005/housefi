@@ -3,7 +3,7 @@
 // new address -> schedule -> review -> confirmed -> matching -> technician assigned. Screenshots go to
 // docs/screens/path1/<locale>/. Usage: node tools/path1-journey.mjs [en|te] [outDir]
 import {
-  back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, tapXY, typeInto, typeText, waitFor,
+  back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, tapUntil, tapXY, typeInto, typeText, waitFor,
 } from './android-driver.mjs';
 import { printDeviceErrors } from './android-driver.mjs';
 
@@ -56,10 +56,9 @@ async function main() {
   await typeInto({ id: 'phone-input' }, '9876543210');
   await hideKeyboard();
   await snap('phone-filled');
-  await tap({ id: 'phone-send' });
+  await tapUntil({ id: 'phone-send' }, { id: 'demo-sms' });
 
   step('otp');
-  await waitFor({ id: 'demo-sms' }, 20000);
   await hideKeyboard();
   await snap('otp');
   await tap({ id: 'otp-boxes' });
@@ -75,7 +74,7 @@ async function main() {
   await typeInto({ id: 'name-input' }, 'Priya Sharma');
   await hideKeyboard();
   await snap('name');
-  await tap({ id: 'name-save' });
+  await tapUntil({ id: 'name-save' }, { id: 'home' });
 
   step('demo settings: slow matching, so every matching state shows');
   await waitFor({ id: 'home' }, 20000);
@@ -164,8 +163,7 @@ async function main() {
   await typeInto({ id: 'addr-pincode' }, '500034');
   await hideKeyboard();
   await snap('address-form');
-  await tap({ id: 'address-save' });
-  await waitFor({ id: 'book-address' });
+  await tapUntil({ id: 'address-save' }, { id: 'book-address' });
   await waitFor({ contains: 'Banjara' }, 20000);
   await snap('address-selected');
   await tap({ id: 'address-next' });

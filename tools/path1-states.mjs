@@ -2,7 +2,7 @@
 // "slot just filled" on submit, no technician found, reschedule, cancel. Screenshots go to docs/screens/path1/states.
 // Usage: node tools/path1-states.mjs [outDir]
 import {
-  back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, typeInto, waitFor,
+  back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, tapUntil, typeInto, waitFor,
 } from './android-driver.mjs';
 import { printDeviceErrors } from './android-driver.mjs';
 
@@ -58,12 +58,12 @@ async function main() {
   step('sign in');
   await typeInto({ id: 'phone-input' }, '9123456789');
   await hideKeyboard();
-  await tap({ id: 'phone-send' });
+  await tapUntil({ id: 'phone-send' }, { id: 'demo-fill' });
   await tap({ id: 'demo-fill' }, 20000);
   await waitFor({ id: 'name-input' }, 20000);
   await typeInto({ id: 'name-input' }, 'Ravi');
   await hideKeyboard();
-  await tap({ id: 'name-save' });
+  await tapUntil({ id: 'name-save' }, { id: 'home' });
   await waitFor({ id: 'home' }, 20000);
 
   step('empty bookings and empty search');

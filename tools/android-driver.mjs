@@ -195,6 +195,23 @@ export function back() {
   key(4);
 }
 
+/**
+ * Taps `sel` until `next` appears (a tap right after the keyboard closes can be swallowed on some Android versions).
+ * Safe for navigation buttons: a second tap only happens when nothing changed.
+ */
+export async function tapUntil(sel, next, { tries = 3, waitMs = 8000 } = {}) {
+  for (let k = 1; k <= tries; k++) {
+    await tap(sel);
+    try {
+      return await waitFor(next, waitMs);
+    } catch (e) {
+      if (k === tries) throw e;
+      console.log(`  (retrying tap on ${JSON.stringify(sel)})`);
+    }
+  }
+  return null;
+}
+
 /** Prints the app's crash / JS error lines from the device log (for CI diagnosis after a failure). */
 export function printDeviceErrors() {
   try {
@@ -203,6 +220,10 @@ export function printDeviceErrors() {
     console.error('--- device log (app errors) ---');
     console.error(lines.slice(-80).join('\n'));
     console.error(`--- app process: ${adb(['shell', 'pidof', PKG]).toString().trim() || 'not running'} ---`);
+    const ime = adb(['shell', 'dumpsys', 'input_method']).toString().split(/\r?\n/).filter((l) => /mInputShown|mServedView|mIsInputViewShown/.test(l));
+    console.error(`--- keyboard: ${ime.map((l) => l.trim()).join(' | ')} ---`);
+    const win = adb(['shell', 'dumpsys', 'window']).toString().split(/\r?\n/).filter((l) => /mCurrentFocus|mInTouchMode/.test(l));
+    console.error(`--- window: ${win.map((l) => l.trim()).join(' | ')} ---`);
   } catch (e) {
     console.error(`could not read device log: ${e.message}`);
   }
