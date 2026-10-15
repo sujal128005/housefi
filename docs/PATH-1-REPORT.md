@@ -63,6 +63,11 @@ clock, box, map pin, six category objects and four sample photos. Tokens: `src/t
   back, empty bookings, search with no results, simulated network error + retry, PIN outside the service area,
   "slot just filled" on confirm + choosing another time, no technician found, reschedule (matching restarts),
   cancel with a reason, cancelled booking under Past.
+- **Small screen**: the English journey also passes at 720×1280 (density 320).
+- **GitHub Actions CI** (`.github/workflows/ci.yml`, every push): typecheck + tests + expo-doctor; **Android** release
+  APK built from scratch and both journeys (English and Telugu) **passed** on a Pixel 6 / Android 14 emulator with
+  the full on-screen keyboard; **iOS** Release build on Xcode 26.6 **succeeded**, installed and launched on an
+  iPhone 17 Pro simulator (launch screenshot uploaded as the `ios-screens` artifact).
 - Screenshots (downscaled JPEGs): `docs/screens/path1/en`, `docs/screens/path1/te`, `docs/screens/path1/states`.
 
 ## Bugs found by testing and fixed
@@ -78,15 +83,20 @@ clock, box, map pin, six category objects and four sample photos. Tokens: `src/t
 9. List screens fired a second request on first show, which hid a failed load behind a later success.
 10. "Slot just filled" appeared below the fold on Review; the error and "Choose another time" now sit in the
     pinned footer above Confirm.
+11. **On Android with the full on-screen keyboard, pinned footer buttons (e.g. "Send code") sat behind the
+    keyboard** (edge-to-edge windows are not resized). Found by the CI emulator; fixed in `src/ui/Layout.tsx`.
+12. "Send code" was enabled for a 10-digit number that is not a valid mobile number.
+13. On short phones the confirmation illustration pushed the booking ID below the fold.
 
 ## Not done / open
 
-- **iOS has not been run**: there is no Mac here. The CI workflow (`.github/workflows/ci.yml`) builds the iOS
-  simulator app on a macOS runner and captures a launch screenshot, but it only runs once the code is pushed.
+- **iOS is verified to build, install and launch only** (CI simulator). The full iOS journey has not been driven
+  screen by screen, because there is no Mac here; an iOS UI test (e.g. Maestro or XCUITest) is a follow-up.
 - Telugu text is written in simple everyday Telugu and **needs a native-speaker review**.
 - Illustrations are first-pass vector art; real 3D renders can replace them through `src/illustrations`.
 - Real microphone, camera, maps, calendar, calls and payments are intentionally not connected (demo phase).
-- Tested on one emulator size (1080×2400). Small phones, tablets and very large system font sizes were not checked yet.
+- Checked at 1080×2400 and 720×1280. Tablets and very large system font sizes were not checked yet.
+- The app icon and splash image are still Expo's template images; Housefi artwork is a follow-up.
 - The debug build is slow on this emulator; the release APK is much smoother. A browser preview
   (`npx expo start`, then open http://localhost:8081) is available for quick visual review only. It is not the
   product, and a few native details (haptics, keyboard behaviour, fonts' exact metrics) differ there.
