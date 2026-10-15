@@ -45,6 +45,16 @@ jobs:
           java-version: 17
       - run: npm ci
       - run: npx expo prebuild --platform android --no-install
+      - name: Install the Android NDK (with retries; downloads on hosted runners sometimes arrive corrupt)
+        run: |
+          NDK=$(sed -n 's/^ndkVersion = "\(.*\)"/\1/p' node_modules/react-native/gradle/libs.versions.toml)
+          NDK=${NDK:-27.1.12297006}
+          echo "NDK $NDK"
+          for i in 1 2 3; do
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK" > /dev/null && break
+            echo "retry $i"; rm -rf "$ANDROID_HOME/ndk/$NDK"; sleep 10
+          done
+          test -f "$ANDROID_HOME/ndk/$NDK/source.properties"
       - name: Build release APK (debug-signed, JS bundled in)
         working-directory: android
         run: ./gradlew app:assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
@@ -83,21 +93,28 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx expo prebuild --platform ios
-      - name: Build for the iOS simulator
+      - name: Boot an iPhone simulator
         run: |
-          xcodebuild -workspace ios/Housefi.xcworkspace -scheme Housefi -configuration Release -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO | tail -n 40
-      - name: Launch on a simulator and capture the first screen
+          NAME=$(xcrun simctl list devices available -j | node -e "const d=JSON.parse(require('fs').readFileSync(0));const all=Object.values(d.devices).flat().filter(x=>x.name.startsWith('iPhone'));const p=all.find(x=>/^iPhone 1[6-9]( Pro)?$/.test(x.name))||all[all.length-1];console.log(p.name)")
+          echo "SIM_NAME=$NAME" >> "$GITHUB_ENV"
+          xcrun simctl boot "$NAME" || true
+          xcrun simctl bootstatus "$NAME" -b
+      - name: Build, install and launch (Release, JS bundled in)
         run: |
-          UDID=$(xcrun simctl list devices available -j | node -e "const d=JSON.parse(require('fs').readFileSync(0));const all=Object.values(d.devices).flat();const p=all.find(x=>/^iPhone 1[5-7]( Pro)?$/.test(x.name))||all.find(x=>x.name.startsWith('iPhone'));console.log(p.udid)")
-          xcrun simctl boot "$UDID"
-          xcrun simctl install "$UDID" build/Build/Products/Release-iphonesimulator/Housefi.app
-          xcrun simctl launch "$UDID" app.housefi.mobile
-          sleep 20
+          set -o pipefail
+          npx expo run:ios --configuration Release --device "$SIM_NAME" --no-bundler 2>&1 | tee ios-build.log
+      - name: Capture the first screen
+        run: |
+          sleep 25
           mkdir -p ios-screens
-          xcrun simctl io "$UDID" screenshot ios-screens/launch.png
+          xcrun simctl io booted screenshot ios-screens/launch.png
+      - name: Show build errors
+        if: failure()
+        run: grep -nE "error:|BUILD FAILED|failed" ios-build.log | head -80 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ios-screens
-          path: ios-screens
+          path: |
+            ios-screens
+            ios-build.log
