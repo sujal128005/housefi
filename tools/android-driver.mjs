@@ -46,9 +46,14 @@ export function dump() {
   return nodes;
 }
 
-export function find(nodes, sel) {
+/** Bounds are usable for tapping. Android reports odd rects (bottom above top) for views clipped by a scroll view. */
+export function onScreen(n) {
+  return n.x2 > n.x1 && n.y2 > n.y1;
+}
+
+export function find(nodes, sel, { visibleOnly = false } = {}) {
   return nodes.find((n) => (sel.id ? n.id === sel.id : true) && (sel.text ? n.text === sel.text || n.desc === sel.text : true)
-    && (sel.contains ? (n.text + ' ' + n.desc).includes(sel.contains) : true) && n.x2 > n.x1 && n.y2 > n.y1);
+    && (sel.contains ? (n.text + ' ' + n.desc).includes(sel.contains) : true) && (!visibleOnly || onScreen(n)));
 }
 
 export async function waitFor(sel, timeoutMs = 15000) {
@@ -76,7 +81,8 @@ export function tapXY(x, y) {
 }
 
 export async function tap(sel, timeoutMs) {
-  const n = await waitFor(sel, timeoutMs);
+  let n = await waitFor(sel, timeoutMs);
+  if (!onScreen(n)) n = await scrollTo(sel);
   tapXY((n.x1 + n.x2) / 2, (n.y1 + n.y2) / 2);
   await sleep(450);
   return n;
@@ -87,7 +93,8 @@ export async function scrollTo(sel, { maxSwipes = 8, bottomLimit = 0.86 } = {}) 
   const { h } = screen();
   let lastY = null;
   for (let k = 0; k <= maxSwipes; k++) {
-    const n = find(dump(), sel);
+    const all = find(dump(), sel);
+    const n = all && onScreen(all) ? all : null;
     if (n && n.y2 < h * bottomLimit && n.y1 > h * 0.08) return n;
     // At the end of the list the element cannot move further up; accept it if it is fully on screen.
     if (n && lastY !== null && n.y1 === lastY && n.y2 < h * 0.97) return n;

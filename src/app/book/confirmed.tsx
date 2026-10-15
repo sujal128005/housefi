@@ -1,7 +1,7 @@
 // Booking request received. Honest wording: the request is placed and matching has started; no technician yet.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { serviceById } from '../../data/catalog';
 import { CalendarCheckArt } from '../../illustrations/Scenes';
 import { useI18n } from '../../i18n/I18n';
@@ -20,6 +20,8 @@ export default function Confirmed() {
   const q = useQuery(() => backend.bookings.get(session.token, id), [backend, session.token, id]);
   const [calendar, setCalendar] = useState(false);
   const { clear } = useDraft();
+  // Keep the booking ID above the fold on short phones.
+  const artSize = Math.round(Math.min(190, useWindowDimensions().height * 0.17));
   const pop = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
     clear();
@@ -38,13 +40,13 @@ export default function Confirmed() {
         <>
           <Button label={t('confirmed.track')} trailingIcon="arrow-forward" onPress={() => router.replace(`/booking/${id}`)} testID="confirmed-track" />
           <View style={styles.row}>
-            <Button label={t('confirmed.calendar')} icon="calendar-outline" variant="outline" size="md" onPress={() => setCalendar(true)} style={styles.flex} />
-            <Button label={t('confirmed.home')} icon="home-outline" variant="outline" size="md" onPress={() => router.back()} style={styles.flex} testID="confirmed-home" />
+            <Button label={t('confirmed.calendar')} variant="outline" size="md" onPress={() => setCalendar(true)} style={styles.flex} />
+            <Button label={t('confirmed.home')} variant="outline" size="md" onPress={() => router.back()} style={styles.flex} testID="confirmed-home" />
           </View>
         </>
       }
     >
-      <Animated.View style={[styles.art, { transform: [{ scale: pop }] }]}><CalendarCheckArt size={190} /></Animated.View>
+      <Animated.View style={[styles.art, { transform: [{ scale: pop }] }]}><CalendarCheckArt size={artSize} /></Animated.View>
       <Txt variant="title1" align="center" heading>{t('confirmed.title')}</Txt>
       <Txt variant="body" color="inkMuted" align="center">{t('confirmed.body')}</Txt>
       <Banner tone="demo" text={t('confirmed.demo')} />
@@ -72,7 +74,7 @@ export default function Confirmed() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   row: { flexDirection: 'row', gap: space.sm },
-  art: { alignItems: 'center', marginTop: space.md },
+  art: { alignItems: 'center' },
   card: { gap: space.xs },
   idRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   rule: { height: 1, backgroundColor: colors.line, marginVertical: space.sm },
