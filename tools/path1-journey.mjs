@@ -3,7 +3,7 @@
 // new address -> schedule -> review -> confirmed -> matching -> technician assigned. Screenshots go to
 // docs/screens/path1/<locale>/. Usage: node tools/path1-journey.mjs [en|te] [outDir]
 import {
-  back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, tapXY, typeText, waitFor,
+  back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, tapXY, typeInto, typeText, waitFor,
 } from './android-driver.mjs';
 
 const locale = process.argv[2] === 'te' ? 'te' : 'en';
@@ -45,13 +45,14 @@ async function main() {
   step('phone sign-in');
   await waitFor({ id: 'auth-phone' });
   await snap('phone-empty');
-  await tap({ id: 'phone-input' });
-  typeText('58765');
+  // An invalid number first (starts with 5): the error shows and Send stays off.
+  await typeInto({ id: 'phone-input' }, '5876543210');
   await hideKeyboard();
-  await tap({ id: 'phone-send' }).catch(() => undefined);
+  await snap('phone-invalid');
   await tap({ id: 'phone-input' });
-  for (let k = 0; k < 6; k++) adbBackspace();
-  typeText('9876543210');
+  key(123);
+  for (let k = 0; k < 14; k++) key(67);
+  await typeInto({ id: 'phone-input' }, '9876543210');
   await hideKeyboard();
   await snap('phone-filled');
   await tap({ id: 'phone-send' });
@@ -61,6 +62,7 @@ async function main() {
   await hideKeyboard();
   await snap('otp');
   await tap({ id: 'otp-boxes' });
+  await sleep(600);
   typeText('000000');
   await sleep(1500);
   await hideKeyboard();
@@ -69,8 +71,7 @@ async function main() {
 
   step('name');
   await waitFor({ id: 'auth-name' }, 20000);
-  await tap({ id: 'name-input' });
-  typeText('Priya Sharma');
+  await typeInto({ id: 'name-input' }, 'Priya Sharma');
   await hideKeyboard();
   await snap('name');
   await tap({ id: 'name-save' });
@@ -98,7 +99,7 @@ async function main() {
   await waitFor({ id: 'search' });
   await hideKeyboard();
   await snap('search-empty');
-  typeText('fan');
+  await typeInto({ id: 'search-input' }, 'fan');
   await sleep(500);
   await hideKeyboard();
   await snap('search-results');
@@ -155,14 +156,11 @@ async function main() {
   await tap({ id: 'address-save' });
   await hideKeyboard();
   await snap('address-errors');
-  await tap({ id: 'addr-house' });
-  typeText('Flat 4B, Lake View Apts');
-  await tap({ id: 'addr-street' });
-  typeText('Road No. 12, Banjara Hills');
+  await typeInto({ id: 'addr-house' }, 'Flat 4B, Lake View Apts');
+  await typeInto({ id: 'addr-street' }, 'Road No. 12, Banjara Hills');
   await hideKeyboard();
   await scrollTo({ id: 'addr-pincode' });
-  await tap({ id: 'addr-pincode' });
-  typeText('500034');
+  await typeInto({ id: 'addr-pincode' }, '500034');
   await hideKeyboard();
   await snap('address-form');
   await tap({ id: 'address-save' });
@@ -235,10 +233,6 @@ async function main() {
   await waitFor({ id: 'account' });
   await snap('account');
   console.log(`PATH 1 JOURNEY PASSED (${locale}), ${n} screenshots`);
-}
-
-function adbBackspace() {
-  key(67); // KEYCODE_DEL
 }
 
 main().catch((e) => {

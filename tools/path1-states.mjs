@@ -2,7 +2,7 @@
 // "slot just filled" on submit, no technician found, reschedule, cancel. Screenshots go to docs/screens/path1/states.
 // Usage: node tools/path1-states.mjs [outDir]
 import {
-  back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, typeText, waitFor,
+  back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, typeInto, waitFor,
 } from './android-driver.mjs';
 
 const out = process.argv[2] ?? 'docs/screens/path1/states';
@@ -55,13 +55,12 @@ async function main() {
   await tap({ id: 'role-customer' });
 
   step('sign in');
-  await tap({ id: 'phone-input' });
-  typeText('9123456789');
+  await typeInto({ id: 'phone-input' }, '9123456789');
   await hideKeyboard();
   await tap({ id: 'phone-send' });
   await tap({ id: 'demo-fill' }, 20000);
-  await tap({ id: 'name-input' }, 20000);
-  typeText('Ravi');
+  await waitFor({ id: 'name-input' }, 20000);
+  await typeInto({ id: 'name-input' }, 'Ravi');
   await hideKeyboard();
   await tap({ id: 'name-save' });
   await waitFor({ id: 'home' }, 20000);
@@ -72,8 +71,7 @@ async function main() {
   await snap('bookings-empty');
   await tap({ id: 'tab-home' });
   await tap({ id: 'home-search' });
-  await tap({ id: 'search-input' });
-  typeText('zzqx');
+  await typeInto({ id: 'search-input' }, 'zzqx');
   await hideKeyboard();
   await waitFor({ id: 'search-empty' });
   await snap('search-no-results');
@@ -110,21 +108,19 @@ async function main() {
   await tap({ id: 'summary-next' });
   await tap({ id: 'address-add' }, 20000);
   await tap({ id: 'label-WORK' });
-  await tap({ id: 'addr-house' });
-  typeText('Office 301, Cyber Towers');
-  await tap({ id: 'addr-street' });
-  typeText('Hitech City, Madhapur');
+  await typeInto({ id: 'addr-house' }, 'Office 301, Cyber Towers');
+  await typeInto({ id: 'addr-street' }, 'Hitech City, Madhapur');
   await hideKeyboard();
   await scrollTo({ id: 'addr-pincode' });
-  await tap({ id: 'addr-pincode' });
-  typeText('518001');
+  await typeInto({ id: 'addr-pincode' }, '518001');
   await hideKeyboard();
   await tap({ id: 'address-save' });
   await hideKeyboard();
   await snap('address-outside-area');
   await tap({ id: 'addr-pincode' });
-  for (let k = 0; k < 6; k++) key(67); // delete the old PIN
-  typeText('500081');
+  key(123);
+  for (let k = 0; k < 8; k++) key(67); // delete the old PIN
+  await typeInto({ id: 'addr-pincode' }, '500081');
   await hideKeyboard();
   await tap({ id: 'address-save' });
   await tap({ id: 'address-next' }, 20000);

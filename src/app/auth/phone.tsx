@@ -50,7 +50,7 @@ export default function PhoneSignIn() {
       testID="auth-phone"
       wash="sky"
       header={<Header />}
-      footer={<Button label={t('auth.phone.send')} trailingIcon="arrow-forward" onPress={send} loading={busy} disabled={digits.length < 10} testID="phone-send" />}
+      footer={<Button label={t('auth.phone.send')} trailingIcon="arrow-forward" onPress={send} loading={busy} disabled={!phone} testID="phone-send" />}
     >
       <View style={styles.art}><PhoneArt size={150} /></View>
       <Txt variant="title1" heading>{t('auth.phone.title')}</Txt>

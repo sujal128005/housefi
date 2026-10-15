@@ -127,6 +127,34 @@ export function typeText(s) {
   adb(['shell', 'input', 'text', s.replace(/ /g, '%s')]);
 }
 
+function keyboardShown() {
+  return adb(['shell', 'dumpsys', 'input_method']).toString().includes('mInputShown=true');
+}
+
+const norm = (t) => t.replace(/[^0-9A-Za-z]/g, '').toLowerCase();
+
+/**
+ * Taps a text field, waits for the keyboard, types in small chunks (adb drops characters when typing fast) and
+ * checks the field now shows the text; clears and retries if it does not.
+ */
+export async function typeInto(sel, text, { attempts = 3 } = {}) {
+  for (let k = 1; k <= attempts; k++) {
+    await tap(sel);
+    for (let w = 0; w < 15 && !keyboardShown(); w++) await sleep(200);
+    for (let i = 0; i < text.length; i += 8) {
+      typeText(text.slice(i, i + 8));
+      await sleep(150);
+    }
+    await sleep(400);
+    const n = find(dump(), sel);
+    if (n && norm(n.text).includes(norm(text))) return;
+    // Clear: move to the end and delete everything, then try again.
+    key(123);
+    for (let d = 0; d < Math.max(12, (n?.text.length ?? 0) + 4); d++) key(67);
+  }
+  throw new Error(`Could not type into ${JSON.stringify(sel)}`);
+}
+
 export function key(code) {
   adb(['shell', 'input', 'keyevent', String(code)]);
 }
