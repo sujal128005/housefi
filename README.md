@@ -49,6 +49,16 @@ npm test                  # unit tests
 npm run typecheck
 ```
 
+**Quick, lag-free look in a browser** (review aid only; the product is the native app):
+
+```bash
+npx expo start
+```
+
+then open http://localhost:8081 and use the browser's phone-size view (Chrome DevTools → device toolbar).
+For the real native feel without the emulator, install the release APK
+(`android/app/build/outputs/apk/release/app-release.apk` after `cd android && ./gradlew app:assembleRelease`).
+
 End-to-end journey on a running Android emulator (takes screenshots into `docs/screens/`):
 
 ```bash
