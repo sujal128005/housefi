@@ -4,6 +4,7 @@
 import {
   back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, typeInto, waitFor,
 } from './android-driver.mjs';
+import { printDeviceErrors } from './android-driver.mjs';
 
 const out = process.argv[2] ?? 'docs/screens/path1/states';
 let n = 0;
@@ -166,6 +167,7 @@ async function main() {
 
 main().catch((e) => {
   console.error(`STATES FAILED at shot ${n}: ${e.message}`);
+  printDeviceErrors();
   try {
     shot(`${out}/FAILED.png`);
   } catch {

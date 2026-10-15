@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Runs are long (iOS ~1-2 h); queue new pushes instead of cancelling a running build.
+  cancel-in-progress: false
 
 jobs:
   checks:
@@ -71,6 +72,7 @@ jobs:
           target: google_apis
           disable-animations: true
           script: |
+            adb logcat -c
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             node tools/path1-journey.mjs en ci-screens/en
             node tools/path1-journey.mjs te ci-screens/te

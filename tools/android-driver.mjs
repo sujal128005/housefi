@@ -186,3 +186,16 @@ export function launch({ clear = false } = {}) {
 export function back() {
   key(4);
 }
+
+/** Prints the app's crash / JS error lines from the device log (for CI diagnosis after a failure). */
+export function printDeviceErrors() {
+  try {
+    const log = adb(['logcat', '-d', '-v', 'brief']).toString('utf8');
+    const lines = log.split(/\r?\n/).filter((l) => /AndroidRuntime|FATAL|ReactNativeJS|E\/ReactNative|housefi/.test(l));
+    console.error('--- device log (app errors) ---');
+    console.error(lines.slice(-80).join('\n'));
+    console.error(`--- app process: ${adb(['shell', 'pidof', PKG]).toString().trim() || 'not running'} ---`);
+  } catch (e) {
+    console.error(`could not read device log: ${e.message}`);
+  }
+}

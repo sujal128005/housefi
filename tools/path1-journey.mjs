@@ -5,6 +5,7 @@
 import {
   back, exists, hideKeyboard, key, launch, scrollTo, shot, sleep, swipe, tap, tapXY, typeInto, typeText, waitFor,
 } from './android-driver.mjs';
+import { printDeviceErrors } from './android-driver.mjs';
 
 const locale = process.argv[2] === 'te' ? 'te' : 'en';
 const out = process.argv[3] ?? `docs/screens/path1/${locale}`;
@@ -237,6 +238,7 @@ async function main() {
 
 main().catch((e) => {
   console.error(`JOURNEY FAILED at shot ${n}: ${e.message}`);
+  printDeviceErrors();
   try {
     shot(`${out}/FAILED.png`);
   } catch {
