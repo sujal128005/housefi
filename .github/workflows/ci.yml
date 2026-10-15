@@ -82,7 +82,7 @@ jobs:
 
   ios:
     name: iOS simulator build
-    runs-on: macos-15
+    runs-on: macos-26
     needs: checks
     timeout-minutes: 60
     steps:
@@ -93,6 +93,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx expo prebuild --platform ios
+      - name: Xcode version and Swift package resolution
+        run: |
+          xcodebuild -version
+          xcodebuild -resolvePackageDependencies -workspace ios/Housefi.xcworkspace -scheme Housefi
       - name: Boot an iPhone simulator
         run: |
           NAME=$(xcrun simctl list devices available -j | node -e "const d=JSON.parse(require('fs').readFileSync(0));const all=Object.values(d.devices).flat().filter(x=>x.name.startsWith('iPhone'));const p=all.find(x=>/^iPhone 1[6-9]( Pro)?$/.test(x.name))||all[all.length-1];console.log(p.name)")
