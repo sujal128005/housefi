@@ -8,13 +8,13 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "app.housefi.mobile"
     },
     "android": {
       "package": "app.housefi.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#13235B",
+        "backgroundColor": "#0A3CFD",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -43,9 +43,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 160,
+          "imageWidth": 150,
           "resizeMode": "contain",
-          "backgroundColor": "#F4F6FE"
+          "backgroundColor": "#FAF9F5"
         }
       ],
       [
@@ -60,6 +60,10 @@
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "backgroundColor": "#FAF9F5"
   }
 }

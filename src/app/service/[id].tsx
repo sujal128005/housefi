@@ -2,7 +2,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { categoryById } from '../../data/catalog';
-import { Art3D } from '../../illustrations/Art3D';
+import { Art3D, serviceArt } from '../../illustrations/Art3D';
 import { formatRupees } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { useBackend, useQuery } from '../../services/ServicesProvider';
@@ -46,8 +46,8 @@ export default function ServiceDetails() {
       {s ? (
         <>
           <Wash name={cat?.wash ?? 'sky'} style={styles.hero}>
-            <Art3D name="tech_man" size={150} float shadow />
-            {cat ? <Art3D name={cat.art} size={86} style={styles.heroObj} /> : null}
+            <Art3D name="tech_hero" size={150} float shadow />
+            {cat ? <Art3D name={serviceArt(s.id, cat.art)} size={86} style={styles.heroObj} /> : null}
           </Wash>
           <Appear style={styles.titleBlock}>
             <Txt variant="title1" heading>{l(s.name)}</Txt>

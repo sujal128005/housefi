@@ -7,7 +7,7 @@ import { StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { categoryById, serviceById } from '../../../data/catalog';
 import { DEMO_TIMING, isActive, START_CODE_ATTEMPTS } from '../../../domain/rules';
 import { quoteVisible, type Job, type TechIssue } from '../../../domain/types';
-import { Art3D, type ArtName } from '../../../illustrations/Art3D';
+import { Art3D, serviceArt, type ArtName } from '../../../illustrations/Art3D';
 import { TrackingMap } from '../../../illustrations/TrackingMap';
 import { formatRupees } from '../../../i18n/format';
 import { useI18n, type StringKey } from '../../../i18n/I18n';
@@ -194,7 +194,7 @@ export default function JobScreen() {
         ) : stage.pulse ? (
           <View style={styles.art}><Pulse size={170} color={colors.blue} /><Art3D name={stage.art} size={104} float /></View>
         ) : j.status === 'COMPLETED' ? (
-          <View style={styles.art}><Pop><Art3D name="party" size={120} shadow /></Pop></View>
+          <View style={styles.art}><Pop><Art3D name="trophy" size={120} shadow /></Pop></View>
         ) : (
           <View style={styles.art}><Art3D name={stage.art} size={110} float={live} shadow /></View>
         )}
@@ -285,7 +285,7 @@ export default function JobScreen() {
       <Card style={styles.details} testID="tj-details">
         <View style={styles.rowBetween}>
           <View style={styles.row}>
-            {cat ? <Art3D name={cat.art} size={40} /> : null}
+            {cat ? <Art3D name={serviceArt(j.serviceId, cat.art)} size={40} /> : null}
             <View>
               <Txt variant="bodyStrong">{svc ? l(svc.name) : j.serviceId}</Txt>
               <Txt variant="footnote" color="inkMuted">{visitTimeText(j.time, locale, t)}</Txt>
@@ -412,9 +412,9 @@ function stageOf(j: Job): Stage {
   switch (j.status) {
     case 'ASSIGNED': return { art: 'scooter', title: 'tj.s.assigned', body: 'tj.s.assignedBody', wash: 'sky' };
     case 'EN_ROUTE': return { art: 'scooter', title: 'tj.s.enroute', body: 'tj.s.enrouteBody', wash: 'sky' };
-    case 'ARRIVED': return { art: 'key', title: 'tj.s.arrived', body: 'tj.s.arrivedBody', wash: 'lavender' };
+    case 'ARRIVED': return { art: 'start_code', title: 'tj.s.arrived', body: 'tj.s.arrivedBody', wash: 'lavender' };
     case 'INSPECTING':
-      if (!j.quote) return { art: 'magnifier', title: 'tj.s.inspect', body: 'tj.s.inspectBody', wash: 'lavender' };
+      if (!j.quote) return { art: 'inspecting', title: 'tj.s.inspect', body: 'tj.s.inspectBody', wash: 'lavender' };
       return j.quote.review.state === 'UNDER_REVIEW'
         ? { art: 'hourglass', title: 'tj.s.review', body: 'tj.s.reviewBody', wash: 'peach', pulse: true }
         : { art: 'robot', title: 'tj.s.checking', body: 'tj.s.checkingBody', wash: 'lavender', pulse: true };
@@ -428,10 +428,10 @@ function stageOf(j: Job): Stage {
       return { art: 'tools', title: 'tj.s.working', body: 'tj.s.workingBody', wash: 'mint' };
     case 'EXTRA_WORK': return { art: 'hourglass', title: 'tj.s.waitExtra', body: 'tj.s.waitExtraBody', wash: 'sky', pulse: true };
     case 'PAYMENT_DUE':
-      if (j.finalPayment?.method === 'CASH' && j.finalPayment.state === 'PENDING') return { art: 'money', title: 'tj.s.cash', body: 'tj.s.cashBody', wash: 'sunrise' };
-      if (j.finalPayment?.state === 'FAILED') return { art: 'card', title: 'tj.s.payFailed', body: 'tj.s.payFailedBody', wash: 'peach' };
-      return { art: 'card', title: 'tj.s.waitPay', body: 'tj.s.waitPayBody', wash: 'sky', pulse: true };
-    case 'COMPLETED': return { art: 'party', title: 'tj.s.done', body: 'tj.s.doneBody', wash: 'mint' };
+      if (j.finalPayment?.method === 'CASH' && j.finalPayment.state === 'PENDING') return { art: 'cash', title: 'tj.s.cash', body: 'tj.s.cashBody', wash: 'sunrise' };
+      if (j.finalPayment?.state === 'FAILED') return { art: 'card_failed', title: 'tj.s.payFailed', body: 'tj.s.payFailedBody', wash: 'peach' };
+      return { art: 'pay_due', title: 'tj.s.waitPay', body: 'tj.s.waitPayBody', wash: 'sky', pulse: true };
+    case 'COMPLETED': return { art: 'trophy', title: 'tj.s.done', body: 'tj.s.doneBody', wash: 'mint' };
     case 'CLOSED_NO_REPAIR':
       return { art: 'package', title: 'tj.s.closed', body: j.closeReason === 'CUSTOMER_DECLINED' ? 'tj.s.closedDeclined' : j.closeReason === 'CUSTOMER_UNAVAILABLE' ? 'tj.s.closedUnavailable' : 'tj.s.closedCannot', wash: 'sky' };
     case 'CANCELLED': return { art: 'package', title: 'tj.s.cancelled', body: 'tj.s.cancelledBody', wash: 'sky' };

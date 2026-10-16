@@ -24,6 +24,7 @@ export default function DemoSettingsScreen() {
   const draft = useDraft();
   const [s, setS] = useState<DemoSettings | null>(null);
   const [confirm, setConfirm] = useState(false);
+  const [boom, setBoom] = useState(false);
 
   useEffect(() => {
     void backend.demo?.settings().then(setS);
@@ -111,6 +112,16 @@ export default function DemoSettingsScreen() {
           </Card>
         </>
       ) : null}
+      <Card style={styles.card}>
+        <View style={styles.switchRow}>
+          <View style={styles.flex}>
+            <Txt variant="bodyStrong">{t('demo.crash')}</Txt>
+            <Txt variant="footnote" color="inkMuted">{t('demo.crashSub')}</Txt>
+          </View>
+          <Button label={t('demo.crashCta')} variant="outline" size="sm" onPress={() => setBoom(true)} testID="demo-crash" />
+        </View>
+      </Card>
+      {boom ? <Boom /> : null}
       <Button label={t('demo.reset')} icon="trash-outline" variant="danger" onPress={() => setConfirm(true)} testID="demo-reset" />
       <ConfirmSheet visible={confirm} title={t('demo.resetTitle')} body={t('demo.resetBody')} icon="trash" confirmLabel={t('demo.reset')} confirmVariant="danger"
         onCancel={() => setConfirm(false)} onConfirm={() => {
@@ -126,6 +137,11 @@ export default function DemoSettingsScreen() {
         }} />
     </Screen>
   );
+}
+
+/** Demo only: fails while rendering, to show the branded error screen and its recovery. */
+function Boom(): never {
+  throw new Error('Demo: simulated app error');
 }
 
 const styles = StyleSheet.create({

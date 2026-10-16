@@ -29,15 +29,15 @@ const REASONS: readonly CancelReason[] = ['PLANS_CHANGED', 'FIXED', 'TOO_LONG', 
 
 const HERO: Partial<Record<Booking['status'], { art: ArtName; title: StringKey; body: StringKey }>> = {
   AWAITING_PAYMENT: { art: 'card', title: 'hub.awaiting.title', body: 'hub.awaiting.body' },
-  PAYMENT_PENDING: { art: 'hourglass', title: 'hub.payPending.title', body: 'hub.payPending.body' },
+  PAYMENT_PENDING: { art: 'pay_pending', title: 'hub.payPending.title', body: 'hub.payPending.body' },
   MATCHING_DELAYED: { art: 'alarm', title: 'track.delayed.title', body: 'track.delayed.body' },
   UNFULFILLED: { art: 'alarm', title: 'track.unfulfilled.title', body: 'track.unfulfilled.body' },
   ARRIVED: { art: 'handshake', title: 'hub.arrived.title', body: 'hub.arrived.body' },
-  INSPECTING: { art: 'magnifier', title: 'hub.inspecting.title', body: 'hub.inspecting.body' },
+  INSPECTING: { art: 'inspecting', title: 'hub.inspecting.title', body: 'hub.inspecting.body' },
   QUOTE_SHARED: { art: 'clipboard', title: 'hub.quote.title', body: 'hub.quote.body' },
   IN_PROGRESS: { art: 'tools', title: 'hub.working.title', body: 'hub.working.body' },
   EXTRA_WORK: { art: 'memo', title: 'hub.extra.title', body: 'hub.extra.body' },
-  PAYMENT_DUE: { art: 'money', title: 'hub.due.title', body: 'hub.due.body' },
+  PAYMENT_DUE: { art: 'pay_due', title: 'hub.due.title', body: 'hub.due.body' },
   CLOSED_NO_REPAIR: { art: 'check', title: 'hub.noRepair.title', body: 'hub.noRepair.body' },
   CANCELLED: { art: 'package', title: 'track.cancelled.title', body: 'track.cancelled.body' },
 };
@@ -144,7 +144,7 @@ export default function BookingHub() {
         {b.status === 'MATCHING' ? (
           <View style={styles.art}>
             <Pulse size={190} color={colors.blue} />
-            <Art3D name="magnifier" size={120} float />
+            <Art3D name="finding" size={120} float />
           </View>
         ) : null}
         {b.status === 'ASSIGNED' ? (

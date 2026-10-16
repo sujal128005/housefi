@@ -101,7 +101,7 @@ export default function ConfirmStep() {
 
       <Card style={styles.card}>
         <View style={styles.svcRow}>
-          {cat ? <CategoryBadge category={cat} size={52} /> : null}
+          {cat ? <CategoryBadge category={cat} serviceId={svc.id} size={52} /> : null}
           <Txt variant="bodyStrong" style={styles.flex}>{l(svc.name)}</Txt>
         </View>
         <Divider />

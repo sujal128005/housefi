@@ -76,6 +76,7 @@ jobs:
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             node tools/app-journey.mjs en ci-screens/en
             node tools/app-journey.mjs te ci-screens/te
+            node tools/recovery-check.mjs ci-screens/recovery
       - uses: actions/upload-artifact@v4
         if: always()
         with:

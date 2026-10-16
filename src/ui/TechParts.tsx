@@ -2,7 +2,7 @@
 import { Linking, Platform, StyleSheet, View } from 'react-native';
 import { categoryById, serviceById } from '../data/catalog';
 import type { Address, BookingStatus, Job } from '../domain/types';
-import { Art3D } from '../illustrations/Art3D';
+import { Art3D, serviceArt } from '../illustrations/Art3D';
 import { formatRupees } from '../i18n/format';
 import { useI18n, type StringKey } from '../i18n/I18n';
 import { colors, radius, shadow, space } from '../theme/tokens';
@@ -70,7 +70,7 @@ export function JobCard({ job, onPress }: { readonly job: Job; readonly onPress:
   const cat = categoryById(job.categoryId);
   return (
     <Tap onPress={onPress} style={styles.card} accessibilityLabel={`${svc ? l(svc.name) : ''}, ${job.code}`} testID={`job-${job.code}`} scale={0.98}>
-      <View style={styles.cardArt}>{cat ? <Art3D name={cat.art} size={46} /> : null}</View>
+      <View style={styles.cardArt}>{cat ? <Art3D name={serviceArt(job.serviceId, cat.art)} size={46} /> : null}</View>
       <View style={styles.flex}>
         <Txt variant="bodyStrong" numberOfLines={1}>{svc ? l(svc.name) : job.serviceId}</Txt>
         <Txt variant="footnote" color="inkMuted" numberOfLines={1}>{job.customerName} · {job.address.street}</Txt>

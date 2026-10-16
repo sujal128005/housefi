@@ -1,6 +1,7 @@
 // Sounds and vibration for the moments that matter: a booking confirmed, a quote arriving, a new job offer ringing,
 // cash collected, an error. One call per moment: feedback('success'). Sounds respect the phone's silent switch (iOS) and
-// both can be turned off in Account / Profile ("Sounds & vibration").
+// both can be turned off in Account / Profile ("Sounds & vibration"). Sounds: Kenney "Interface Sounds" (CC0,
+// assets/sounds/LICENSE-kenney-interface-sounds.txt), trimmed and levelled for the app.
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { Platform, Vibration } from 'react-native';
@@ -37,7 +38,7 @@ const SOUNDS: Record<SoundName, number> = {
   pop: require('../../assets/sounds/pop.wav'),
 };
 
-const VOLUME: Record<SoundName, number> = { success: 0.8, notify: 0.8, offer: 1, cash: 0.8, error: 0.6, send: 0.5, pop: 0.4 };
+const VOLUME: Record<SoundName, number> = { success: 0.75, notify: 0.7, offer: 1, cash: 0.75, error: 0.6, send: 0.5, pop: 0.45 };
 
 let enabled = true;
 let modeSet = false;

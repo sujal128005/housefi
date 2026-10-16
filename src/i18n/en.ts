@@ -912,6 +912,20 @@ export const en = {
   'notif.JOB_CANCELLED': 'Job {code} was cancelled by the customer',
   'notif.PROFILE_APPROVED': 'You\'re verified. Go online to get jobs!',
   'notif.PROFILE_NEEDS_CORRECTION': 'Please fix your profile details',
+
+  // Recovery, offline, session.
+  'crash.title': 'Something went wrong',
+  'crash.body': 'Your bookings and details are safe. Try again, or go back to the home screen.',
+  'crash.retry': 'Try again',
+  'crash.home': 'Go to home',
+  'offline.title': 'You\'re offline',
+  'offline.body': 'We\'ll keep what you\'ve entered. Check your internet and try again.',
+  'offline.back': 'Back online',
+  'error.session.body': 'Your session has ended. Please sign in again; your booking details stay as they are.',
+  'error.session.cta': 'Sign in again',
+  'demo.crash': 'Test the error screen',
+  'demo.crashSub': 'Shows what people see if something unexpected breaks, and how they recover.',
+  'demo.crashCta': 'Show',
 } as const;
 
 export type StringKey = keyof typeof en;

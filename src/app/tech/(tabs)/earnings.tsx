@@ -60,7 +60,7 @@ export default function TechEarnings() {
               <Txt variant="hero" color="onNavy" testID="earn-today">{formatRupees(e.today)}</Txt>
               <Txt variant="footnote" color="onNavy" style={styles.dim}>{t('thome.jobsToday', { n: e.jobsToday })}</Txt>
             </View>
-            <Art3D name="money" size={96} float />
+            <Art3D name="earnings" size={96} float />
           </View>
           <View style={styles.row}>
             <Card style={styles.stat}>

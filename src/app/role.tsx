@@ -27,9 +27,9 @@ export default function RoleChoice() {
     <Screen testID="role" wash="sky" header={<Header back={router.canGoBack()} demo={false} />}>
       <Txt variant="title1" heading>{t('role.title')}</Txt>
       <RoleCard testID="role-customer" title={t('role.customer.title')} body={t('role.customer.body')} onPress={() => choose('CUSTOMER')} tint={colors.blueTint}
-        art={<Art3D name="house_garden" size={120} float />} />
+        art={<Art3D name="customer" size={120} float />} />
       <RoleCard testID="role-technician" title={t('role.technician.title')} body={t('role.technician.body')} onPress={() => choose('TECHNICIAN')} tint="#FFF1E3"
-        art={<Art3D name="tech_man" size={120} float badge="toolbox" />} />
+        art={<Art3D name="tech_hero" size={120} float badge="toolbox" />} />
     </Screen>
   );
 }

@@ -63,13 +63,12 @@ export default function Verification() {
       <View style={styles.art} testID={`tverify-${v ?? 'NONE'}`}>
         {v === 'APPROVED' ? (
           <>
-            <Pop><Art3D name="check" size={140} shadow /></Pop>
-            <Art3D name="party" size={64} style={styles.party} />
+            <Pop><Art3D name="verify_ok" size={140} shadow /></Pop>
           </>
-        ) : v === 'NEEDS_CORRECTION' ? <Art3D name="clipboard" size={130} float shadow /> : (
+        ) : v === 'NEEDS_CORRECTION' ? <Art3D name="verify_fix" size={130} float shadow /> : (
           <>
             <Pulse size={200} color={colors.blue} />
-            <Art3D name="hourglass" size={120} float />
+            <Art3D name="verify_pending" size={120} float />
           </>
         )}
       </View>
@@ -96,7 +95,6 @@ export default function Verification() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   art: { alignItems: 'center', justifyContent: 'center', height: 210 },
-  party: { position: 'absolute', top: 10, right: '22%' },
   steps: { gap: space.md },
   step: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   dot: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: colors.lineStrong, alignItems: 'center', justifyContent: 'center' },

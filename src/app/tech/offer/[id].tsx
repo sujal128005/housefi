@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { categoryById, serviceById } from '../../../data/catalog';
 import type { JobOffer, OfferRejectReason } from '../../../domain/types';
-import { Art3D } from '../../../illustrations/Art3D';
+import { Art3D, serviceArt } from '../../../illustrations/Art3D';
 import { formatRupees } from '../../../i18n/format';
 import { useI18n } from '../../../i18n/I18n';
 import { isApiError } from '../../../services/api';
@@ -121,7 +121,7 @@ export default function OfferScreen() {
       {offer === undefined ? <Skeleton style={styles.skel} /> : null}
       {offer !== undefined && !open ? (
         <View style={styles.expired} testID="offer-expired">
-          <Art3D name="alarm" size={120} float shadow />
+          <Art3D name="job_offer" size={120} float shadow />
           <Txt variant="title1" align="center" heading>{t('toffer.expired')}</Txt>
           <Txt variant="body" color="inkMuted" align="center">{t('toffer.expiredBody')}</Txt>
         </View>
@@ -145,7 +145,7 @@ export default function OfferScreen() {
           </Appear>
 
           <View style={styles.earnBox} testID="offer-earning">
-            <Art3D name="money" size={52} />
+            <Art3D name="earnings" size={52} />
             <View style={styles.flex}>
               <Txt variant="caption" color="onNavy" style={styles.dim}>{t('toffer.earn')}</Txt>
               <Txt variant="title2" color="onNavy">{t('toffer.earnValue', { amount: formatRupees(offer.visitEarning) })}</Txt>
@@ -153,7 +153,7 @@ export default function OfferScreen() {
           </View>
 
           <Card style={styles.details}>
-            {cat ? <View style={styles.catArt}><Art3D name={cat.art} size={72} float /></View> : null}
+            {cat ? <View style={styles.catArt}><Art3D name={serviceArt(offer?.serviceId, cat.art)} size={72} float /></View> : null}
             {issues.length > 0 ? <View style={styles.chips}>{issues.map((x) => <Pill key={x} label={x} tone="info" icon="construct" />)}</View> : null}
             {offer.notes ? <Txt variant="callout">“{offer.notes}”</Txt> : null}
             {offer.photoCount > 0 ? <Txt variant="footnote" color="inkMuted">{t('toffer.photos', { n: offer.photoCount })}</Txt> : null}

@@ -156,8 +156,7 @@ export default function Pay() {
 
           {phase === 'PAID' ? (
             <View style={styles.center} testID="pay-success">
-              <Pop><Art3D name="check" size={120} shadow /></Pop>
-              <Art3D name="party" size={60} style={styles.party} />
+              <Pop><Art3D name="pay_success" size={120} shadow /></Pop>
               <Txt variant="title1" align="center" heading>{t('pay.success')}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{kind === 'VISIT' ? t('pay.successVisit') : t('pay.successFinal')}</Txt>
               <Card style={styles.receiptMini}>
@@ -171,7 +170,7 @@ export default function Pay() {
 
           {phase === 'PENDING' ? (
             <View style={styles.center} testID="pay-pending">
-              <Art3D name="hourglass" size={110} float shadow />
+              <Art3D name="pay_pending" size={110} float shadow />
               <Txt variant="title2" align="center" heading>{t('pay.pending')}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{t('pay.pendingBody')}</Txt>
               <ActivityIndicator color={colors.warning} />
@@ -181,7 +180,7 @@ export default function Pay() {
 
           {phase === 'CASH' ? (
             <View style={styles.center} testID="pay-cash">
-              <Art3D name="money" size={110} float shadow />
+              <Art3D name="cash" size={110} float shadow />
               <Txt variant="title2" align="center" heading>{t('pay.cashTitle', { amount: formatRupees(amount) })}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{t('pay.cashBody', { name: b.technician ? l(b.technician.name) : '' })}</Txt>
               <ActivityIndicator color={colors.warning} />
@@ -190,10 +189,7 @@ export default function Pay() {
 
           {phase === 'FAILED' ? (
             <View style={styles.center} testID="pay-failed">
-              <View>
-                <Art3D name="card" size={110} />
-                <View style={styles.failBadge}><Icon name="close" size={22} color="onNavy" /></View>
-              </View>
+              <Art3D name="card_failed" size={110} />
               <Txt variant="title2" align="center" heading>{t('pay.failed')}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{t('pay.failedBody')}</Txt>
               <Banner tone="demo" text={t('pay.demoFailed')} />
@@ -225,8 +221,6 @@ const styles = StyleSheet.create({
   secure: { flexDirection: 'row', alignItems: 'center', gap: space.xs, justifyContent: 'center' },
   center: { alignItems: 'center', gap: space.md, paddingTop: space.md },
   pulseBox: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center' },
-  party: { position: 'absolute', top: 0, right: '18%' },
   receiptMini: { alignSelf: 'stretch', gap: space.sm },
   line: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  failBadge: { position: 'absolute', right: 0, bottom: 4, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.surface },
 });

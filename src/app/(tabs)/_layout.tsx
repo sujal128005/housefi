@@ -7,6 +7,7 @@ import { useAppState } from '../../state/AppState';
 import { fontFamily } from '../../theme/fonts';
 import { colors } from '../../theme/tokens';
 import { Icon, type IconName } from '../../ui';
+import { ScreenErrorBoundary } from '../../ui/Recovery';
 
 const ICONS: Record<string, readonly [IconName, IconName]> = {
   home: ['home', 'home-outline'],
@@ -21,6 +22,7 @@ export default function TabsLayout() {
   if (!session || prefs.role !== 'CUSTOMER') return <Redirect href="/" />;
   return (
     <Tabs
+      screenLayout={({ children }) => <ScreenErrorBoundary>{children}</ScreenErrorBoundary>}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.navy,

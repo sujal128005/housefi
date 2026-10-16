@@ -4,8 +4,9 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '../i18n/I18n';
-import { colors, GUTTER, space, washes, type WashName } from '../theme/tokens';
+import { colors, space, washes, type WashName } from '../theme/tokens';
 import { Icon } from './Icon';
+import { MAX_CONTENT, useLayout } from './responsive';
 import { DemoPill } from './Surfaces';
 import { Tap } from './Tap';
 import { Txt } from './Txt';
@@ -56,7 +57,7 @@ export function Header({ title, back = true, onBack, step, right, demo = true }:
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, styles.column]}>
         {back ? <BackButton onPress={onBack} /> : <View style={styles.backSpace} />}
         <View style={styles.headerTitle}>
           {step ? <Txt variant="caption" color="inkMuted" align="center">{step}</Txt> : null}
@@ -84,16 +85,17 @@ export interface ScreenProps {
  */
 export function Screen({ children, header, footer, wash, scroll = true, contentStyle, testID }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const { gutter } = useLayout();
   const body = scroll ? (
     <ScrollView
-      contentContainerStyle={[styles.content, !footer && { paddingBottom: insets.bottom + space.xxl }, contentStyle]}
+      contentContainerStyle={[styles.content, { paddingHorizontal: gutter }, !footer && { paddingBottom: insets.bottom + space.xxl }, contentStyle]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.flex, styles.content, contentStyle]}>{children}</View>
+    <View style={[styles.flex, styles.content, { paddingHorizontal: gutter }, contentStyle]}>{children}</View>
   );
   return (
     <View testID={testID} style={styles.root}>
@@ -111,19 +113,27 @@ export function Screen({ children, header, footer, wash, scroll = true, contentS
 
 export function Footer({ children }: { readonly children: ReactNode }) {
   const insets = useSafeAreaInsets();
-  return <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, space.lg) }]}>{children}</View>;
+  const { gutter } = useLayout();
+  return (
+    <View style={[styles.footer, { paddingHorizontal: gutter, paddingBottom: Math.max(insets.bottom, space.lg) }]}>
+      <View style={[styles.column, styles.footerInner]}>{children}</View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.canvas },
   flex: { flex: 1 },
   wash: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
-  content: { paddingHorizontal: GUTTER, paddingTop: space.sm, gap: space.lg },
+  // Children are centred and capped in width on tablets (see responsive.ts).
+  content: { paddingTop: space.sm, gap: space.lg, width: '100%', maxWidth: MAX_CONTENT, alignSelf: 'center' },
+  column: { width: '100%', maxWidth: MAX_CONTENT, alignSelf: 'center' },
   header: { paddingHorizontal: space.md, paddingBottom: space.sm },
   headerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 48 },
   headerTitle: { flex: 1, alignItems: 'center', paddingHorizontal: space.sm },
   headerRight: { minWidth: 48, alignItems: 'flex-end', paddingRight: space.xs },
-  back: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.85)' },
+  back: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
   backSpace: { width: 48 },
-  footer: { paddingHorizontal: GUTTER, paddingTop: space.md, gap: space.sm, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  footer: { paddingTop: space.md, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  footerInner: { gap: space.sm },
 });

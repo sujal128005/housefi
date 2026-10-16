@@ -14,10 +14,10 @@ state machine, starter prompt).
 |---|---|---|
 | App framework | Expo SDK 57 / React Native 0.86 (TypeScript) | Real native Android and iOS apps (no WebView, no PWA); Expo generates the native projects (`android/`, `ios/` are not committed) |
 | Navigation | Expo Router (native stack + tabs) | File-based routes in `src/app` |
-| Illustrations | Microsoft Fluent Emoji 3D (MIT) in `assets/3d`, plus vector scenes | Consistent 3D look on every platform |
-| Sound & vibration | expo-audio (synthesised UI sounds in `assets/sounds`), expo-haptics | Felt and heard at key moments; one switch turns both off |
+| Brand and illustrations | Finalized Housefi logo (`assets/brand`, source of every app icon and the splash); Housefi's own soft-3D illustrations (`assets/illustrations`, 79 rounded-square WebP tiles cut from the generated sheets by `tools/illustrations/cut_tiles.py`); a few code-drawn tiles (Material Design Icons, Apache 2.0) where an illustration is still to come | One look across both apps; 1.4 MB in total |
+| Sound & vibration | expo-audio with Kenney "Interface Sounds" (CC0) in `assets/sounds`, expo-haptics | Felt and heard at key moments; one switch turns both off |
 | Device | expo-location (address and language from location), expo-image-picker (problem photos) | |
-| Fonts | Plus Jakarta Sans (English), Noto Sans Telugu (Telugu) | Both OFL, bundled |
+| Fonts | Anek Latin (English) and Anek Telugu (Telugu), one family for both scripts | OFL, bundled |
 | Storage | AsyncStorage | Demo data and preferences stay on the device |
 
 ## How the code is organised
@@ -71,6 +71,7 @@ End-to-end journey on a running Android emulator, customer and technician (scree
 ```bash
 node tools/app-journey.mjs en
 node tools/app-journey.mjs te
+node tools/recovery-check.mjs   # offline strip and the branded error screen (after a journey)
 ```
 
 ## Trying both interfaces on one phone

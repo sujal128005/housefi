@@ -46,7 +46,6 @@ export default function Confirmed() {
     >
       <View style={styles.art}>
         <Pop><Art3D name="check" size={art} shadow /></Pop>
-        <Art3D name="party" size={art * 0.45} style={styles.party} />
       </View>
       <Appear>
         <Txt variant="title1" align="center" heading>{t('confirmed.title')}</Txt>
@@ -80,7 +79,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   stack: { gap: space.md },
   art: { alignItems: 'center', justifyContent: 'center' },
-  party: { position: 'absolute', top: 0, right: '22%' },
   card: { gap: space.xs },
   idRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   skel: { height: 140, borderRadius: radius.lg },

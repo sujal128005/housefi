@@ -106,7 +106,7 @@ export default function Snap() {
                     <Txt variant="caption" color="success">{t('snap.match', { pct: Math.round(result.confidence * 100) })}</Txt>
                   </View>
                   <View style={styles.svcRow}>
-                    {categoryById(suggested.categoryId) ? <CategoryBadge category={categoryById(suggested.categoryId)!} size={60} /> : null}
+                    {categoryById(suggested.categoryId) ? <CategoryBadge category={categoryById(suggested.categoryId)!} serviceId={suggested.id} size={60} /> : null}
                     <View style={styles.flex}>
                       <Txt variant="caption" color="inkMuted">{t('snap.looksLike')}</Txt>
                       <Txt variant="title3">{l(suggested.name)}</Txt>

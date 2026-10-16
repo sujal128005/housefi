@@ -78,7 +78,7 @@ export default function TechSetup() {
       footer={<Button label={t('tsetup.submit')} icon="shield-checkmark" onPress={() => void submit()} loading={busy} testID="tsetup-submit" />}
     >
       <View style={styles.hero}>
-        <Art3D name="tech_man" size={110} float shadow badge="toolbox" />
+        <Art3D name="tech_hero" size={110} float shadow badge="toolbox" />
         <View style={styles.flex}>
           <Txt variant="title2" heading>{t('tsetup.heading')}</Txt>
           <Txt variant="callout" color="inkMuted">{t('tsetup.body')}</Txt>

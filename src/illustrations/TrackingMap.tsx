@@ -1,11 +1,11 @@
 // Animated demo map for live tracking: a stylised neighbourhood, the route, the home pin and the technician moving
 // along the route by `progress` (0 = shop, 1 = your door). No map provider or API key; real maps plug in later.
 import { useEffect, useId, useRef } from 'react';
-import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { colors, radius } from '../theme/tokens';
 import { useReducedMotion } from '../ui/motion';
-import { ART } from './Art3D';
+import { Art3D } from './Art3D';
 import { decorative } from './parts';
 
 const W = 340;
@@ -76,13 +76,15 @@ export function TrackingMap({ progress, width }: { readonly progress: number; re
         <Circle cx={done[0]} cy={done[1]} r={5} fill={colors.blue} opacity={0.35} />
       </Svg>
       {/* home pin */}
-      <Image source={ART.house} style={[styles.abs, { width: 46 * scale, height: 46 * scale, left: (300 - 23) * scale, top: (48 - 40) * scale }]} />
+      <View style={[styles.abs, { left: (300 - 23) * scale, top: (48 - 40) * scale }]}><Art3D name="house" size={46 * scale} /></View>
       {/* technician */}
       <Animated.View style={[styles.abs, {
         left: Animated.subtract(Animated.multiply(pos.x, scale), bike / 2),
         top: Animated.subtract(Animated.multiply(pos.y, scale), bike * 0.85),
       }]}>
-        <Animated.Image source={ART.scooter} style={{ width: bike, height: bike, transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }] }} />
+        <Animated.View style={{ transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }] }}>
+          <Art3D name="scooter" size={bike} />
+        </Animated.View>
       </Animated.View>
     </View>
   );

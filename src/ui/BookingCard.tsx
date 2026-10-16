@@ -18,7 +18,7 @@ export function BookingCard({ booking, onPress, showProgress }: { readonly booki
   return (
     <Card onPress={onPress} testID={`booking-${booking.code}`} accessibilityLabel={`${svc ? l(svc.name) : ''}, ${t(`status.${booking.status}`)}`}>
       <View style={styles.row}>
-        {cat ? <CategoryBadge category={cat} size={56} /> : null}
+        {cat ? <CategoryBadge category={cat} serviceId={booking.serviceId} size={56} /> : null}
         <View style={styles.flex}>
           <StatusPill status={booking.status} />
           <Txt variant="bodyStrong" numberOfLines={1} style={styles.title}>{svc ? l(svc.name) : booking.serviceId}</Txt>

@@ -61,6 +61,19 @@ export async function waitFor(sel, timeoutMs = 15000) {
   let nodes = [];
   while (Date.now() < end) {
     nodes = dump();
+    // A system "isn't responding" dialog (e.g. the launcher on a slow CI emulator) can cover the app: dismiss it.
+    // For our own app choose Wait; for anything else, Close app.
+    const anr = nodes.find((x) => x.id === 'android:id/alertTitle' && /isn.t responding/i.test(x.text));
+    if (anr) {
+      const ours = /housefi/i.test(anr.text);
+      const btn = nodes.find((x) => x.id === (ours ? 'android:id/aerr_wait' : 'android:id/aerr_close'));
+      if (btn) {
+        console.log(`  (dismissing system dialog: ${anr.text})`);
+        tapXY((btn.x1 + btn.x2) / 2, (btn.y1 + btn.y2) / 2);
+        await sleep(800);
+        continue;
+      }
+    }
     const red = nodes.find((x) => /^(Console Error|Render Error|Uncaught Error|Syntax Error)$/.test(x.text));
     if (red) throw new Error(`App error on screen: ${nodes.map((x) => x.text).filter(Boolean).slice(0, 8).join(' | ')}`);
     const n = find(nodes, sel);

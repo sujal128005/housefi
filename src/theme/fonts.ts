@@ -1,45 +1,46 @@
-// Plus Jakarta Sans for English (geometric, friendly, bold headings like the reference) and Noto Sans Telugu for
-// Telugu. Both are SIL Open Font License fonts bundled with the app.
-import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
-import { PlusJakartaSans_500Medium } from '@expo-google-fonts/plus-jakarta-sans/500Medium';
-import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
-import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
-import { PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans/800ExtraBold';
-import { NotoSansTelugu_400Regular } from '@expo-google-fonts/noto-sans-telugu/400Regular';
-import { NotoSansTelugu_500Medium } from '@expo-google-fonts/noto-sans-telugu/500Medium';
-import { NotoSansTelugu_600SemiBold } from '@expo-google-fonts/noto-sans-telugu/600SemiBold';
-import { NotoSansTelugu_700Bold } from '@expo-google-fonts/noto-sans-telugu/700Bold';
-import { NotoSansTelugu_800ExtraBold } from '@expo-google-fonts/noto-sans-telugu/800ExtraBold';
+// Anek Latin for English and Anek Telugu for Telugu: one type family (Ek Type) designed for both scripts, so the two
+// languages look like the same brand. Confident, slightly condensed shapes that stay readable at small sizes.
+// SIL Open Font License, bundled with the app.
+import { AnekLatin_400Regular } from '@expo-google-fonts/anek-latin/400Regular';
+import { AnekLatin_500Medium } from '@expo-google-fonts/anek-latin/500Medium';
+import { AnekLatin_600SemiBold } from '@expo-google-fonts/anek-latin/600SemiBold';
+import { AnekLatin_700Bold } from '@expo-google-fonts/anek-latin/700Bold';
+import { AnekLatin_800ExtraBold } from '@expo-google-fonts/anek-latin/800ExtraBold';
+import { AnekTelugu_400Regular } from '@expo-google-fonts/anek-telugu/400Regular';
+import { AnekTelugu_500Medium } from '@expo-google-fonts/anek-telugu/500Medium';
+import { AnekTelugu_600SemiBold } from '@expo-google-fonts/anek-telugu/600SemiBold';
+import { AnekTelugu_700Bold } from '@expo-google-fonts/anek-telugu/700Bold';
+import { AnekTelugu_800ExtraBold } from '@expo-google-fonts/anek-telugu/800ExtraBold';
 import type { Locale } from '../i18n/format';
 import type { FontWeight } from './tokens';
 
 export const FONT_ASSETS = {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-  PlusJakartaSans_800ExtraBold,
-  NotoSansTelugu_400Regular,
-  NotoSansTelugu_500Medium,
-  NotoSansTelugu_600SemiBold,
-  NotoSansTelugu_700Bold,
-  NotoSansTelugu_800ExtraBold,
+  AnekLatin_400Regular,
+  AnekLatin_500Medium,
+  AnekLatin_600SemiBold,
+  AnekLatin_700Bold,
+  AnekLatin_800ExtraBold,
+  AnekTelugu_400Regular,
+  AnekTelugu_500Medium,
+  AnekTelugu_600SemiBold,
+  AnekTelugu_700Bold,
+  AnekTelugu_800ExtraBold,
 };
 
 const LATIN: Record<FontWeight, keyof typeof FONT_ASSETS> = {
-  regular: 'PlusJakartaSans_400Regular',
-  medium: 'PlusJakartaSans_500Medium',
-  semibold: 'PlusJakartaSans_600SemiBold',
-  bold: 'PlusJakartaSans_700Bold',
-  extrabold: 'PlusJakartaSans_800ExtraBold',
+  regular: 'AnekLatin_400Regular',
+  medium: 'AnekLatin_500Medium',
+  semibold: 'AnekLatin_600SemiBold',
+  bold: 'AnekLatin_700Bold',
+  extrabold: 'AnekLatin_800ExtraBold',
 };
 
 const TELUGU: Record<FontWeight, keyof typeof FONT_ASSETS> = {
-  regular: 'NotoSansTelugu_400Regular',
-  medium: 'NotoSansTelugu_500Medium',
-  semibold: 'NotoSansTelugu_600SemiBold',
-  bold: 'NotoSansTelugu_700Bold',
-  extrabold: 'NotoSansTelugu_800ExtraBold',
+  regular: 'AnekTelugu_400Regular',
+  medium: 'AnekTelugu_500Medium',
+  semibold: 'AnekTelugu_600SemiBold',
+  bold: 'AnekTelugu_700Bold',
+  extrabold: 'AnekTelugu_800ExtraBold',
 };
 
 export function fontFamily(weight: FontWeight, locale: Locale): string {

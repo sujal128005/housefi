@@ -25,6 +25,9 @@ const EMPTY: Prefs = { locale: null, role: null, welcomeSeen: false, token: null
 
 interface AppStateValue {
   readonly ready: boolean;
+  /** Startup could not complete (storage or session check failed); the shell shows the recovery screen. */
+  readonly failed: boolean;
+  readonly retryStartup: () => void;
   readonly prefs: Prefs;
   readonly session: Session | null;
   readonly techSession: TechSession | null;
@@ -51,34 +54,44 @@ export function AppStateProvider({ store, backend, deviceLocale, children }: {
   readonly children: ReactNode;
 }) {
   const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [prefs, setPrefs] = useState<Prefs>(EMPTY);
   const [session, setSession] = useState<Session | null>(null);
   const [techSession, setTechSession] = useState<TechSession | null>(null);
 
   useEffect(() => {
     let alive = true;
+    setFailed(false);
     void (async () => {
-      let p = EMPTY;
       try {
-        const raw = await store.get(PREFS_KEY);
-        if (raw) p = { ...EMPTY, ...(JSON.parse(raw) as Partial<Prefs>) };
+        let p = EMPTY;
+        try {
+          const raw = await store.get(PREFS_KEY);
+          if (raw) p = { ...EMPTY, ...(JSON.parse(raw) as Partial<Prefs>) };
+        } catch {
+          // Unreadable preferences: start from defaults rather than failing.
+          p = EMPTY;
+        }
+        // restore() answers null for a session that has ended (sign in again). If the check itself fails (no network),
+        // the saved sign-in is kept and startup shows Retry instead of signing the person out.
+        const [s, ts] = await Promise.all([
+          p.token ? backend.auth.restore(p.token) : Promise.resolve(null),
+          p.techToken ? backend.tech.auth.restore(p.techToken) : Promise.resolve(null),
+        ]);
+        if (!alive) return;
+        setPrefs({ ...p, token: s ? p.token : null, techToken: ts ? p.techToken : null });
+        setSession(s);
+        setTechSession(ts);
+        setReady(true);
       } catch {
-        p = EMPTY;
+        if (alive) setFailed(true);
       }
-      const [s, ts] = await Promise.all([
-        p.token ? backend.auth.restore(p.token) : Promise.resolve(null),
-        p.techToken ? backend.tech.auth.restore(p.techToken) : Promise.resolve(null),
-      ]);
-      if (!alive) return;
-      setPrefs({ ...p, token: s ? p.token : null, techToken: ts ? p.techToken : null });
-      setSession(s);
-      setTechSession(ts);
-      setReady(true);
     })();
     return () => {
       alive = false;
     };
-  }, [store, backend]);
+  }, [store, backend, attempt]);
 
   useEffect(() => {
     setFeedbackEnabled(prefs.feedback);
@@ -94,6 +107,8 @@ export function AppStateProvider({ store, backend, deviceLocale, children }: {
 
   const value = useMemo<AppStateValue>(() => ({
     ready,
+    failed,
+    retryStartup: () => setAttempt((a) => a + 1),
     prefs,
     session,
     techSession,
@@ -124,7 +139,7 @@ export function AppStateProvider({ store, backend, deviceLocale, children }: {
       update({ techToken: null });
       if (token) await backend.tech.auth.signOut(token).catch(() => undefined);
     },
-  }), [ready, prefs, session, techSession, deviceLocale, update, backend]);
+  }), [ready, failed, prefs, session, techSession, deviceLocale, update, backend]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

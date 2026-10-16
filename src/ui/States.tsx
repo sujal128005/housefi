@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useI18n } from '../i18n/I18n';
+import { resetTo } from '../navigation';
 import { isApiError } from '../services/api';
+import { useAppState } from '../state/AppState';
 import { colors, radius, space } from '../theme/tokens';
 import { Button } from './Button';
 import { Icon } from './Icon';
@@ -26,10 +28,31 @@ export function EmptyState({ art, title, body, action, onAction, testID }: {
   );
 }
 
+/** The session ended (expired or signed out elsewhere): sign in again. The booking draft stays in memory. */
+function useSignInAgain(): () => void {
+  const { prefs, signOut, techSignOut } = useAppState();
+  return () => {
+    void (prefs.role === 'TECHNICIAN' ? techSignOut() : signOut());
+    resetTo('/auth/phone');
+  };
+}
+
+function SessionEnded({ inline }: { readonly inline?: boolean }) {
+  const { t } = useI18n();
+  const signIn = useSignInAgain();
+  return (
+    <View style={inline ? styles.banners : styles.error} testID="session-ended" accessibilityRole="alert">
+      <Banner tone="warning" icon="key" text={t('error.session.body')} />
+      <Button label={t('error.session.cta')} icon="log-in-outline" onPress={signIn} size="md" testID="session-sign-in" />
+    </View>
+  );
+}
+
 /** Inline error with a retry. Says when the error was simulated from Demo settings. */
 export function ErrorView({ error, onRetry, title }: { readonly error: unknown; readonly onRetry: () => void; readonly title?: string }) {
   const { t } = useI18n();
   const network = isApiError(error, 'NETWORK');
+  if (isApiError(error, 'UNAUTHENTICATED')) return <SessionEnded />;
   return (
     <View style={styles.error} testID="error-view" accessibilityRole="alert">
       <View style={styles.errorIcon}>
@@ -47,6 +70,7 @@ export function ErrorView({ error, onRetry, title }: { readonly error: unknown; 
 export function ErrorBanner({ error }: { readonly error: unknown }) {
   const { t } = useI18n();
   if (!error) return null;
+  if (isApiError(error, 'UNAUTHENTICATED')) return <SessionEnded inline />;
   const network = isApiError(error, 'NETWORK');
   const text = network ? `${t('error.network.title')}. ${t('error.network.body')}` : t('error.generic');
   return (

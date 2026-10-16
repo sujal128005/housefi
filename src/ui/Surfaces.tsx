@@ -246,6 +246,6 @@ const styles = StyleSheet.create({
   segment: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: radius.md, padding: 4, gap: 4 },
   segmentItem: { flex: 1, minHeight: 40, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   segmentOn: { backgroundColor: colors.navy },
-  skeleton: { backgroundColor: '#E6E9F3', borderRadius: radius.md },
+  skeleton: { backgroundColor: '#ECEAE2', borderRadius: radius.md },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line },
 });

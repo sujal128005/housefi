@@ -1,18 +1,44 @@
 # Customer app (final) and Technician app: report
 
-Status: **customer app finalised and technician app built; tested with unit tests, in the web preview and on the
-Android emulator (English and Telugu).** Admin portal: not started (as agreed). Next: the UI redesign you asked for.
+Status: **customer and technician apps built, redesigned on the finalized Housefi logo, with branded error and
+offline handling; tested with unit tests and on the Android emulator (English and Telugu).** Admin portal: not
+started (as agreed). Your soft-3D illustrations are in the app (79 of them); the few still to generate are listed
+under "Illustrations still to generate".
 
 Both interfaces live in one app and share one demo backend, the same way they will share the real backend: a
 customer's booking is offered to a technician who is online in the technician app; the technician's quote reaches
 the customer after an AI price check. When no technician is online, a simulated technician runs the visit, so the
 customer app can always be tried on its own.
 
+## Redesign (this round)
+
+| Request | Done |
+|---|---|
+| Finalized logo as the single source of the brand | Your PNG is kept as-is in `assets/brand/` (proportions untouched; only the white outside the rounded tile is made transparent). Every app icon is generated from it: iOS icon, Android adaptive icon (foreground at 70% so circle, squircle and square masks never clip the house, background in the logo's own blue), monochrome icon, splash, favicon, and the logo in headers |
+| Entry screen | Logo → **Housefi** (large, bold) → "by Nexara**9**" (9 in golden yellow) → "Home Help, Made Easy." with a soft gradient wave rising from the bottom-left in the logo's blues and a thin amber line |
+| Theme from the logo | Cobalt blue primary, cyan secondary, amber/orange highlights, ivory and white surfaces, deep navy text. Gradients only where they matter (Home header, main buttons, hero cards) |
+| Eye-catching icons instead of "3D keyboard" emoji | Your generated soft-3D illustrations: the 6 categories; each of the 21 services (tap, leak, drain, tank, fan, switch, wiring, light, AC service and repair, washer, fridge, RO, geyser, bathroom, kitchen, sofa, door, furniture, fittings) in booking cards, Confirm & pay, Home's top problems and the technician's jobs; every booking step (finding, assigned, on the way, arrived, inspecting, quote, repair, extra materials, payment, done); payment states (secure, success, pending, failed, cash, receipt); technician verification (pending, approved, needs correction), job offer, start code, earnings, trophy; technician and customer characters; language, OTP, photo, AI scan, voice, map, schedule; empty and no-results states. Each is cut into a rounded tile by `tools/illustrations/cut_tiles.py` |
+| Fonts | Anek Latin and Anek Telugu: one modern family for both scripts |
+| Better sounds | New interface sounds (Kenney, CC0, free for commercial use): confirm, notification, job-offer ring, cash, error, send, tap |
+| All phones to tablets | Content is a centred column (max 680 pt), side margins and text size adjust to the screen, grids go from 3 to 4 columns on wide screens; iPad support on |
+
+## Error handling, offline and recovery (this round)
+
+| Situation | What people see |
+|---|---|
+| App can't start (storage or sign-in check fails) | Branded screen (logo, "Housefi by Nexara9", tagline), a friendly line in English and Telugu, **Retry**. A slow start shows the same screen with a loader after 10 s instead of a frozen splash |
+| An unexpected error inside a screen | Branded "Something went wrong · your bookings and details are safe" in place of that screen only, with **Try again** (re-opens the same screen; the screens behind it and the tab bar stay) and **Go to home**. No code, stack trace or red developer screen in the release app; errors outside screens get the same screen |
+| Phone offline | A strip at the top, "You're offline · we'll keep what you've entered", over the current screen (nothing is reset); "Back online" when it returns |
+| A request fails | The screen stays with what it had; a message with **Retry**. Retrying Confirm & pay reuses the booking already created (no second booking), buttons lock while a request runs, and a booking that is already paid refuses a second payment. The real backend adds `Idempotency-Key` on booking and payment creation (in the backend contract) |
+| Session ended | "Your session has ended" with **Sign in again**; the booking draft is kept. If the sign-in check can't reach the server at start, the saved sign-in is kept and Retry is offered (it no longer signs people out) |
+| Loading | Skeletons and the branded loader, never a blank screen |
+| Try it | Account / Profile → Demo settings → **Test the error screen** |
+
 ## What changed in the customer app (from your feedback)
 
 | Request | Done |
 |---|---|
-| Real 3D icons everywhere, bigger on Home | Microsoft Fluent 3D art (65 images) across all screens; 72-92 px category tiles |
+| Real 3D icons everywhere, bigger on Home | Now your own soft-3D illustrations (see Redesign) |
 | Clearer interface choice | "Continue as": **Book a home service** / **Work as a technician** |
 | Scooter animation when assigned | Scooter rides in from the left on "Technician assigned" (customer) and on the technician's job screen |
 | Shorter flow | Home → How can we help (photos, tap-to-speak with AI note, own note) → Address (or current location) → When (**Now** or **Schedule**) → Confirm & pay → done |
@@ -27,7 +53,7 @@ customer app can always be tried on its own.
 | AI support chat, then customer care | Help → AI chat (demo, rule-based) with "Talk to a person" hand-off |
 | After the job: Satisfied? Yes / No | Rating starts with "Were you satisfied with the work?" Yes / No, then stars and tags |
 | Language from location (coming soon) | Language screen: "Detect from my location" (Kurnool → Telugu; Delhi → Hindi "coming soon", stays English) |
-| Sounds and vibration | Synthesised sounds (expo-audio) and haptics at key moments; **Account → Sounds & vibration** turns both off; respects the phone's silent switch |
+| Sounds and vibration | Interface sounds (expo-audio) and haptics at key moments; **Account → Sounds & vibration** turns both off; respects the phone's silent switch |
 | Notifications | Bell on Home with an inbox (assigned, on the way, arrived, quote ready, payment due, completed...) and live toasts |
 | Cash | Cash is confirmed by the technician in their app (no more instant "paid") |
 
@@ -78,11 +104,20 @@ files. The app's demo backend implements the same contract and is their working 
 | Typecheck, lint | clean |
 | expo-doctor | 21 / 21 |
 | Android release build (x86_64) | built |
-| Emulator journey, English | **passed**, 47 screenshots in `docs/screens/app/en/` |
-| Emulator journey, Telugu | **passed**, 47 screenshots in `docs/screens/app/te/` |
-| GitHub Actions CI (Android build + both journeys, iOS simulator build) | see the run for this commit |
+| Emulator journey, English (redesign + illustrations) | **passed**, 48 screenshots in `docs/screens/app/en/` |
+| Emulator journey, Telugu | **passed** on the second run, 48 screenshots in `docs/screens/app/te/` (first run: a keystroke into the address form was dropped by the emulator's keyboard; the same step passed in English and on the rerun) |
+| Error handling on the emulator (`tools/recovery-check.mjs`) | **passed**: Wi-Fi and data off → offline strip over the current screen, back on → "Back online"; branded error screen with no technical text; Try again re-opens the same screen; Go to home goes home. Screenshots in `docs/screens/app/recovery/` |
+| GitHub Actions CI (Android build + both journeys + error check, iOS simulator build) | see the run for this commit |
 
 Problems found and fixed while testing:
+
+- This round: if the sign-in check at start failed for a network reason, the app treated it as "signed out" and
+  dropped the saved sign-in. Now only a session the server says has ended signs people out; a failed check shows
+  the branded Retry screen.
+- This round: "Try again" on the error screen restarted the whole app at its first screen. Each screen now has
+  its own boundary, so Try again re-opens just that screen.
+- This round: on Home, content scrolled under the transparent status bar (clock over text). A soft ivory strip now
+  fades in behind the status bar as you scroll.
 
 - The quote showed "Waiting for the customer" while the AI was still checking it; the cash step showed a raw
   "{amount}"; "1 jobs today"; the language-detect message talked about typing an address. Fixed.
@@ -94,6 +129,19 @@ Problems found and fixed while testing:
 - After adding the audio package, a second copy of `expo-asset` broke the web bundle (black screen on localhost);
   fixed by installing the SDK-matched version. Metro now ignores native build folders, so the web preview no longer
   stalls during an Android build.
+
+## Illustrations still to generate
+
+Everything else uses your illustrations; these spots still show the earlier code-drawn tile:
+
+| Name | Where it appears | What to generate |
+|---|---|---|
+| AI assistant | Help (AI chat), support chat avatar, "AI wrote this down" on voice notes, AI price check on quotes and jobs (7 places) | A friendly Housefi AI helper: a small rounded robot or a glowing chat bubble with a sparkle, cobalt and cyan, same pastel tile |
+| SOS / safety | SOS button on the booking screen and the technician's job screen, safety card | A red-and-white emergency beacon or shield marked "SOS"; calm, not scary |
+| Technician offline | Technician Home while offline ("go online to get jobs") | The technician resting with a moon, or a phone with a pause badge |
+| Morning / Afternoon / Evening | Time-slot headers on "When should we come?" (small, 22 pt) | Three small tiles: sun, sun with cloud, moon |
+| Not satisfied | "Were you satisfied?" No button (Yes is a thumbs up) | A thumbs down (or neutral face) to pair with a thumbs up |
+| Language globe with Telugu | Language screen | Your globe shows A, अ and 文; ours should show **A** and **తె** (Telugu), Hindi optional |
 
 ## Not real yet (by design in this phase)
 

@@ -105,10 +105,14 @@ async function customer() {
   step('fresh start');
   launch({ clear: true });
   await waitFor({ id: 'welcome' }, 180000);
-  await snap('welcome');
-  for (let k = 0; k < 3; k++) {
+  await waitFor({ id: 'brand-lockup' }, 20000);
+  await sleep(1200); // let the logo settle in
+  await snap('brand');
+  // Brand page, then three short slides.
+  for (let k = 0; k < 4; k++) {
     await tap({ id: 'welcome-next' });
     await sleep(400);
+    if (k === 0) await snap('welcome');
   }
 
   step('language and interface');
