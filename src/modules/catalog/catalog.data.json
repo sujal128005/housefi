@@ -1,0 +1,1239 @@
+{
+  "source": "app src/data/catalog.ts (docs/app-contract/catalog.ts)",
+  "categories": [
+    {
+      "id": "PLUMBING",
+      "name": {
+        "en": "Plumbing",
+        "te": "ప్లంబింగ్"
+      },
+      "tagline": {
+        "en": "Taps, leaks, drains",
+        "te": "కుళాయిలు, లీకేజీలు, డ్రైన్లు"
+      },
+      "art": "tap",
+      "wash": "sky"
+    },
+    {
+      "id": "ELECTRICAL",
+      "name": {
+        "en": "Electrical",
+        "te": "ఎలక్ట్రికల్"
+      },
+      "tagline": {
+        "en": "Fans, switches, wiring",
+        "te": "ఫ్యాన్లు, స్విచ్‌లు, వైరింగ్"
+      },
+      "art": "bulb",
+      "wash": "sunrise"
+    },
+    {
+      "id": "AC",
+      "name": {
+        "en": "AC Repair",
+        "te": "ఏసీ రిపేర్"
+      },
+      "tagline": {
+        "en": "Service, repair, install",
+        "te": "సర్వీస్, రిపేర్, ఇన్‌స్టలేషన్"
+      },
+      "art": "snowflake",
+      "wash": "mint"
+    },
+    {
+      "id": "APPLIANCE",
+      "name": {
+        "en": "Appliances",
+        "te": "గృహోపకరణాలు"
+      },
+      "tagline": {
+        "en": "Washer, fridge, RO",
+        "te": "వాషర్, ఫ్రిజ్, RO"
+      },
+      "art": "tv",
+      "wash": "lavender"
+    },
+    {
+      "id": "CLEANING",
+      "name": {
+        "en": "Cleaning",
+        "te": "క్లీనింగ్"
+      },
+      "tagline": {
+        "en": "Bathroom, kitchen, sofa",
+        "te": "బాత్రూమ్, కిచెన్, సోఫా"
+      },
+      "art": "sponge",
+      "wash": "peach"
+    },
+    {
+      "id": "CARPENTRY",
+      "name": {
+        "en": "Carpentry",
+        "te": "కార్పెంట్రీ"
+      },
+      "tagline": {
+        "en": "Doors, locks, furniture",
+        "te": "తలుపులు, తాళాలు, ఫర్నిచర్"
+      },
+      "art": "saw",
+      "wash": "sunrise"
+    }
+  ],
+  "services": [
+    {
+      "id": "plumb-tap",
+      "categoryId": "PLUMBING",
+      "name": {
+        "en": "Tap & mixer repair",
+        "te": "కుళాయి & మిక్సర్ రిపేర్"
+      },
+      "description": {
+        "en": "Fix dripping taps, loose handles and low flow in kitchen and bathroom.",
+        "te": "కిచెన్, బాత్రూమ్‌లో కారుతున్న కుళాయిలు, వదులైన హ్యాండిల్స్, తక్కువ నీటి ప్రవాహం సరిచేస్తాం."
+      },
+      "visitFee": 49,
+      "repairFrom": 149,
+      "durationMin": [
+        30,
+        60
+      ],
+      "rating": 4.8,
+      "reviews": 1240,
+      "popular": true,
+      "issues": [
+        {
+          "id": "tap-leak",
+          "name": {
+            "en": "Tap leaking",
+            "te": "కుళాయి కారుతోంది"
+          }
+        },
+        {
+          "id": "tap-flow",
+          "name": {
+            "en": "Low water flow",
+            "te": "నీరు తక్కువగా వస్తోంది"
+          }
+        },
+        {
+          "id": "tap-loose",
+          "name": {
+            "en": "Tap is loose",
+            "te": "కుళాయి వదులైంది"
+          }
+        },
+        {
+          "id": "tap-handle",
+          "name": {
+            "en": "Handle broken",
+            "te": "హ్యాండిల్ విరిగింది"
+          }
+        }
+      ],
+      "keywords": [
+        "tap",
+        "faucet",
+        "mixer",
+        "nal",
+        "kulai",
+        "కుళాయి",
+        "నల్లా"
+      ]
+    },
+    {
+      "id": "plumb-leak",
+      "categoryId": "PLUMBING",
+      "name": {
+        "en": "Leakage & pipe repair",
+        "te": "లీకేజీ & పైపు రిపేర్"
+      },
+      "description": {
+        "en": "Find and fix leaking pipes, joints and damp walls.",
+        "te": "కారుతున్న పైపులు, జాయింట్లు, తడి గోడలను కనిపెట్టి సరిచేస్తాం."
+      },
+      "visitFee": 49,
+      "repairFrom": 199,
+      "durationMin": [
+        45,
+        90
+      ],
+      "rating": 4.7,
+      "reviews": 860,
+      "popular": false,
+      "issues": [
+        {
+          "id": "pipe-leak",
+          "name": {
+            "en": "Pipe leaking",
+            "te": "పైపు కారుతోంది"
+          }
+        },
+        {
+          "id": "pipe-damp",
+          "name": {
+            "en": "Damp wall",
+            "te": "గోడ తడిగా ఉంది"
+          }
+        },
+        {
+          "id": "pipe-burst",
+          "name": {
+            "en": "Pipe burst",
+            "te": "పైపు పగిలింది"
+          }
+        },
+        {
+          "id": "pipe-joint",
+          "name": {
+            "en": "Joint leaking",
+            "te": "జాయింట్ కారుతోంది"
+          }
+        }
+      ],
+      "keywords": [
+        "leak",
+        "pipe",
+        "leakage",
+        "water",
+        "లీక్",
+        "పైపు"
+      ]
+    },
+    {
+      "id": "plumb-block",
+      "categoryId": "PLUMBING",
+      "name": {
+        "en": "Blockage & drain cleaning",
+        "te": "బ్లాకేజ్ & డ్రైన్ క్లీనింగ్"
+      },
+      "description": {
+        "en": "Clear blocked sinks, bathroom drains and bad smells.",
+        "te": "మూసుకుపోయిన సింక్‌లు, బాత్రూమ్ డ్రైన్లు, దుర్వాసన సరిచేస్తాం."
+      },
+      "visitFee": 49,
+      "repairFrom": 149,
+      "durationMin": [
+        30,
+        75
+      ],
+      "rating": 4.6,
+      "reviews": 702,
+      "popular": false,
+      "issues": [
+        {
+          "id": "blk-sink",
+          "name": {
+            "en": "Sink blocked",
+            "te": "సింక్ మూసుకుపోయింది"
+          }
+        },
+        {
+          "id": "blk-bath",
+          "name": {
+            "en": "Bathroom drain blocked",
+            "te": "బాత్రూమ్ డ్రైన్ మూసుకుపోయింది"
+          }
+        },
+        {
+          "id": "blk-smell",
+          "name": {
+            "en": "Bad smell",
+            "te": "దుర్వాసన"
+          }
+        },
+        {
+          "id": "blk-slow",
+          "name": {
+            "en": "Water drains slowly",
+            "te": "నీరు నెమ్మదిగా పోతోంది"
+          }
+        }
+      ],
+      "keywords": [
+        "block",
+        "blockage",
+        "drain",
+        "clog",
+        "sink",
+        "డ్రైన్",
+        "సింక్"
+      ]
+    },
+    {
+      "id": "plumb-tank",
+      "categoryId": "PLUMBING",
+      "name": {
+        "en": "Water tank & motor",
+        "te": "వాటర్ ట్యాంక్ & మోటార్"
+      },
+      "description": {
+        "en": "Motor not starting, tank overflow or no water upstairs.",
+        "te": "మోటార్ స్టార్ట్ కాకపోవడం, ట్యాంక్ పొంగడం, పైకి నీరు రాకపోవడం."
+      },
+      "visitFee": 49,
+      "repairFrom": 249,
+      "durationMin": [
+        45,
+        90
+      ],
+      "rating": 4.6,
+      "reviews": 410,
+      "popular": false,
+      "issues": [
+        {
+          "id": "tank-motor",
+          "name": {
+            "en": "Motor not starting",
+            "te": "మోటార్ స్టార్ట్ కావడం లేదు"
+          }
+        },
+        {
+          "id": "tank-overflow",
+          "name": {
+            "en": "Tank overflowing",
+            "te": "ట్యాంక్ పొంగుతోంది"
+          }
+        },
+        {
+          "id": "tank-nowater",
+          "name": {
+            "en": "No water upstairs",
+            "te": "పైకి నీరు రావడం లేదు"
+          }
+        }
+      ],
+      "keywords": [
+        "tank",
+        "motor",
+        "pump",
+        "ట్యాంక్",
+        "మోటార్"
+      ]
+    },
+    {
+      "id": "elec-fan",
+      "categoryId": "ELECTRICAL",
+      "name": {
+        "en": "Fan repair & install",
+        "te": "ఫ్యాన్ రిపేర్ & ఇన్‌స్టలేషన్"
+      },
+      "description": {
+        "en": "Ceiling, wall and exhaust fans: repair, regulator and installation.",
+        "te": "సీలింగ్, వాల్, ఎగ్జాస్ట్ ఫ్యాన్లు: రిపేర్, రెగ్యులేటర్, ఇన్‌స్టలేషన్."
+      },
+      "visitFee": 49,
+      "repairFrom": 149,
+      "durationMin": [
+        30,
+        60
+      ],
+      "rating": 4.8,
+      "reviews": 1530,
+      "popular": true,
+      "issues": [
+        {
+          "id": "fan-dead",
+          "name": {
+            "en": "Fan not running",
+            "te": "ఫ్యాన్ తిరగడం లేదు"
+          }
+        },
+        {
+          "id": "fan-noise",
+          "name": {
+            "en": "Fan making noise",
+            "te": "ఫ్యాన్ శబ్దం చేస్తోంది"
+          }
+        },
+        {
+          "id": "fan-slow",
+          "name": {
+            "en": "Runs slowly",
+            "te": "నెమ్మదిగా తిరుగుతోంది"
+          }
+        },
+        {
+          "id": "fan-new",
+          "name": {
+            "en": "Install a new fan",
+            "te": "కొత్త ఫ్యాన్ బిగించాలి"
+          }
+        }
+      ],
+      "keywords": [
+        "fan",
+        "ceiling fan",
+        "exhaust",
+        "regulator",
+        "ఫ్యాన్",
+        "pankha"
+      ]
+    },
+    {
+      "id": "elec-switch",
+      "categoryId": "ELECTRICAL",
+      "name": {
+        "en": "Switch & socket",
+        "te": "స్విచ్ & సాకెట్"
+      },
+      "description": {
+        "en": "Repair or replace switches, sockets and switchboards.",
+        "te": "స్విచ్‌లు, సాకెట్లు, స్విచ్‌బోర్డులు రిపేర్ లేదా మార్పు."
+      },
+      "visitFee": 49,
+      "repairFrom": 100,
+      "durationMin": [
+        20,
+        45
+      ],
+      "rating": 4.7,
+      "reviews": 980,
+      "popular": false,
+      "issues": [
+        {
+          "id": "sw-dead",
+          "name": {
+            "en": "Switch not working",
+            "te": "స్విచ్ పని చేయడం లేదు"
+          }
+        },
+        {
+          "id": "sw-spark",
+          "name": {
+            "en": "Sparks from socket",
+            "te": "సాకెట్ నుండి నిప్పురవ్వలు"
+          }
+        },
+        {
+          "id": "sw-loose",
+          "name": {
+            "en": "Loose socket",
+            "te": "సాకెట్ వదులైంది"
+          }
+        },
+        {
+          "id": "sw-new",
+          "name": {
+            "en": "Need a new point",
+            "te": "కొత్త పాయింట్ కావాలి"
+          }
+        }
+      ],
+      "keywords": [
+        "switch",
+        "socket",
+        "plug",
+        "board",
+        "స్విచ్",
+        "సాకెట్"
+      ]
+    },
+    {
+      "id": "elec-wiring",
+      "categoryId": "ELECTRICAL",
+      "name": {
+        "en": "Wiring & MCB",
+        "te": "వైరింగ్ & MCB"
+      },
+      "description": {
+        "en": "Tripping MCBs, power loss in a room, damaged wires.",
+        "te": "MCB ట్రిప్ అవడం, ఒక గదిలో కరెంట్ పోవడం, దెబ్బతిన్న వైర్లు."
+      },
+      "visitFee": 49,
+      "repairFrom": 249,
+      "durationMin": [
+        45,
+        120
+      ],
+      "rating": 4.6,
+      "reviews": 530,
+      "popular": false,
+      "issues": [
+        {
+          "id": "wr-trip",
+          "name": {
+            "en": "MCB trips often",
+            "te": "MCB తరచుగా ట్రిప్ అవుతోంది"
+          }
+        },
+        {
+          "id": "wr-room",
+          "name": {
+            "en": "No power in one room",
+            "te": "ఒక గదిలో కరెంట్ లేదు"
+          }
+        },
+        {
+          "id": "wr-smell",
+          "name": {
+            "en": "Burning smell",
+            "te": "కాలిన వాసన"
+          }
+        },
+        {
+          "id": "wr-damage",
+          "name": {
+            "en": "Wire damaged",
+            "te": "వైర్ దెబ్బతింది"
+          }
+        }
+      ],
+      "keywords": [
+        "wiring",
+        "wire",
+        "mcb",
+        "trip",
+        "power",
+        "current",
+        "వైరింగ్",
+        "కరెంట్"
+      ]
+    },
+    {
+      "id": "elec-light",
+      "categoryId": "ELECTRICAL",
+      "name": {
+        "en": "Lights & fittings",
+        "te": "లైట్లు & ఫిట్టింగ్‌లు"
+      },
+      "description": {
+        "en": "Tube lights, LED panels, chandeliers and decorative lights.",
+        "te": "ట్యూబ్ లైట్లు, LED ప్యానెల్స్, షాండ్లియర్లు, అలంకరణ లైట్లు."
+      },
+      "visitFee": 49,
+      "repairFrom": 100,
+      "durationMin": [
+        20,
+        45
+      ],
+      "rating": 4.7,
+      "reviews": 640,
+      "popular": false,
+      "issues": [
+        {
+          "id": "lt-dead",
+          "name": {
+            "en": "Light not working",
+            "te": "లైట్ వెలగడం లేదు"
+          }
+        },
+        {
+          "id": "lt-flicker",
+          "name": {
+            "en": "Light flickering",
+            "te": "లైట్ మినుకుమినుకుమంటోంది"
+          }
+        },
+        {
+          "id": "lt-new",
+          "name": {
+            "en": "Install a light",
+            "te": "లైట్ బిగించాలి"
+          }
+        }
+      ],
+      "keywords": [
+        "light",
+        "tube",
+        "bulb",
+        "led",
+        "లైట్",
+        "బల్బ్"
+      ]
+    },
+    {
+      "id": "ac-service",
+      "categoryId": "AC",
+      "name": {
+        "en": "AC service & cleaning",
+        "te": "ఏసీ సర్వీస్ & క్లీనింగ్"
+      },
+      "description": {
+        "en": "Deep cleaning of filters and coils for better cooling.",
+        "te": "మంచి కూలింగ్ కోసం ఫిల్టర్లు, కాయిల్స్ డీప్ క్లీనింగ్."
+      },
+      "visitFee": 49,
+      "repairFrom": 399,
+      "durationMin": [
+        45,
+        90
+      ],
+      "rating": 4.8,
+      "reviews": 2110,
+      "popular": true,
+      "issues": [
+        {
+          "id": "acs-cool",
+          "name": {
+            "en": "Not cooling well",
+            "te": "సరిగా చల్లబడటం లేదు"
+          }
+        },
+        {
+          "id": "acs-smell",
+          "name": {
+            "en": "Bad smell",
+            "te": "దుర్వాసన"
+          }
+        },
+        {
+          "id": "acs-drip",
+          "name": {
+            "en": "Water dripping",
+            "te": "నీరు కారుతోంది"
+          }
+        },
+        {
+          "id": "acs-regular",
+          "name": {
+            "en": "Regular service",
+            "te": "సాధారణ సర్వీస్"
+          }
+        }
+      ],
+      "keywords": [
+        "ac",
+        "air conditioner",
+        "service",
+        "cooling",
+        "ఏసీ",
+        "ఎయిర్ కండిషనర్"
+      ]
+    },
+    {
+      "id": "ac-repair",
+      "categoryId": "AC",
+      "name": {
+        "en": "AC repair",
+        "te": "ఏసీ రిపేర్"
+      },
+      "description": {
+        "en": "AC not turning on, noises, gas and remote problems.",
+        "te": "ఏసీ ఆన్ కాకపోవడం, శబ్దాలు, గ్యాస్, రిమోట్ సమస్యలు."
+      },
+      "visitFee": 49,
+      "repairFrom": 349,
+      "durationMin": [
+        45,
+        120
+      ],
+      "rating": 4.7,
+      "reviews": 1320,
+      "popular": false,
+      "issues": [
+        {
+          "id": "acr-dead",
+          "name": {
+            "en": "Not turning on",
+            "te": "ఆన్ కావడం లేదు"
+          }
+        },
+        {
+          "id": "acr-noise",
+          "name": {
+            "en": "Strange noise",
+            "te": "వింత శబ్దం"
+          }
+        },
+        {
+          "id": "acr-gas",
+          "name": {
+            "en": "Gas check",
+            "te": "గ్యాస్ చెక్"
+          }
+        },
+        {
+          "id": "acr-remote",
+          "name": {
+            "en": "Remote not working",
+            "te": "రిమోట్ పని చేయడం లేదు"
+          }
+        }
+      ],
+      "keywords": [
+        "ac",
+        "repair",
+        "gas",
+        "ఏసీ",
+        "రిపేర్"
+      ]
+    },
+    {
+      "id": "ac-install",
+      "categoryId": "AC",
+      "name": {
+        "en": "AC install & uninstall",
+        "te": "ఏసీ ఇన్‌స్టలేషన్ & తొలగింపు"
+      },
+      "description": {
+        "en": "Install a new AC, remove an old one, or shift it.",
+        "te": "కొత్త ఏసీ బిగించడం, పాతది తీయడం, లేదా మార్చడం."
+      },
+      "visitFee": 49,
+      "repairFrom": 599,
+      "durationMin": [
+        60,
+        150
+      ],
+      "rating": 4.6,
+      "reviews": 540,
+      "popular": false,
+      "issues": [
+        {
+          "id": "aci-new",
+          "name": {
+            "en": "Install a new AC",
+            "te": "కొత్త ఏసీ బిగించాలి"
+          }
+        },
+        {
+          "id": "aci-remove",
+          "name": {
+            "en": "Uninstall AC",
+            "te": "ఏసీ తీయాలి"
+          }
+        },
+        {
+          "id": "aci-shift",
+          "name": {
+            "en": "Shift AC",
+            "te": "ఏసీ మార్చాలి"
+          }
+        }
+      ],
+      "keywords": [
+        "ac",
+        "install",
+        "uninstall",
+        "shift",
+        "ఏసీ"
+      ]
+    },
+    {
+      "id": "app-washer",
+      "categoryId": "APPLIANCE",
+      "name": {
+        "en": "Washing machine",
+        "te": "వాషింగ్ మెషిన్"
+      },
+      "description": {
+        "en": "Front and top load: spinning, draining, leaks and noise.",
+        "te": "ఫ్రంట్, టాప్ లోడ్: తిరగకపోవడం, నీరు పోకపోవడం, లీక్‌లు, శబ్దం."
+      },
+      "visitFee": 49,
+      "repairFrom": 299,
+      "durationMin": [
+        45,
+        90
+      ],
+      "rating": 4.7,
+      "reviews": 1180,
+      "popular": true,
+      "issues": [
+        {
+          "id": "wm-spin",
+          "name": {
+            "en": "Not spinning",
+            "te": "తిరగడం లేదు"
+          }
+        },
+        {
+          "id": "wm-drain",
+          "name": {
+            "en": "Not draining",
+            "te": "నీరు బయటకు పోవడం లేదు"
+          }
+        },
+        {
+          "id": "wm-leak",
+          "name": {
+            "en": "Water leaking",
+            "te": "నీరు కారుతోంది"
+          }
+        },
+        {
+          "id": "wm-noise",
+          "name": {
+            "en": "Loud noise",
+            "te": "పెద్ద శబ్దం"
+          }
+        }
+      ],
+      "keywords": [
+        "washing machine",
+        "washer",
+        "వాషింగ్ మెషిన్"
+      ]
+    },
+    {
+      "id": "app-fridge",
+      "categoryId": "APPLIANCE",
+      "name": {
+        "en": "Refrigerator",
+        "te": "రిఫ్రిజిరేటర్"
+      },
+      "description": {
+        "en": "Cooling problems, leaks, ice build-up and noise.",
+        "te": "కూలింగ్ సమస్యలు, లీక్‌లు, మంచు పేరుకోవడం, శబ్దం."
+      },
+      "visitFee": 49,
+      "repairFrom": 349,
+      "durationMin": [
+        45,
+        90
+      ],
+      "rating": 4.7,
+      "reviews": 990,
+      "popular": false,
+      "issues": [
+        {
+          "id": "fr-cool",
+          "name": {
+            "en": "Not cooling",
+            "te": "చల్లబడటం లేదు"
+          }
+        },
+        {
+          "id": "fr-leak",
+          "name": {
+            "en": "Water leaking inside",
+            "te": "లోపల నీరు కారుతోంది"
+          }
+        },
+        {
+          "id": "fr-ice",
+          "name": {
+            "en": "Ice building up",
+            "te": "మంచు పేరుకుపోతోంది"
+          }
+        },
+        {
+          "id": "fr-noise",
+          "name": {
+            "en": "Unusual noise",
+            "te": "అసాధారణ శబ్దం"
+          }
+        }
+      ],
+      "keywords": [
+        "fridge",
+        "refrigerator",
+        "ఫ్రిజ్",
+        "రిఫ్రిజిరేటర్"
+      ]
+    },
+    {
+      "id": "app-ro",
+      "categoryId": "APPLIANCE",
+      "name": {
+        "en": "RO water purifier",
+        "te": "RO వాటర్ ప్యూరిఫైయర్"
+      },
+      "description": {
+        "en": "No water, odd taste, leaks and filter changes.",
+        "te": "నీరు రాకపోవడం, రుచి మారడం, లీక్‌లు, ఫిల్టర్ మార్పు."
+      },
+      "visitFee": 49,
+      "repairFrom": 199,
+      "durationMin": [
+        30,
+        60
+      ],
+      "rating": 4.6,
+      "reviews": 760,
+      "popular": false,
+      "issues": [
+        {
+          "id": "ro-flow",
+          "name": {
+            "en": "No water flow",
+            "te": "నీరు రావడం లేదు"
+          }
+        },
+        {
+          "id": "ro-taste",
+          "name": {
+            "en": "Water tastes odd",
+            "te": "నీటి రుచి మారింది"
+          }
+        },
+        {
+          "id": "ro-leak",
+          "name": {
+            "en": "Leaking",
+            "te": "లీక్ అవుతోంది"
+          }
+        },
+        {
+          "id": "ro-filter",
+          "name": {
+            "en": "Filter change",
+            "te": "ఫిల్టర్ మార్చాలి"
+          }
+        }
+      ],
+      "keywords": [
+        "ro",
+        "purifier",
+        "water filter",
+        "ప్యూరిఫైయర్"
+      ]
+    },
+    {
+      "id": "app-geyser",
+      "categoryId": "APPLIANCE",
+      "name": {
+        "en": "Geyser",
+        "te": "గీజర్"
+      },
+      "description": {
+        "en": "No hot water, leaks or tripping power.",
+        "te": "వేడి నీరు రాకపోవడం, లీక్‌లు, కరెంట్ ట్రిప్ అవడం."
+      },
+      "visitFee": 49,
+      "repairFrom": 249,
+      "durationMin": [
+        30,
+        75
+      ],
+      "rating": 4.6,
+      "reviews": 480,
+      "popular": false,
+      "issues": [
+        {
+          "id": "gy-cold",
+          "name": {
+            "en": "No hot water",
+            "te": "వేడి నీరు రావడం లేదు"
+          }
+        },
+        {
+          "id": "gy-leak",
+          "name": {
+            "en": "Leaking",
+            "te": "లీక్ అవుతోంది"
+          }
+        },
+        {
+          "id": "gy-trip",
+          "name": {
+            "en": "Trips the power",
+            "te": "కరెంట్ ట్రిప్ అవుతోంది"
+          }
+        }
+      ],
+      "keywords": [
+        "geyser",
+        "heater",
+        "water heater",
+        "గీజర్"
+      ]
+    },
+    {
+      "id": "clean-bath",
+      "categoryId": "CLEANING",
+      "name": {
+        "en": "Bathroom deep cleaning",
+        "te": "బాత్రూమ్ డీప్ క్లీనింగ్"
+      },
+      "description": {
+        "en": "Tiles, fittings and hard-water stains, scrubbed clean.",
+        "te": "టైల్స్, ఫిట్టింగ్‌లు, ఉప్పునీటి మరకలు పూర్తిగా శుభ్రం."
+      },
+      "visitFee": 49,
+      "repairFrom": 399,
+      "durationMin": [
+        60,
+        120
+      ],
+      "rating": 4.7,
+      "reviews": 870,
+      "popular": false,
+      "issues": [
+        {
+          "id": "cb-stains",
+          "name": {
+            "en": "Hard-water stains",
+            "te": "ఉప్పునీటి మరకలు"
+          }
+        },
+        {
+          "id": "cb-tiles",
+          "name": {
+            "en": "Dirty tiles",
+            "te": "మురికి టైల్స్"
+          }
+        },
+        {
+          "id": "cb-fittings",
+          "name": {
+            "en": "Fittings cleaning",
+            "te": "ఫిట్టింగ్‌ల శుభ్రత"
+          }
+        }
+      ],
+      "keywords": [
+        "bathroom",
+        "cleaning",
+        "toilet",
+        "బాత్రూమ్",
+        "క్లీనింగ్"
+      ]
+    },
+    {
+      "id": "clean-kitchen",
+      "categoryId": "CLEANING",
+      "name": {
+        "en": "Kitchen cleaning",
+        "te": "కిచెన్ క్లీనింగ్"
+      },
+      "description": {
+        "en": "Oily walls, chimney, cabinets and sink area.",
+        "te": "జిడ్డు గోడలు, చిమ్నీ, క్యాబినెట్లు, సింక్ ప్రాంతం."
+      },
+      "visitFee": 49,
+      "repairFrom": 599,
+      "durationMin": [
+        90,
+        180
+      ],
+      "rating": 4.6,
+      "reviews": 520,
+      "popular": false,
+      "issues": [
+        {
+          "id": "ck-oil",
+          "name": {
+            "en": "Oily walls and tiles",
+            "te": "జిడ్డు గోడలు, టైల్స్"
+          }
+        },
+        {
+          "id": "ck-chimney",
+          "name": {
+            "en": "Chimney cleaning",
+            "te": "చిమ్నీ క్లీనింగ్"
+          }
+        },
+        {
+          "id": "ck-sink",
+          "name": {
+            "en": "Sink area",
+            "te": "సింక్ ప్రాంతం"
+          }
+        }
+      ],
+      "keywords": [
+        "kitchen",
+        "chimney",
+        "cleaning",
+        "కిచెన్"
+      ]
+    },
+    {
+      "id": "clean-sofa",
+      "categoryId": "CLEANING",
+      "name": {
+        "en": "Sofa & carpet cleaning",
+        "te": "సోఫా & కార్పెట్ క్లీనింగ్"
+      },
+      "description": {
+        "en": "Shampoo cleaning for stains, dust and odour.",
+        "te": "మరకలు, దుమ్ము, వాసనకు షాంపూ క్లీనింగ్."
+      },
+      "visitFee": 49,
+      "repairFrom": 449,
+      "durationMin": [
+        60,
+        120
+      ],
+      "rating": 4.7,
+      "reviews": 450,
+      "popular": false,
+      "issues": [
+        {
+          "id": "cs-stain",
+          "name": {
+            "en": "Stains",
+            "te": "మరకలు"
+          }
+        },
+        {
+          "id": "cs-dust",
+          "name": {
+            "en": "Dust",
+            "te": "దుమ్ము"
+          }
+        },
+        {
+          "id": "cs-odour",
+          "name": {
+            "en": "Odour",
+            "te": "వాసన"
+          }
+        }
+      ],
+      "keywords": [
+        "sofa",
+        "carpet",
+        "couch",
+        "సోఫా"
+      ]
+    },
+    {
+      "id": "carp-door",
+      "categoryId": "CARPENTRY",
+      "name": {
+        "en": "Door & lock repair",
+        "te": "తలుపు & తాళం రిపేర్"
+      },
+      "description": {
+        "en": "Doors that stick, broken locks and loose hinges.",
+        "te": "బిగుసుకుపోయే తలుపులు, విరిగిన తాళాలు, వదులైన కీళ్లు."
+      },
+      "visitFee": 49,
+      "repairFrom": 149,
+      "durationMin": [
+        30,
+        75
+      ],
+      "rating": 4.7,
+      "reviews": 610,
+      "popular": false,
+      "issues": [
+        {
+          "id": "cd-close",
+          "name": {
+            "en": "Door not closing",
+            "te": "తలుపు మూసుకోవడం లేదు"
+          }
+        },
+        {
+          "id": "cd-lock",
+          "name": {
+            "en": "Lock broken",
+            "te": "తాళం విరిగింది"
+          }
+        },
+        {
+          "id": "cd-hinge",
+          "name": {
+            "en": "Hinge loose",
+            "te": "కీలు వదులైంది"
+          }
+        }
+      ],
+      "keywords": [
+        "door",
+        "lock",
+        "hinge",
+        "తలుపు",
+        "తాళం"
+      ]
+    },
+    {
+      "id": "carp-furniture",
+      "categoryId": "CARPENTRY",
+      "name": {
+        "en": "Furniture repair",
+        "te": "ఫర్నిచర్ రిపేర్"
+      },
+      "description": {
+        "en": "Drawers, loose joints, beds and cupboards.",
+        "te": "డ్రాయర్లు, వదులైన జాయింట్లు, మంచాలు, అల్మారాలు."
+      },
+      "visitFee": 49,
+      "repairFrom": 199,
+      "durationMin": [
+        45,
+        120
+      ],
+      "rating": 4.6,
+      "reviews": 390,
+      "popular": false,
+      "issues": [
+        {
+          "id": "cf-drawer",
+          "name": {
+            "en": "Drawer broken",
+            "te": "డ్రాయర్ విరిగింది"
+          }
+        },
+        {
+          "id": "cf-joint",
+          "name": {
+            "en": "Loose joints",
+            "te": "జాయింట్లు వదులయ్యాయి"
+          }
+        },
+        {
+          "id": "cf-bed",
+          "name": {
+            "en": "Bed repair",
+            "te": "మంచం రిపేర్"
+          }
+        }
+      ],
+      "keywords": [
+        "furniture",
+        "drawer",
+        "bed",
+        "cupboard",
+        "ఫర్నిచర్"
+      ]
+    },
+    {
+      "id": "carp-install",
+      "categoryId": "CARPENTRY",
+      "name": {
+        "en": "Fitting & assembly",
+        "te": "ఫిట్టింగ్ & అసెంబ్లీ"
+      },
+      "description": {
+        "en": "Assemble furniture, fix shelves, curtain rods or a TV mount.",
+        "te": "ఫర్నిచర్ అసెంబ్లీ, షెల్ఫ్‌లు, కర్టెన్ రాడ్లు, టీవీ మౌంట్ బిగించడం."
+      },
+      "visitFee": 49,
+      "repairFrom": 149,
+      "durationMin": [
+        30,
+        90
+      ],
+      "rating": 4.7,
+      "reviews": 520,
+      "popular": false,
+      "issues": [
+        {
+          "id": "ci-assemble",
+          "name": {
+            "en": "Assemble furniture",
+            "te": "ఫర్నిచర్ అసెంబుల్ చేయాలి"
+          }
+        },
+        {
+          "id": "ci-shelf",
+          "name": {
+            "en": "Fix shelf or curtain rod",
+            "te": "షెల్ఫ్ లేదా కర్టెన్ రాడ్ బిగించాలి"
+          }
+        },
+        {
+          "id": "ci-tv",
+          "name": {
+            "en": "Mount a TV",
+            "te": "టీవీ గోడకు బిగించాలి"
+          }
+        }
+      ],
+      "keywords": [
+        "assembly",
+        "shelf",
+        "curtain",
+        "tv mount",
+        "drill",
+        "షెల్ఫ్"
+      ]
+    }
+  ]
+}

@@ -6,12 +6,14 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-2 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-3 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
+3. Users and catalog: `GET/PATCH/DELETE /v1/me`; `GET /v1/catalog/categories`, `/catalog/services`,
+   `/catalog/services/{id}`, seeded from the app's catalog.
 
-Next is **step 3**: `/me` and the catalog.
+Next is **step 4**: addresses and slots.
 
 ## Run it locally
 
@@ -22,6 +24,7 @@ npm install
 npm run setup               # creates .env and generates local secrets (JWT keys, peppers, data key)
 docker compose up -d        # Postgres 16 + PostGIS, Redis 7, S3Mock
 npm run db:deploy           # apply migrations
+npm run db:seed             # load the catalog (safe to repeat)
 npm run dev                 # http://localhost:4000/v1/health
 ```
 
@@ -41,6 +44,8 @@ minute); the per-phone OTP limits live in Postgres and always apply.
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run build` then `npm start` | Production build in `dist/` |
 | `npm run db:migrate` / `npm run db:deploy` | Create a migration (development) / apply migrations |
+| `npm run db:seed` | Load `catalog.data.json` into the database; idempotent, run it on every deploy after `db:deploy` |
+| `npm run catalog:import` | Re-import the catalog from the app's `catalog.ts` (default `docs/app-contract/catalog.ts`) into `catalog.data.json` |
 
 ## Auth in short
 
@@ -81,9 +86,13 @@ src/
   modules/
     auth/                 OTP challenges, SMS senders (console / MSG91), sessions (refresh rotation), EdDSA access
                           tokens, global AuthGuard with @Public / @Roles / @CurrentUser
+    catalog/              public catalog endpoints, catalog.data.json (imported from the app), idempotent seed
+    users/                GET/PATCH/DELETE /me (delete = anonymise); maps a user to the API's Customer shape
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
+  cli/seed.ts             npm run db:seed
+  common/money.ts         paise <-> whole rupees (refuses fractions)
 prisma/                   schema.prisma + committed migrations (models arrive feature by feature, from docs/schema.sql)
-scripts/                  setup.mjs (local secrets), test.mjs (test database + Jest)
+scripts/                  setup.mjs (local secrets), test.mjs (test database + Jest), import-catalog.mjs
 test/                     e2e tests and helpers (test clock, fake SMS, database reset)
 docs/                     the app team's handoff + QUESTIONS.md, API-NOTES.md, LATER.md
 ```
@@ -122,3 +131,17 @@ docs/                     the app team's handoff + QUESTIONS.md, API-NOTES.md, L
   PostGIS service instead.
 - **PostGIS is not enabled yet:** no table needs it until addresses (step 4).
 - **Added env var `SMS_PROVIDER`** (`console` | `msg91`; production requires `msg91`).
+
+## Decisions taken in step 3
+
+- **The catalog is imported, not hand-copied.** `npm run catalog:import` evaluates the app's `catalog.ts` in an
+  isolated VM (no `require`, no `process`) and writes `catalog.data.json`, which is committed and reviewed like
+  code. `npm run db:seed` loads it. When the app team changes the catalog, re-run both.
+- **Removed services are deactivated, never deleted**, because bookings will keep pointing at them. Re-adding a
+  service reactivates it.
+- **The typical maximum is 4 × `repairFrom`**, as the starter prompt says. It is stored but never sent to the app.
+- **`/me` works for both roles** with the `Customer` shape (`id`, `phone`, `name`). Technicians need it for
+  their language. See QUESTIONS.md #12.
+- **Deleting an account anonymises the row instead of removing it:** the name goes, the phone ciphertext is wiped,
+  and the phone hash is replaced with random bytes. Every session ends, and the number can sign up again as a
+  brand-new account. Later steps add their own anonymisation (addresses, bookings).

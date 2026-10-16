@@ -30,3 +30,19 @@ The goal is none. Each entry links to the open question that will remove it.
   token already issued; it expires on its own within 15 minutes.
 - **Schema difference:** `otp_challenges` has an extra `phone_enc` column (the encrypted phone), needed to create
   the account when the code is verified. `docs/schema.sql` has only `phone_hash`.
+
+## Users and catalog (step 3)
+
+- **`/me` works for both roles** (`CUSTOMER`, `TECHNICIAN`) and returns the `Customer` shape for both.
+- **A deleted or blocked account gets `UNAUTHENTICATED` on `/me`**, even with an access token that has not
+  expired, so the app signs out.
+- **`PATCH /me` names** are trimmed and must contain a letter (the app's `isValidName` rule); `{}` returns the
+  profile unchanged.
+- **`DELETE /me` never returns 409 yet.** It will once bookings exist (step 5), while a booking is active.
+- **Catalog responses** send `Cache-Control: public, max-age=300`. `popular` is always present (`true` or
+  `false`). An unknown or malformed service id is `NOT_FOUND`; an unknown `categoryId` filter is `VALIDATION`.
+- **Schema differences from docs/schema.sql:**
+  - `categories.wash`: the API's `Category` requires it.
+  - `services.rating` and `services.reviews`: the API's `Service` requires them; demo values for now.
+  - `sort` on services and issues: keeps the app's order.
+  - CHECK constraints on prices, durations and ratings.

@@ -2,6 +2,7 @@
 // database reset, and an app built exactly like main.ts (src/http.ts).
 import type { Type } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { AppModule } from '../src/app.module';
@@ -73,7 +74,7 @@ export class FakeSms implements SmsSender {
 }
 
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE refresh_tokens, otp_challenges, users RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
 }
 
 export interface TestApp {
@@ -109,4 +110,24 @@ export async function buildTestApp(opts: {
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
   return { app, prisma: app.get(PrismaService), clock, sms, rateLimits, close: () => app.close() };
+}
+
+export interface SignedIn {
+  readonly accessToken: string;
+  readonly refreshToken: string;
+  readonly expiresIn: number;
+  readonly isNew: boolean;
+  readonly customer?: { readonly id: string; readonly phone: string; readonly name: string };
+  readonly technician?: { readonly id: string; readonly phone: string; readonly name: string };
+}
+
+/** Requests a code, reads it from the fake SMS sender and verifies it. */
+export async function signIn(t: TestApp, phone = '9876543210', role: 'CUSTOMER' | 'TECHNICIAN' = 'CUSTOMER'): Promise<SignedIn> {
+  const http = request(t.app.getHttpServer());
+  const challenge = await http.post('/v1/auth/otp/request').send({ phone, role }).expect(200);
+  const res = await request(t.app.getHttpServer())
+    .post('/v1/auth/otp/verify')
+    .send({ challengeId: challenge.body.challengeId, code: t.sms.lastCode(phone) })
+    .expect(200);
+  return res.body as SignedIn;
 }

@@ -47,6 +47,7 @@ Found while reading the handoff and building. Each one says what the backend doe
 12. **`/me` for technicians.** `GET/PATCH/DELETE /me` return the `Customer` shape, but technicians are asked to
     send `locale` to `PATCH /me` too. Should `/me` work for both roles (returning `Customer` or `TechProfile`), or
     should technicians use `/tech/me`?
+    *Until then (step 3):* `/me` works for both roles and returns the `Customer` shape (`id`, `phone`, `name`).
 
 ## Small ones
 
@@ -71,3 +72,11 @@ Found while reading the handoff and building. Each one says what the backend doe
     API-NOTES.md). Is single-flight refresh in `HttpBackend` fine, or do you need a short grace window?
 19. **SMS language.** `PATCH /me` stores `locale`, but MSG91 sends whatever DLT template is configured. Do you want
     a Telugu template for Telugu users (a second `MSG91_OTP_TEMPLATE_ID_TE`)?
+
+## Found in step 3 (users and catalog)
+
+20. **Service ratings and review counts** are demo numbers from the app catalog (e.g. 4.8 from 1,240 reviews).
+    Should the API serve them until real ratings exist, or should the app hide them for now? They are shown as they
+    are today.
+21. **Deleting an account with a technician account on the same phone** deletes only the account that asked; the
+    other stays. Is that what the app expects?

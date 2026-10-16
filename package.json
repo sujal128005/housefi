@@ -19,6 +19,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsc -p tsconfig.build.json && node dist/cli/seed.js",
+    "catalog:import": "node scripts/import-catalog.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {

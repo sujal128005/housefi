@@ -97,3 +97,76 @@ model RefreshToken {
   @@index([userId])
   @@map("refresh_tokens")
 }
+
+// ---------- catalog (seeded from the app's src/data/catalog.ts: npm run catalog:import, then npm run db:seed) ----------
+
+enum CategoryId {
+  PLUMBING
+  ELECTRICAL
+  AC
+  APPLIANCE
+  CLEANING
+  CARPENTRY
+
+  @@map("category_id")
+}
+
+model Category {
+  id        CategoryId @id
+  nameEn    String     @map("name_en")
+  nameTe    String     @map("name_te")
+  taglineEn String     @map("tagline_en")
+  taglineTe String     @map("tagline_te")
+  /// Which artwork the app shows (tap, bulb, snowflake, tv, sponge, saw).
+  art       String
+  /// Background tint name used by the app (not in docs/schema.sql; the API's Category requires it).
+  wash      String
+  sort      Int
+
+  services Service[]
+
+  @@map("categories")
+}
+
+model Service {
+  id                    String     @id
+  categoryId            CategoryId @map("category_id")
+  nameEn                String     @map("name_en")
+  nameTe                String     @map("name_te")
+  descriptionEn         String     @map("description_en")
+  descriptionTe         String     @map("description_te")
+  visitFeePaise         BigInt     @default(4900) @map("visit_fee_paise")
+  /// Typical minimum repair (labour + materials); the price check's lower bound.
+  repairFromPaise       BigInt     @map("repair_from_paise")
+  /// Typical maximum repair; quotes above 1.5x this go to review.
+  repairTypicalMaxPaise BigInt     @map("repair_typical_max_paise")
+  durationMin           Int        @map("duration_min")
+  durationMax           Int        @map("duration_max")
+  /// Shown on the service page. Demo values from the app catalog until real ratings exist.
+  rating                Float
+  reviews               Int
+  keywords              String[]   @default([])
+  popular               Boolean    @default(false)
+  /// Services removed from the catalog are deactivated, never deleted (bookings keep referring to them).
+  active                Boolean    @default(true)
+  sort                  Int
+
+  category Category       @relation(fields: [categoryId], references: [id])
+  issues   ServiceIssue[]
+
+  @@index([categoryId, sort])
+  @@map("services")
+}
+
+model ServiceIssue {
+  id        String @id
+  serviceId String @map("service_id")
+  nameEn    String @map("name_en")
+  nameTe    String @map("name_te")
+  sort      Int
+
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@index([serviceId, sort])
+  @@map("service_issues")
+}

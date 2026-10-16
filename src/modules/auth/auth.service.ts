@@ -3,16 +3,9 @@ import { Prisma, type User, type UserRole } from '@prisma/client';
 import { FieldCipher } from '../../common/crypto/field-cipher';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
+import { type CustomerDto, UsersService } from '../users/users.service';
 import { OtpService, type VerifiedPhone } from './otp.service';
 import { type Session, SessionsService } from './sessions.service';
-
-/** openapi.yaml Customer. */
-export interface CustomerDto {
-  readonly id: string;
-  readonly phone: string;
-  /** Empty until the name step. */
-  readonly name: string;
-}
 
 /** openapi.yaml TechProfile. Until the profile is submitted (step 7) the fields are empty and verification is null. */
 export interface TechProfileDto {
@@ -51,6 +44,7 @@ export class AuthService {
     private readonly cipher: FieldCipher,
     private readonly otp: OtpService,
     private readonly sessions: SessionsService,
+    private readonly users: UsersService,
   ) {}
 
   /** Sign in or sign up with a verified code: one flow for both. */
@@ -92,12 +86,11 @@ export class AuthService {
 
   private async result(user: User, session: Session): Promise<AuthResultDto> {
     const base = { accessToken: session.accessToken, refreshToken: session.refreshToken, expiresIn: session.expiresIn };
-    const phone = await this.cipher.decrypt('users.phone', user.phoneEnc);
-    const name = user.nameEnc ? await this.cipher.decrypt('users.name', user.nameEnc) : '';
+    const customer = await this.users.toCustomer(user);
     if (isTechnician(user.role)) {
-      return { ...base, isNew: true, technician: emptyTechProfile(user.id, phone, name) };
+      return { ...base, isNew: true, technician: emptyTechProfile(user.id, customer.phone, customer.name) };
     }
-    return { ...base, isNew: name === '', customer: { id: user.id, phone, name } };
+    return { ...base, isNew: customer.name === '', customer };
   }
 }
 

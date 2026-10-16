@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { SessionsService } from './sessions.service';
+import { UsersModule } from '../users/users.module';
 import { ConsoleSmsSender, Msg91SmsSender, SMS_SENDER, type SmsSender } from './sms';
 
 function createAccessTokens(config: Env, clock: Clock): AccessTokens {
@@ -31,6 +32,7 @@ function createSmsSender(config: Env): SmsSender {
 }
 
 @Module({
+  imports: [UsersModule],
   controllers: [AuthController],
   providers: [
     { provide: AccessTokens, inject: [APP_CONFIG, CLOCK], useFactory: createAccessTokens },
