@@ -27,6 +27,19 @@
       "expo-font",
       "expo-localization",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Housefi uses your location to fill in your address so the technician can find you."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Housefi lets you add photos of the problem so the technician knows what to bring.",
+          "cameraPermission": "Housefi lets you take a photo of the problem so the technician knows what to bring."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
@@ -34,7 +47,16 @@
           "resizeMode": "contain",
           "backgroundColor": "#F4F6FE"
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": false

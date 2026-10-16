@@ -1,33 +1,34 @@
-// Booking request received. Honest wording: the request is placed and matching has started; no technician yet.
+// Visit fee paid: the booking is confirmed and the search for a technician has started. Shows the booking ID and the
+// arrival code to share at the door.
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { serviceById } from '../../data/catalog';
-import { CalendarCheckArt } from '../../illustrations/Scenes';
+import { Art3D } from '../../illustrations/Art3D';
+import { formatRupees } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { useBackend, useQuery } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
-import { colors, radius, space } from '../../theme/tokens';
-import { Banner, Button, Card, ErrorView, Header, NotInDemoSheet, Screen, Skeleton, StatusPill, Txt } from '../../ui';
-import { whenText } from '../../ui/present';
+import { radius, space } from '../../theme/tokens';
+import { Banner, Button, Card, ErrorView, Header, Screen, Skeleton, StatusPill, Txt } from '../../ui';
+import { ArrivalOtpCard } from '../../ui/BookingParts';
+import { Appear, Pop } from '../../ui/motion';
+import { visitTimeText } from '../../ui/present';
+import { feedback } from '../../services/feedback';
 
 export default function Confirmed() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, l, locale } = useI18n();
   const backend = useBackend();
   const session = useSession();
-  const q = useQuery(() => backend.bookings.get(session.token, id), [backend, session.token, id]);
-  const [calendar, setCalendar] = useState(false);
   const { clear } = useDraft();
-  // Keep the booking ID above the fold on short phones.
-  const artSize = Math.round(Math.min(190, useWindowDimensions().height * 0.17));
-  const pop = useRef(new Animated.Value(0.6)).current;
+  const art = Math.round(Math.min(150, useWindowDimensions().height * 0.15));
+  const q = useQuery(() => backend.bookings.get(session.token, id), [backend, session.token, id]);
   useEffect(() => {
     clear();
-    Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 10, bounciness: 12 }).start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pop]);
+    feedback('success');
+  }, [clear]);
   const b = q.data;
   const svc = b ? serviceById(b.serviceId) : undefined;
 
@@ -39,44 +40,48 @@ export default function Confirmed() {
       footer={
         <>
           <Button label={t('confirmed.track')} trailingIcon="arrow-forward" onPress={() => router.replace(`/booking/${id}`)} testID="confirmed-track" />
-          <View style={styles.row}>
-            <Button label={t('confirmed.calendar')} variant="outline" size="md" onPress={() => setCalendar(true)} style={styles.flex} />
-            <Button label={t('confirmed.home')} variant="outline" size="md" onPress={() => router.back()} style={styles.flex} testID="confirmed-home" />
-          </View>
+          <Button label={t('confirmed.home')} variant="ghost" size="md" onPress={() => router.back()} testID="confirmed-home" />
         </>
       }
     >
-      <Animated.View style={[styles.art, { transform: [{ scale: pop }] }]}><CalendarCheckArt size={artSize} /></Animated.View>
-      <Txt variant="title1" align="center" heading>{t('confirmed.title')}</Txt>
-      <Txt variant="body" color="inkMuted" align="center">{t('confirmed.body')}</Txt>
-      <Banner tone="demo" text={t('confirmed.demo')} />
+      <View style={styles.art}>
+        <Pop><Art3D name="check" size={art} shadow /></Pop>
+        <Art3D name="party" size={art * 0.45} style={styles.party} />
+      </View>
+      <Appear>
+        <Txt variant="title1" align="center" heading>{t('confirmed.title')}</Txt>
+        <Txt variant="body" color="inkMuted" align="center">{t('confirmed.body')}</Txt>
+      </Appear>
       {q.loading ? <Skeleton style={styles.skel} /> : null}
       {q.error ? <ErrorView error={q.error} onRetry={q.reload} /> : null}
       {b ? (
-        <Card style={styles.card}>
-          <View style={styles.idRow}>
-            <View style={styles.flex}>
-              <Txt variant="caption" color="inkMuted">{t('confirmed.id')}</Txt>
-              <Txt variant="title2" testID="booking-code" selectable>{b.code}</Txt>
+        <Appear delay={150} style={styles.stack}>
+          <Card style={styles.card}>
+            <View style={styles.idRow}>
+              <View style={styles.flex}>
+                <Txt variant="caption" color="inkMuted">{t('confirmed.id')}</Txt>
+                <Txt variant="title2" testID="booking-code" selectable>{b.code}</Txt>
+              </View>
+              <StatusPill status={b.status} />
             </View>
-            <StatusPill status={b.status} />
-          </View>
-          <View style={styles.rule} />
-          <Txt variant="bodyStrong">{svc ? l(svc.name) : ''}</Txt>
-          <Txt variant="callout" color="inkMuted">{whenText(b.window, locale, t)}</Txt>
-        </Card>
+            <Txt variant="bodyStrong">{svc ? l(svc.name) : ''}</Txt>
+            <Txt variant="callout" color="inkMuted">{visitTimeText(b.time, locale, t)}</Txt>
+            <Txt variant="footnote" color="success">{t('confirmed.paid', { amount: formatRupees(b.visitPayment.amount) })}</Txt>
+          </Card>
+          <ArrivalOtpCard code={b.arrivalOtp} />
+          <Banner tone="demo" text={t('confirmed.demo')} />
+        </Appear>
       ) : null}
-      <NotInDemoSheet visible={calendar} title={t('confirmed.calendar')} onClose={() => setCalendar(false)} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  row: { flexDirection: 'row', gap: space.sm },
-  art: { alignItems: 'center' },
+  stack: { gap: space.md },
+  art: { alignItems: 'center', justifyContent: 'center' },
+  party: { position: 'absolute', top: 0, right: '22%' },
   card: { gap: space.xs },
   idRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  rule: { height: 1, backgroundColor: colors.line, marginVertical: space.sm },
-  skel: { height: 120, borderRadius: radius.lg },
+  skel: { height: 140, borderRadius: radius.lg },
 });

@@ -3,8 +3,7 @@ import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CalendarCheckArt, HouseArt } from '../illustrations/Scenes';
-import { Mascot } from '../illustrations/Mascot';
+import { Art3D } from '../illustrations/Art3D';
 import { useI18n, type StringKey } from '../i18n/I18n';
 import { useAppState } from '../state/AppState';
 import { colors, GUTTER, radius, space } from '../theme/tokens';
@@ -63,9 +62,9 @@ export default function Welcome() {
         {SLIDES.map((s) => (
           <View key={s.title} style={[styles.slide, { width }]}>
             <View style={[styles.art, { height: artSize }]}>
-              {s.art === 'house' ? <HouseArt size={artSize * 1.1} /> : null}
-              {s.art === 'mascot' ? <Mascot pose="wave" size={artSize * 0.86} /> : null}
-              {s.art === 'calendar' ? <CalendarCheckArt size={artSize} /> : null}
+              {s.art === 'house' ? <Art3D name="house_garden" size={artSize * 0.8} float shadow /> : null}
+              {s.art === 'mascot' ? <Art3D name="tech_man" size={artSize * 0.8} float shadow badge="toolbox" /> : null}
+              {s.art === 'calendar' ? <Art3D name="clipboard" size={artSize * 0.8} float shadow badge="check" /> : null}
             </View>
             <Txt variant="hero" heading>{t(s.title)}</Txt>
             <Txt variant="body" color="inkMuted" style={styles.body}>{t(s.body)}</Txt>

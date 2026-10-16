@@ -11,6 +11,7 @@ import { useAppState } from '../../state/AppState';
 import { authFlow } from '../../state/authFlow';
 import { colors, radius, shadow, space } from '../../theme/tokens';
 import { Banner, Button, ErrorBanner, Header, Icon, Screen, Tap, Txt, useToast } from '../../ui';
+import { feedback } from '../../services/feedback';
 
 const LENGTH = 6;
 
@@ -18,7 +19,8 @@ export default function Otp() {
   const { t } = useI18n();
   const backend = useBackend();
   const toast = useToast();
-  const { signIn } = useAppState();
+  const { signIn, techSignIn, prefs } = useAppState();
+  const asTech = prefs.role === 'TECHNICIAN';
   const [challenge, setChallenge] = useState(authFlow.get());
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -49,14 +51,25 @@ export default function Otp() {
     setProblem(null);
     setError(null);
     try {
+      if (asTech) {
+        const { session, isNew } = await backend.tech.auth.verifyOtp(challenge.challengeId, value);
+        authFlow.set(null);
+        feedback('success');
+        techSignIn(session);
+        const v = session.profile.verification;
+        resetTo(isNew || v === null ? '/tech/setup' : v === 'APPROVED' ? '/tech/home' : '/tech/verification');
+        return;
+      }
       const { session, isNewCustomer } = await backend.auth.verifyOtp(challenge.challengeId, value);
       authFlow.set(null);
+      feedback('success');
       signIn(session);
       if (isNewCustomer) resetTo('/auth/name');
       else resetTo('/home');
     } catch (e) {
       setCode('');
       doShake();
+      feedback('error');
       if (isApiError(e, 'OTP_INVALID')) setProblem(t('auth.otp.invalid', { left: e.attemptsLeft ?? 0 }));
       else if (isApiError(e, 'OTP_EXPIRED')) {
         setProblem(t('auth.otp.expired'));

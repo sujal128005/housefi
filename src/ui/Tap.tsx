@@ -1,6 +1,6 @@
-import * as Haptics from 'expo-haptics';
 import { useRef, type ReactNode } from 'react';
 import { Animated, Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import { feedback } from '../services/feedback';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -30,7 +30,7 @@ export function Tap({ style, children, scale = 0.97, haptic = false, onPressIn, 
         onPressOut?.(e);
       }}
       onPress={(e) => {
-        if (haptic) void Haptics.selectionAsync().catch(() => undefined);
+        if (haptic) feedback('select');
         onPress?.(e);
       }}
       style={[style, { transform: [{ scale: v }] }]}

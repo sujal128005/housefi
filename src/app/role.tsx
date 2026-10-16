@@ -2,8 +2,7 @@
 // from Account.
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { HouseArt } from '../illustrations/Scenes';
-import { Mascot } from '../illustrations/Mascot';
+import { Art3D } from '../illustrations/Art3D';
 import { useI18n } from '../i18n/I18n';
 import { resetTo } from '../navigation';
 import { useAppState, type Role } from '../state/AppState';
@@ -12,11 +11,14 @@ import { Header, Icon, Screen, Tap, Txt } from '../ui';
 
 export default function RoleChoice() {
   const { t } = useI18n();
-  const { setRole, session } = useAppState();
+  const { setRole, session, techSession } = useAppState();
 
   const choose = (r: Role) => {
     setRole(r);
-    if (r === 'TECHNICIAN') resetTo('/technician');
+    if (r === 'TECHNICIAN') {
+      if (techSession) resetTo('/');
+      else router.push('/auth/phone');
+    }
     else if (session) resetTo(session.customer.name ? '/home' : '/auth/name');
     else router.push('/auth/phone');
   };
@@ -25,9 +27,9 @@ export default function RoleChoice() {
     <Screen testID="role" wash="sky" header={<Header back={router.canGoBack()} demo={false} />}>
       <Txt variant="title1" heading>{t('role.title')}</Txt>
       <RoleCard testID="role-customer" title={t('role.customer.title')} body={t('role.customer.body')} onPress={() => choose('CUSTOMER')} tint={colors.blueTint}
-        art={<HouseArt size={150} />} />
+        art={<Art3D name="house_garden" size={120} float />} />
       <RoleCard testID="role-technician" title={t('role.technician.title')} body={t('role.technician.body')} onPress={() => choose('TECHNICIAN')} tint="#FFF1E3"
-        art={<Mascot pose="toolbox" size={120} />} />
+        art={<Art3D name="tech_man" size={120} float badge="toolbox" />} />
     </Screen>
   );
 }

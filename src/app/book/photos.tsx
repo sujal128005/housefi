@@ -1,12 +1,15 @@
-// Photos of the problem (simulated in demo): add from "camera" or "gallery" (both add a labelled sample picture),
-// remove, up to four.
+// Photos of the problem: real camera or gallery pictures (kept on the phone in this phase) or labelled demo samples.
+// Up to four; tap the cross to remove one.
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { SamplePhoto } from '../../illustrations/CategoryArt';
+import { SAMPLE_PHOTOS } from '../../illustrations/SamplePhoto';
 import { useI18n } from '../../i18n/I18n';
+import { pickPhoto } from '../../services/device';
 import { MAX_PHOTOS, useDraft } from '../../state/BookingDraft';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Header, Icon, Screen, Tap, Txt, useToast } from '../../ui';
+import { Pop } from '../../ui/motion';
+import { PhotoThumb } from '../../ui/PhotoThumb';
 
 export default function Photos() {
   const { t } = useI18n();
@@ -15,36 +18,35 @@ export default function Photos() {
   const photos = draft.problem.photos;
   const full = photos.length >= MAX_PHOTOS;
 
-  const add = () => {
-    if (full) {
-      toast.show(t('photos.limit', { max: MAX_PHOTOS }), 'information-circle');
-      return;
-    }
+  const add = async (source: 'camera' | 'gallery') => {
+    if (full) return toast.show(t('photos.limit', { max: MAX_PHOTOS }), 'information-circle');
+    const r = await pickPhoto(source);
+    if (r.ok) addPhoto({ id: `ph_${Date.now().toString(36)}`, uri: r.uri });
+    else if (r.reason === 'DENIED') toast.show(t('photos.denied'), 'lock-closed');
+    else if (r.reason === 'UNAVAILABLE') toast.show(t('photos.unavailable'), 'information-circle');
+  };
+
+  const addSample = () => {
+    if (full) return toast.show(t('photos.limit', { max: MAX_PHOTOS }), 'information-circle');
     const used = new Set(photos.map((p) => p.sample));
-    const sample = [1, 2, 3, 4].find((n) => !used.has(n)) ?? 1;
-    addPhoto({ id: `ph_${Date.now().toString(36)}_${sample}`, sample });
+    const sample = SAMPLE_PHOTOS.find((n) => !used.has(n)) ?? 1;
+    addPhoto({ id: `sample_${sample}_${Date.now().toString(36)}`, sample });
   };
 
   return (
-    <Screen
-      testID="photos"
-      header={<Header title={t('photos.title')} />}
-      footer={<Button label={t('common.done')} onPress={() => router.back()} testID="photos-done" />}
-    >
-      <Banner tone="demo" text={t('photos.demo')} />
+    <Screen testID="photos" header={<Header title={t('photos.title')} />} footer={<Button label={t('common.done')} onPress={() => router.back()} testID="photos-done" />}>
       <Txt variant="callout" color="inkMuted">{t('photos.body', { max: MAX_PHOTOS })}</Txt>
-
       <View style={styles.grid}>
         {photos.map((p, k) => (
-          <View key={p.id} style={styles.cell} testID={`photo-${k + 1}`}>
-            <View style={styles.photo}>
-              <SamplePhoto n={p.sample} size="100%" />
-              <View style={styles.sampleTag}><Txt variant="caption" color="onNavy">{t('photos.sample', { n: k + 1 })}</Txt></View>
+          <Pop key={p.id} style={styles.cell}>
+            <View style={styles.photo} testID={`photo-${k + 1}`}>
+              <PhotoThumb photo={p} size="100%" />
+              {p.uri ? null : <View style={styles.sampleTag}><Txt variant="caption" color="onNavy">{t('photos.sample', { n: k + 1 })}</Txt></View>}
             </View>
             <Tap onPress={() => removePhoto(p.id)} style={styles.remove} accessibilityLabel={t('photos.removeLabel', { n: k + 1 })} testID={`photo-remove-${k + 1}`}>
               <Icon name="close" size={18} color="onNavy" />
             </Tap>
-          </View>
+          </Pop>
         ))}
         {!full ? (
           <View style={styles.cell}>
@@ -55,11 +57,12 @@ export default function Photos() {
           </View>
         ) : null}
       </View>
-
       <View style={styles.row}>
-        <Button label={t('photos.camera')} icon="camera" variant="secondary" onPress={add} disabled={full} style={styles.flex} testID="photos-camera" />
-        <Button label={t('photos.gallery')} icon="images" variant="secondary" onPress={add} disabled={full} style={styles.flex} testID="photos-gallery" />
+        <Button label={t('photos.camera')} icon="camera" variant="secondary" onPress={() => void add('camera')} disabled={full} style={styles.flex} testID="photos-camera" />
+        <Button label={t('photos.gallery')} icon="images" variant="secondary" onPress={() => void add('gallery')} disabled={full} style={styles.flex} testID="photos-gallery" />
       </View>
+      <Button label={t('photos.useSample')} icon="flask" variant="ghost" size="md" onPress={addSample} disabled={full} testID="photos-sample" />
+      <Banner tone="info" icon="lock-closed" text={t('photos.private')} />
       {full ? <Banner tone="info" text={t('photos.limit', { max: MAX_PHOTOS })} /> : null}
     </Screen>
   );

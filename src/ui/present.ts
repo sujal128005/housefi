@@ -1,6 +1,6 @@
 // Turns domain values into display text in the current language.
-import { parseIsoDate } from '../domain/rules';
-import type { Address, VisitWindow } from '../domain/types';
+import { INSTANT_ETA_MIN, parseIsoDate } from '../domain/rules';
+import type { Address, VisitTime, VisitWindow } from '../domain/types';
 import { formatDate, formatWindow, sameDay, type Locale } from '../i18n/format';
 import type { Params, StringKey } from '../i18n/I18n';
 
@@ -14,6 +14,12 @@ export function whenText(w: VisitWindow, locale: Locale, t: T, now = new Date())
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   if (sameDay(d, tomorrow)) return t('when.tomorrow', { window });
   return t('when.date', { date: formatDate(d, locale), window });
+}
+
+/** "Now · within 45–60 min" for instant visits, otherwise the window. */
+export function visitTimeText(time: VisitTime, locale: Locale, t: T, now = new Date()): string {
+  if (time.mode === 'INSTANT' || !time.window) return t('when.now', { min: INSTANT_ETA_MIN[0], max: INSTANT_ETA_MIN[1] });
+  return whenText(time.window, locale, t, now);
 }
 
 export function addressLine(a: Address): string {

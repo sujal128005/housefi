@@ -3,12 +3,13 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { normalizePhone } from '../../domain/rules';
-import { PhoneArt } from '../../illustrations/Scenes';
+import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { useBackend } from '../../services/ServicesProvider';
+import { useAppState } from '../../state/AppState';
 import { authFlow } from '../../state/authFlow';
 import { colors, space } from '../../theme/tokens';
-import { Banner, Button, ErrorBanner, Field, Header, NotInDemoSheet, Screen, Tap, Txt } from '../../ui';
+import { Banner, Button, ErrorBanner, Field, Header, NotInDemoSheet, Pill, Screen, Tap, Txt } from '../../ui';
 
 /** "9876543210" -> "98765 43210" while typing. */
 function formatTyping(raw: string): string {
@@ -19,6 +20,8 @@ function formatTyping(raw: string): string {
 export default function PhoneSignIn() {
   const { t } = useI18n();
   const backend = useBackend();
+  const { prefs } = useAppState();
+  const asTech = prefs.role === 'TECHNICIAN';
   const [value, setValue] = useState('');
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -52,8 +55,9 @@ export default function PhoneSignIn() {
       header={<Header />}
       footer={<Button label={t('auth.phone.send')} trailingIcon="arrow-forward" onPress={send} loading={busy} disabled={!phone} testID="phone-send" />}
     >
-      <View style={styles.art}><PhoneArt size={150} /></View>
-      <Txt variant="title1" heading>{t('auth.phone.title')}</Txt>
+      <View style={styles.art}><Art3D name={asTech ? 'tech_man' : 'phone'} size={110} float shadow badge={asTech ? 'toolbox' : 'locked'} /></View>
+      {asTech ? <View style={styles.roleTag}><Pill label={t('auth.phone.asTech')} tone="info" icon="construct" /></View> : null}
+      <Txt variant="title1" heading>{asTech ? t('auth.phone.titleTech') : t('auth.phone.title')}</Txt>
       <Field
         testID="phone-input"
         label={t('auth.phone.label')}
@@ -97,6 +101,7 @@ export default function PhoneSignIn() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   art: { alignItems: 'center', marginTop: -space.md },
+  roleTag: { alignItems: 'flex-start' },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   rule: { flex: 1, height: 1, backgroundColor: colors.line },
   socialRow: { flexDirection: 'row', gap: space.md },

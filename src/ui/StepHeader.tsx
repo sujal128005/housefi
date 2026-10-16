@@ -3,9 +3,9 @@ import { useI18n } from '../i18n/I18n';
 import { colors, GUTTER, radius } from '../theme/tokens';
 import { Header } from './Layout';
 
-export const BOOKING_STEPS = 5;
+export const BOOKING_STEPS = 4;
 
-/** Header for the booking steps, with "Step n of 5" and a slim progress bar. */
+/** Header for the booking steps, with "Step n of 4" and a slim progress bar. */
 export function StepHeader({ step, title }: { readonly step: number; readonly title?: string }) {
   const { t } = useI18n();
   return (

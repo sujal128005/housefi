@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { categoryById, serviceById, POPULAR_SEARCHES } from '../data/catalog';
 import { search } from '../domain/rules';
-import { EmptyBoxArt } from '../illustrations/Scenes';
+import { Art3D } from '../illustrations/Art3D';
 import { formatRupees } from '../i18n/format';
 import { useI18n } from '../i18n/I18n';
 import { fontFamily } from '../theme/fonts';
@@ -60,7 +60,7 @@ export default function Search() {
         </View>
       ) : null}
       {empty ? (
-        <EmptyState testID="search-empty" art={<EmptyBoxArt size={130} />} title={t('search.emptyTitle', { q: q.trim() })} body={t('search.emptyBody')}
+        <EmptyState testID="search-empty" art={<Art3D name="magnifier" size={110} float shadow />} title={t('search.emptyTitle', { q: q.trim() })} body={t('search.emptyBody')}
           action={t('catalog.all')} onAction={() => router.push('/services')} />
       ) : null}
       {res.categories.length > 0 ? (
@@ -84,7 +84,7 @@ export default function Search() {
           {res.services.map((s) => {
             const c = categoryById(s.categoryId);
             return (
-              <ListRow key={s.id} testID={`result-svc-${s.id}`} title={l(s.name)} subtitle={`${c ? l(c.name) : ''} · ${t('catalog.visitFee', { fee: formatRupees(s.visitFee) })}`}
+              <ListRow key={s.id} testID={`result-svc-${s.id}`} title={l(s.name)} subtitle={`${c ? l(c.name) : ''} · ${t('catalog.visitOnly', { fee: formatRupees(s.visitFee) })}`}
                 icon="construct-outline" onPress={() => router.push(`/service/${s.id}`)} />
             );
           })}

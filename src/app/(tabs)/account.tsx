@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatPhone } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
@@ -15,7 +15,7 @@ export default function Account() {
   const { t, locale } = useI18n();
   const insets = useSafeAreaInsets();
   const session = useSession();
-  const { signOut, setRole } = useAppState();
+  const { signOut, setRole, prefs, setFeedback } = useAppState();
   const draft = useDraft();
   const [confirm, setConfirm] = useState(false);
   const c = session.customer;
@@ -48,11 +48,15 @@ export default function Account() {
         <ListRow icon="language-outline" title={t('account.language')} subtitle={locale === 'te' ? 'తెలుగు' : 'English'} testID="account-language"
           onPress={() => router.push({ pathname: '/language', params: { from: 'account' } })} />
         <Divider />
+        <ListRow icon="volume-high-outline" title={t('account.feedback')} subtitle={t('account.feedbackSub')} testID="account-feedback"
+          right={<Switch value={prefs.feedback} onValueChange={setFeedback} trackColor={{ true: colors.blue, false: colors.lineStrong }} thumbColor={colors.surface}
+            accessibilityLabel={t('account.feedback')} testID="account-feedback-switch" />} />
+        <Divider />
         <ListRow icon="flask-outline" title={t('account.demo')} onPress={() => router.push('/demo')} testID="account-demo" />
         <Divider />
         <ListRow icon="construct-outline" title={t('account.switch')} testID="account-switch" onPress={() => {
           setRole('TECHNICIAN');
-          resetTo('/technician');
+          resetTo('/');
         }} />
         <Divider />
         <ListRow icon="document-text-outline" title={t('account.legal')} onPress={() => router.push('/legal')} />

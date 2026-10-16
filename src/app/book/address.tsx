@@ -1,8 +1,9 @@
-// Step 3: choose a saved address or add a new one.
+// Step 2 of 4: use the current location, pick a saved address, or add a new one.
 import { Redirect, router } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { PinArt } from '../../illustrations/Scenes';
+import { Art3D } from '../../illustrations/Art3D';
+import { LocateCard } from '../../ui/LocateCard';
 import { useI18n } from '../../i18n/I18n';
 import { useBackend, useQuery, useRefetchOnReturn } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
@@ -35,15 +36,16 @@ export default function AddressStep() {
   return (
     <Screen
       testID="book-address"
-      header={<StepHeader step={3} />}
-      footer={<Button label={t('address.use')} trailingIcon="arrow-forward" disabled={!chosen} onPress={() => router.push('/book/schedule')} testID="address-next" />}
+      header={<StepHeader step={2} />}
+      footer={<Button label={t('address.use')} trailingIcon="arrow-forward" disabled={!chosen} onPress={() => router.push('/book/when')} testID="address-next" />}
     >
       <View style={styles.head}>
         <View style={styles.flex}>
           <Txt variant="title1" heading>{t('address.title')}</Txt>
         </View>
-        <PinArt size={84} />
+        <Art3D name="pin" size={72} float />
       </View>
+      <LocateCard select />
       {q.loading && !q.data ? <><Skeleton style={styles.skel} /><Skeleton style={styles.skel} /></> : null}
       {q.error ? <ErrorView error={q.error} onRetry={q.reload} title={t('address.loadError')} /> : null}
       {q.data && list.length === 0 ? <Txt variant="callout" color="inkMuted">{t('address.empty')}</Txt> : null}

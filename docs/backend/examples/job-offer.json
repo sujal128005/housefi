@@ -1,0 +1,22 @@
+{
+  "id": "ofr_9d01",
+  "bookingId": "bkg_2c91",
+  "code": "HF-48291",
+  "serviceId": "plumb-tap",
+  "categoryId": "PLUMBING",
+  "issueIds": [
+    "tap-leak"
+  ],
+  "notes": "Leaks more when the hot water is on",
+  "photoCount": 1,
+  "area": "Banjara Hills, Hyderabad",
+  "pincode": "500034",
+  "time": {
+    "mode": "INSTANT",
+    "window": null
+  },
+  "distanceKm": 2.4,
+  "visitEarning": 30,
+  "createdAt": 1792152060000,
+  "expiresAt": 1792152105000
+}

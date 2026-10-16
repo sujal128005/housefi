@@ -1,7 +1,7 @@
 // Demo settings: choose what the simulated backend does (matching outcome, a one-off failure) and reset demo data.
 import { useEffect, useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
-import type { MatchingScenario } from '../domain/rules';
+import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
 import { useI18n } from '../i18n/I18n';
 import { resetTo } from '../navigation';
 import type { DemoSettings, FailNext } from '../services/api';
@@ -12,12 +12,15 @@ import { colors, space } from '../theme/tokens';
 import { Banner, Button, Card, ConfirmSheet, Divider, Header, RadioDot, Screen, Tap, Txt, useToast } from '../ui';
 
 const SCENARIOS: readonly MatchingScenario[] = ['QUICK', 'SLOW', 'NONE'];
+const PAYMENTS: readonly PaymentOutcome[] = ['SUCCESS', 'PENDING', 'FAILED'];
+const PRACTICE: readonly DemoSettings['practiceCustomer'][] = ['APPROVE', 'REVISION', 'DECLINE'];
+const REVIEWS: readonly DemoSettings['verification'][] = ['APPROVE', 'CORRECTION'];
 
 export default function DemoSettingsScreen() {
   const { t } = useI18n();
   const backend = useBackend();
   const toast = useToast();
-  const { signOut } = useAppState();
+  const { signOut, techSignOut } = useAppState();
   const draft = useDraft();
   const [s, setS] = useState<DemoSettings | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -48,6 +51,46 @@ export default function DemoSettingsScreen() {
             ))}
           </Card>
           <Card style={styles.card}>
+            <Txt variant="title3" heading>{t('demo.payment')}</Txt>
+            {PAYMENTS.map((m) => (
+              <Tap key={m} onPress={() => void update({ payment: m })} style={styles.option} accessibilityRole="radio" accessibilityState={{ selected: s.payment === m }}
+                accessibilityLabel={t(`demo.payment.${m}`)} testID={`demo-payment-${m}`}>
+                <RadioDot on={s.payment === m} />
+                <Txt variant="callout" style={styles.flex}>{t(`demo.payment.${m}`)}</Txt>
+              </Tap>
+            ))}
+            <Txt variant="footnote" color="inkMuted">{t('demo.paymentSub')}</Txt>
+          </Card>
+          <Card style={styles.card}>
+            <Txt variant="title3" heading>{t('demo.practice')}</Txt>
+            {PRACTICE.map((m) => (
+              <Tap key={m} onPress={() => void update({ practiceCustomer: m })} style={styles.option} accessibilityRole="radio" accessibilityState={{ selected: s.practiceCustomer === m }}
+                accessibilityLabel={t(`demo.practice.${m}`)} testID={`demo-practice-${m}`}>
+                <RadioDot on={s.practiceCustomer === m} />
+                <Txt variant="callout" style={styles.flex}>{t(`demo.practice.${m}`)}</Txt>
+              </Tap>
+            ))}
+            <Txt variant="footnote" color="inkMuted">{t('demo.practiceSub')}</Txt>
+            <Divider />
+            <Txt variant="title3" heading>{t('demo.review')}</Txt>
+            {REVIEWS.map((m) => (
+              <Tap key={m} onPress={() => void update({ verification: m })} style={styles.option} accessibilityRole="radio" accessibilityState={{ selected: s.verification === m }}
+                accessibilityLabel={t(`demo.review.${m}`)} testID={`demo-review-${m}`}>
+                <RadioDot on={s.verification === m} />
+                <Txt variant="callout" style={styles.flex}>{t(`demo.review.${m}`)}</Txt>
+              </Tap>
+            ))}
+          </Card>
+          <Card style={styles.card}>
+            <View style={styles.switchRow}>
+              <View style={styles.flex}>
+                <Txt variant="bodyStrong">{t('demo.extra')}</Txt>
+                <Txt variant="footnote" color="inkMuted">{t('demo.extraSub')}</Txt>
+              </View>
+              <Switch value={s.extraWork} onValueChange={(v) => void update({ extraWork: v })} testID="demo-extra"
+                trackColor={{ true: colors.demo, false: colors.lineStrong }} thumbColor={colors.surface} accessibilityLabel={t('demo.extra')} />
+            </View>
+            <Divider />
             <View style={styles.switchRow}>
               <View style={styles.flex}>
                 <Txt variant="bodyStrong">{t('demo.network')}</Txt>
@@ -76,6 +119,7 @@ export default function DemoSettingsScreen() {
             await backend.demo?.reset();
             draft.clear();
             await signOut();
+            await techSignOut();
             toast.show(t('demo.resetDone'), 'checkmark-circle');
             resetTo('/auth/phone');
           })();

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isActive } from '../../domain/rules';
-import { CalendarCheckArt, EmptyBoxArt } from '../../illustrations/Scenes';
+import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { useBackend, useQuery, useRefetchOnReturn } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
@@ -42,7 +42,7 @@ export default function Bookings() {
       {q.data && list.length === 0 ? (
         <EmptyState
           testID="bookings-empty"
-          art={tab === 'ACTIVE' ? <CalendarCheckArt size={140} /> : <EmptyBoxArt size={130} />}
+          art={tab === 'ACTIVE' ? <Art3D name="calendar" size={120} float shadow /> : <Art3D name="package" size={110} float shadow />}
           title={tab === 'ACTIVE' ? t('bookings.emptyActive') : t('bookings.emptyPast')}
           body={t('bookings.emptyBody')}
           action={t('bookings.bookNow')}

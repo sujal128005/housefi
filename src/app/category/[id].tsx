@@ -2,13 +2,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { categoryById } from '../../data/catalog';
-import { CategoryArt } from '../../illustrations/CategoryArt';
+import { Art3D } from '../../illustrations/Art3D';
 import { formatRupees } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { useBackend, useQuery } from '../../services/ServicesProvider';
 import { colors, radius, space } from '../../theme/tokens';
 import { Card, EmptyState, ErrorView, Header, Icon, Screen, Skeleton, Txt, Wash } from '../../ui';
-import { EmptyBoxArt } from '../../illustrations/Scenes';
 
 export default function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,7 +19,7 @@ export default function CategoryScreen() {
   if (!cat) {
     return (
       <Screen header={<Header />}>
-        <EmptyState art={<EmptyBoxArt />} title={t('error.generic')} action={t('common.back')} onAction={() => router.back()} />
+        <EmptyState art={<Art3D name="package" size={110} />} title={t('error.generic')} action={t('common.back')} onAction={() => router.back()} />
       </Screen>
     );
   }
@@ -33,7 +32,7 @@ export default function CategoryScreen() {
           <Txt variant="callout" color="inkMuted">{l(cat.tagline)}</Txt>
           {q.data ? <Txt variant="caption" color="blue" style={styles.count}>{t('catalog.count', { count: q.data.length })}</Txt> : null}
         </View>
-        <CategoryArt name={cat.art} size={96} />
+        <Art3D name={cat.art} size={104} float />
       </Wash>
       {q.error ? <ErrorView error={q.error} onRetry={q.reload} title={t('catalog.loadError')} /> : null}
       {q.loading ? Array.from({ length: 3 }, (_, k) => <Skeleton key={k} style={styles.skel} />) : null}
@@ -47,7 +46,7 @@ export default function CategoryScreen() {
                 <Icon name="star" size={14} color="yellow" />
                 <Txt variant="caption" color="inkMuted">{s.rating.toFixed(1)}</Txt>
                 <View style={styles.dot} />
-                <Txt variant="caption" color="blue">{t('catalog.visitFee', { fee: formatRupees(s.visitFee) })}</Txt>
+                <Txt variant="caption" color="blue">{t('catalog.visitOnly', { fee: formatRupees(s.visitFee) })}</Txt>
               </View>
             </View>
             <View style={styles.go}><Icon name="chevron-forward" size={18} color="navy" /></View>

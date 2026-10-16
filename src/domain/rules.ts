@@ -1,8 +1,7 @@
-// Pure rules the screens and the mock backend share: input validation, visit slots, search, and how a booking's
-// matching status moves over time. No React, no storage, so they are easy to unit test.
-import type { AddressInput, BookingStatus, Service, Slot, VisitWindow } from './types';
+// Pure rules the screens and the mock backend share: input validation, visit slots, search, money, and the booking
+// lifecycle (what can happen next, demo timings). No React, no storage, so they are easy to unit test.
 import { CATEGORIES, SERVICES } from '../data/catalog';
-import type { Category } from './types';
+import type { AddressInput, BookingStatus, Category, Quote, QuoteLine, Service, Slot, VisitWindow } from './types';
 
 // ---------- validation ----------
 
@@ -17,31 +16,40 @@ export function isValidName(name: string): boolean {
   return n.length >= 2 && n.length <= 60 && /\p{L}/u.test(n);
 }
 
-/** Demo service area: Hyderabad PIN codes 500001-500099. */
-export function pincodeProblem(pin: string): 'INVALID' | 'OUTSIDE' | null {
-  if (!/^\d{6}$/.test(pin)) return 'INVALID';
-  const n = Number(pin);
-  return n >= 500001 && n <= 500099 ? null : 'OUTSIDE';
+/** Indian PIN codes: 6 digits, not starting with 0. */
+export function isValidPincode(pin: string): boolean {
+  return /^[1-9]\d{5}$/.test(pin);
 }
 
-export type AddressField = 'house' | 'street' | 'pincode';
-export type AddressErrors = Partial<Record<AddressField, 'REQUIRED' | 'INVALID' | 'OUTSIDE'>>;
+export type AddressField = 'house' | 'street' | 'city' | 'pincode';
+export type AddressErrors = Partial<Record<AddressField, 'REQUIRED' | 'INVALID'>>;
 
 export function validateAddress(a: AddressInput): AddressErrors {
   const e: AddressErrors = {};
   if (a.house.trim().length < 2) e.house = 'REQUIRED';
   if (a.street.trim().length < 3) e.street = 'REQUIRED';
-  const pin = pincodeProblem(a.pincode.trim());
-  if (pin) e.pincode = a.pincode.trim() === '' ? 'REQUIRED' : pin;
+  if (a.city.trim().length < 2) e.city = 'REQUIRED';
+  const pin = a.pincode.trim();
+  if (pin === '') e.pincode = 'REQUIRED';
+  else if (!isValidPincode(pin)) e.pincode = 'INVALID';
   return e;
 }
 
-// ---------- slots ----------
+// ---------- visit time ----------
 
 export const SLOT_HOURS: readonly (readonly [number, number])[] = [[8, 10], [10, 12], [12, 14], [14, 16], [16, 18], [18, 20]];
 export const BOOKABLE_DAYS = 7;
 /** A slot can be booked until this many minutes before it starts. */
 export const SLOT_CUTOFF_MIN = 60;
+/** Instant visits are offered between these hours. */
+export const INSTANT_HOURS: readonly [number, number] = [7, 21];
+/** Typical arrival time promised for an instant visit. */
+export const INSTANT_ETA_MIN: readonly [number, number] = [45, 60];
+
+export function isInstantAvailable(now: Date): boolean {
+  const h = now.getHours();
+  return h >= INSTANT_HOURS[0] && h < INSTANT_HOURS[1];
+}
 
 export function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -100,20 +108,148 @@ export function search(query: string): SearchResult {
   };
 }
 
-// ---------- matching timeline (demo backend) ----------
+// ---------- money ----------
+
+export function lineTotal(l: QuoteLine): number {
+  return l.qty * l.unitPrice;
+}
+
+export function quoteTotal(lines: readonly QuoteLine[]): number {
+  return lines.reduce((sum, l) => sum + lineTotal(l), 0);
+}
+
+// ---------- quotes and earnings ----------
+
+/** Smallest repair quote (labour + materials). */
+export const QUOTE_MIN = 100;
+/** A single quote line above this goes to a reviewer. */
+export const QUOTE_LINE_REVIEW = 5000;
+/** Wrong start codes allowed before the visit is locked. */
+export const START_CODE_ATTEMPTS = 5;
+/** What the technician earns from the ₹49 visit fee, and their share of labour (materials are reimbursed in full). */
+export const TECH_VISIT_SHARE = 30;
+export const TECH_LABOUR_SHARE = 0.8;
+/** How many lower-price requests a customer can make. */
+export const MAX_QUOTE_VERSIONS = 3;
+
+export interface QuoteLineDraft {
+  readonly kind: QuoteLine['kind'];
+  readonly name: string;
+  readonly qty: number;
+  readonly unitPrice: number;
+}
+
+export type QuoteProblem = 'NO_LINES' | 'NO_LABOUR' | 'BAD_LINE' | 'BELOW_MIN' | 'NO_DIAGNOSIS';
+
+/** Checks a technician's quote before it is sent. */
+export function quoteProblem(diagnosis: string, lines: readonly QuoteLineDraft[]): QuoteProblem | null {
+  if (lines.length === 0) return 'NO_LINES';
+  if (lines.some((l) => l.name.trim() === '' || !Number.isInteger(l.qty) || l.qty < 1 || l.qty > 99 || !Number.isInteger(l.unitPrice) || l.unitPrice < 1 || l.unitPrice > 100_000)) return 'BAD_LINE';
+  if (!lines.some((l) => l.kind === 'LABOUR')) return 'NO_LABOUR';
+  if (lines.reduce((s, l) => s + l.qty * l.unitPrice, 0) < QUOTE_MIN) return 'BELOW_MIN';
+  if (diagnosis.trim().length < 3) return 'NO_DIAGNOSIS';
+  return null;
+}
+
+/** Usual price range for a service, used by the price check. */
+export function typicalRange(service: Pick<Service, 'repairFrom'> | undefined): readonly [number, number] {
+  const from = service?.repairFrom ?? QUOTE_MIN;
+  return [from, from * 4];
+}
+
+/** The (rule-based) AI price check: fair, or needs a reviewer. */
+export function priceCheck(service: Pick<Service, 'repairFrom'> | undefined, lines: readonly QuoteLine[]): 'FAIR' | 'UNDER_REVIEW' {
+  const [, max] = typicalRange(service);
+  const total = quoteTotal(lines);
+  return total > max * 1.5 || lines.some((l) => lineTotal(l) > QUOTE_LINE_REVIEW) ? 'UNDER_REVIEW' : 'FAIR';
+}
+
+export function labourTotal(lines: readonly QuoteLine[]): number {
+  return lines.filter((l) => l.kind === 'LABOUR').reduce((s, l) => s + lineTotal(l), 0);
+}
+
+export function materialTotal(lines: readonly QuoteLine[]): number {
+  return lines.filter((l) => l.kind === 'MATERIAL').reduce((s, l) => s + lineTotal(l), 0);
+}
+
+interface EarningInput {
+  readonly status: BookingStatus;
+  readonly visitPayment: { readonly state: string };
+  readonly quote: Quote | null;
+  readonly extraQuote: Quote | null;
+}
+
+/** What a job earns the technician: visit share once the visit fee is kept, plus labour share and materials of approved work. */
+export function earningFor(j: EarningInput): number {
+  const visitKept = j.visitPayment.state === 'PAID' && j.status !== 'AWAITING_PAYMENT';
+  let sum = visitKept ? TECH_VISIT_SHARE : 0;
+  if (j.status === 'CLOSED_NO_REPAIR' || j.status === 'CANCELLED') return sum;
+  for (const q of [j.quote, j.extraQuote]) {
+    if (q?.decision === 'APPROVED') sum += Math.round(labourTotal(q.lines) * TECH_LABOUR_SHARE) + materialTotal(q.lines);
+  }
+  return sum;
+}
+
+/** Earnings are paid out weekly, every Monday. */
+export function nextPayoutDate(now: Date): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const add = ((8 - d.getDay()) % 7) || 7;
+  d.setDate(d.getDate() + add);
+  return isoDate(d);
+}
+
+/** Start of the current payout week (Monday 00:00). */
+export function weekStart(now: Date): number {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+/** What the customer pays at the end: the approved quote plus approved extra work. */
+export function finalAmount(quote: Quote | null, extra: Quote | null): number {
+  return (quote?.decision === 'APPROVED' ? quote.total : 0) + (extra?.decision === 'APPROVED' ? extra.total : 0);
+}
+
+// ---------- lifecycle ----------
 
 export type MatchingScenario = 'QUICK' | 'SLOW' | 'NONE';
+export type PaymentOutcome = 'SUCCESS' | 'PENDING' | 'FAILED';
 
-/** Seconds after matching starts at which the demo backend moves the booking on. */
-export const MATCHING_TIMELINE: Readonly<Record<MatchingScenario, { delayedAt: number | null; endAt: number; end: BookingStatus }>> = {
-  QUICK: { delayedAt: null, endAt: 8, end: 'ASSIGNED' },
-  SLOW: { delayedAt: 7, endAt: 20, end: 'ASSIGNED' },
-  NONE: { delayedAt: 7, endAt: 16, end: 'UNFULFILLED' },
-};
+/** Demo timings in seconds. Real visits take far longer; the demo is sped up and says so. */
+export const DEMO_TIMING = {
+  matching: {
+    QUICK: { delayedAt: null as number | null, endAt: 8, end: 'ASSIGNED' as BookingStatus },
+    SLOW: { delayedAt: 7 as number | null, endAt: 20, end: 'ASSIGNED' as BookingStatus },
+    NONE: { delayedAt: 7 as number | null, endAt: 16, end: 'UNFULFILLED' as BookingStatus },
+  },
+  paymentPendingSec: 8,
+  startTravelSec: 4,
+  travelSec: 40,
+  /** What a full trip "looks like" in minutes on screen. */
+  travelShownMin: 18,
+  verifyOtpSec: 15,
+  inspectSec: 12,
+  extraWorkAtSec: 9,
+  workSec: 16,
+  workAfterExtraSec: 12,
+  /** AI price check of a technician quote, then (if flagged) the reviewer. */
+  quoteCheckSec: 3,
+  quoteReviewSec: 8,
+  /** The simulated technician sends a lower quote after a revision request. */
+  revisionSec: 6,
+  /** The simulated technician confirms a cash payment. */
+  cashConfirmSec: 4,
+  /** The simulated customer of a practice job answers a quote / pays. */
+  practiceAnswerSec: 6,
+  /** Technician profile review. */
+  verificationSec: 8,
+  /** A job offer waits this long for the technician. */
+  offerSec: 45,
+} as const;
 
 /** The matching status a booking should show `elapsedSec` after matching started. */
 export function matchingStatusAt(scenario: MatchingScenario, elapsedSec: number): BookingStatus {
-  const t = MATCHING_TIMELINE[scenario];
+  const t = DEMO_TIMING.matching[scenario];
   if (elapsedSec >= t.endAt) return t.end;
   if (t.delayedAt !== null && elapsedSec >= t.delayedAt) return 'MATCHING_DELAYED';
   return 'MATCHING';
@@ -127,15 +263,64 @@ export function matchingStep(elapsedSec: number): number {
   return 3;
 }
 
-export function isActive(status: BookingStatus): boolean {
-  return status !== 'CANCELLED';
+/** Minutes left on screen while the technician travels. */
+export function etaMinutes(remainingSec: number): number {
+  const frac = Math.max(0, Math.min(1, remainingSec / DEMO_TIMING.travelSec));
+  return Math.max(1, Math.ceil(frac * DEMO_TIMING.travelShownMin));
 }
 
-/** A booking can be cancelled for free until the technician starts travelling (not modelled before Path 2). */
+const ACTIVE: readonly BookingStatus[] = [
+  'AWAITING_PAYMENT', 'PAYMENT_PENDING', 'MATCHING', 'MATCHING_DELAYED', 'UNFULFILLED', 'ASSIGNED', 'EN_ROUTE', 'ARRIVED',
+  'INSPECTING', 'QUOTE_SHARED', 'IN_PROGRESS', 'EXTRA_WORK', 'PAYMENT_DUE',
+];
+
+export function isActive(status: BookingStatus): boolean {
+  return ACTIVE.includes(status);
+}
+
+/** A booking can be cancelled until the technician is at the door. */
 export function canCancel(status: BookingStatus): boolean {
-  return status !== 'CANCELLED';
+  return ['AWAITING_PAYMENT', 'MATCHING', 'MATCHING_DELAYED', 'UNFULFILLED', 'ASSIGNED', 'EN_ROUTE'].includes(status);
+}
+
+/** The ₹49 visit fee is refunded if the booking is cancelled before the technician starts travelling. */
+export function cancelRefundsVisitFee(status: BookingStatus): boolean {
+  return ['MATCHING', 'MATCHING_DELAYED', 'UNFULFILLED', 'ASSIGNED'].includes(status);
 }
 
 export function canReschedule(status: BookingStatus): boolean {
   return status === 'MATCHING_DELAYED' || status === 'UNFULFILLED' || status === 'ASSIGNED';
+}
+
+/** The visit is under way: show safety tools (SOS, share live status). */
+export function isVisitLive(status: BookingStatus): boolean {
+  return ['EN_ROUTE', 'ARRIVED', 'INSPECTING', 'QUOTE_SHARED', 'IN_PROGRESS', 'EXTRA_WORK'].includes(status);
+}
+
+/** Customer-facing progress steps and which one a status belongs to. */
+export const PROGRESS_STEPS = ['booked', 'assigned', 'onTheWay', 'repair', 'done'] as const;
+export type ProgressStep = (typeof PROGRESS_STEPS)[number];
+
+export function progressIndex(status: BookingStatus): number {
+  switch (status) {
+    case 'AWAITING_PAYMENT':
+    case 'PAYMENT_PENDING':
+    case 'MATCHING':
+    case 'MATCHING_DELAYED':
+    case 'UNFULFILLED':
+      return 0;
+    case 'ASSIGNED':
+      return 1;
+    case 'EN_ROUTE':
+    case 'ARRIVED':
+      return 2;
+    case 'INSPECTING':
+    case 'QUOTE_SHARED':
+    case 'IN_PROGRESS':
+    case 'EXTRA_WORK':
+    case 'PAYMENT_DUE':
+      return 3;
+    default:
+      return 4;
+  }
 }

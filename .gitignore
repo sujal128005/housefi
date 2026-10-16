@@ -43,3 +43,6 @@ yarn-error.*
 # journey output from CI / local runs outside docs
 ci-screens/
 build/
+
+# Files prepared to send outside the repo
+handoff/

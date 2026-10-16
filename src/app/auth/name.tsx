@@ -3,12 +3,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { isValidName } from '../../domain/rules';
-import { Mascot } from '../../illustrations/Mascot';
+import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
 import { useBackend } from '../../services/ServicesProvider';
 import { useAppState } from '../../state/AppState';
-import { space } from '../../theme/tokens';
 import { Button, ErrorBanner, Field, Header, Screen, Txt } from '../../ui';
 
 export default function NameStep() {
@@ -47,7 +46,7 @@ export default function NameStep() {
       header={<Header back={editing} />}
       footer={<Button label={editing ? t('common.save') : t('common.continue')} onPress={save} loading={busy} disabled={name.trim().length === 0} testID="name-save" />}
     >
-      <View style={styles.art}><Mascot pose="wave" size={150} /></View>
+      <View style={styles.art}><Art3D name="wave" size={110} float shadow /></View>
       <Txt variant="title1" heading>{t('auth.profile.title')}</Txt>
       <Txt variant="body" color="inkMuted">{t('auth.profile.body')}</Txt>
       <Field

@@ -17,6 +17,8 @@ import { BookingDraftProvider } from '../state/BookingDraft';
 import { FONT_ASSETS } from '../theme/fonts';
 import { colors } from '../theme/tokens';
 import { ToastProvider } from '../ui';
+import { CustomerAlerts } from '../ui/Notifications';
+import { TechAlerts } from '../ui/TechAlerts';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 // Dev-only noise from the emulator's dev-tools socket; it is not an app problem and its toast covers the footer.
@@ -58,7 +60,16 @@ function Shell({ fontsReady }: { readonly fontsReady: boolean }) {
             <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
             <Stack.Screen name="book/voice" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="book/confirmed" options={{ animation: 'fade', gestureEnabled: false }} />
+            <Stack.Screen name="pay" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+            <Stack.Screen name="book/snap" options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="support" options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="tech/(tabs)" options={{ animation: 'fade' }} />
+            <Stack.Screen name="tech/offer/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+            <Stack.Screen name="tech/quote/[id]" options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="tech/verification" options={{ animation: 'fade', gestureEnabled: false }} />
           </Stack>
+          <CustomerAlerts />
+          <TechAlerts />
         </ToastProvider>
       </BookingDraftProvider>
     </I18nProvider>

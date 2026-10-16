@@ -119,18 +119,40 @@ export function DemoPill() {
 }
 
 const STATUS_TONE: Record<BookingStatus, PillTone> = {
+  AWAITING_PAYMENT: 'warning',
+  PAYMENT_PENDING: 'warning',
   MATCHING: 'info',
   MATCHING_DELAYED: 'warning',
-  ASSIGNED: 'success',
   UNFULFILLED: 'danger',
+  ASSIGNED: 'success',
+  EN_ROUTE: 'info',
+  ARRIVED: 'success',
+  INSPECTING: 'info',
+  QUOTE_SHARED: 'warning',
+  IN_PROGRESS: 'info',
+  EXTRA_WORK: 'warning',
+  PAYMENT_DUE: 'warning',
+  COMPLETED: 'success',
+  CLOSED_NO_REPAIR: 'neutral',
   CANCELLED: 'neutral',
 };
 
 const STATUS_ICON: Record<BookingStatus, IconName> = {
+  AWAITING_PAYMENT: 'card',
+  PAYMENT_PENDING: 'hourglass',
   MATCHING: 'search',
   MATCHING_DELAYED: 'time',
-  ASSIGNED: 'checkmark-circle',
   UNFULFILLED: 'alert-circle',
+  ASSIGNED: 'checkmark-circle',
+  EN_ROUTE: 'bicycle',
+  ARRIVED: 'location',
+  INSPECTING: 'eye',
+  QUOTE_SHARED: 'document-text',
+  IN_PROGRESS: 'construct',
+  EXTRA_WORK: 'add-circle',
+  PAYMENT_DUE: 'wallet',
+  COMPLETED: 'checkmark-done-circle',
+  CLOSED_NO_REPAIR: 'remove-circle',
   CANCELLED: 'close-circle',
 };
 

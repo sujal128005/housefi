@@ -1,0 +1,17 @@
+{
+  "today": 422,
+  "jobsToday": 2,
+  "total": 18640,
+  "pendingPayout": 1310,
+  "nextPayoutOn": "2026-10-19",
+  "entries": [
+    {
+      "jobId": "bkg_2c91",
+      "code": "HF-48291",
+      "serviceId": "plumb-tap",
+      "amount": 326,
+      "at": 1792155600000,
+      "payout": "PENDING"
+    }
+  ]
+}
