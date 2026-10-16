@@ -1,0 +1,35 @@
+{
+  "area": "Banjara Hills, Hyderabad",
+  "items": [
+    {
+      "serviceId": "ac-service",
+      "issueId": "acs-cool",
+      "recentCount": 42
+    },
+    {
+      "serviceId": "plumb-tap",
+      "issueId": "tap-leak",
+      "recentCount": 31
+    },
+    {
+      "serviceId": "elec-fan",
+      "issueId": "fan-dead",
+      "recentCount": 27
+    },
+    {
+      "serviceId": "app-washer",
+      "issueId": "wm-drain",
+      "recentCount": 19
+    },
+    {
+      "serviceId": "plumb-block",
+      "issueId": "blk-sink",
+      "recentCount": 15
+    },
+    {
+      "serviceId": "elec-switch",
+      "issueId": "sw-dead",
+      "recentCount": 12
+    }
+  ]
+}

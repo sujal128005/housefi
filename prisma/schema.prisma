@@ -1,0 +1,13 @@
+// Housefi database. Models are added feature by feature (auth, catalog, bookings, ...), each with a committed
+// migration, following docs/schema.sql. Money is stored in paise (BigInt); the API speaks whole rupees.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, pgcrypto]
+}

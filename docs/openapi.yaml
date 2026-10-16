@@ -1,0 +1,1162 @@
+openapi: 3.1.0
+info:
+  title: Housefi API
+  version: 1.0.0-draft
+  description: |
+    Contract between the Housefi app (customer + technician) and the backend.
+    Mirrors src/services/api.ts and src/domain/types.ts in the app repo. If they disagree, the app files win; raise it.
+    Conventions: JSON camelCase; money = integer rupees; timestamps = epoch milliseconds; dates = "YYYY-MM-DD" (IST);
+    errors = { "error": { "code", "message", ... } } with the codes in ErrorBody.
+servers:
+  - url: http://localhost:4000/v1
+    description: local
+  - url: https://api.housefi.app/v1
+    description: production (placeholder)
+security:
+  - bearer: []
+tags:
+  - name: auth
+  - name: me
+  - name: catalog
+  - name: addresses
+  - name: bookings
+  - name: payments
+  - name: uploads
+  - name: ai
+  - name: notifications
+  - name: support
+  - name: technician
+  - name: coordinator
+
+paths:
+  # ---------------- auth ----------------
+  /auth/otp/request:
+    post:
+      tags: [auth]
+      security: []
+      summary: Send a 6-digit SMS code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, role]
+              properties:
+                phone: { type: string, pattern: '^[6-9][0-9]{9}$', description: '10-digit Indian mobile, without +91' }
+                role: { type: string, enum: [CUSTOMER, TECHNICIAN] }
+      responses:
+        '200':
+          description: Code sent
+          content: { application/json: { schema: { $ref: '#/components/schemas/OtpChallenge' } } }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/otp/verify:
+    post:
+      tags: [auth]
+      security: []
+      summary: Verify the code; signs in or signs up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeId, code]
+              properties:
+                challengeId: { type: string }
+                code: { type: string, pattern: '^[0-9]{6}$' }
+      responses:
+        '200':
+          description: Signed in. Exactly one of customer / technician is present, matching the challenge role.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuthResult' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/refresh:
+    post:
+      tags: [auth]
+      security: []
+      summary: Rotate the refresh token (call at app start and on 401)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [refreshToken], properties: { refreshToken: { type: string } } }
+      responses:
+        '200':
+          description: New token pair
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuthResult' } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the refresh token
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { refreshToken: { type: string } } }
+      responses:
+        '204': { description: Signed out }
+
+  # ---------------- me ----------------
+  /me:
+    get:
+      tags: [me]
+      summary: Signed-in customer
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Customer' } } } }
+    patch:
+      tags: [me]
+      summary: Update name and/or language
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 2, maxLength: 60 }
+                locale: { $ref: '#/components/schemas/Locale' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Customer' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [me]
+      summary: Delete account (DPDP erasure; bookings are anonymised)
+      responses:
+        '204': { description: Deleted }
+        '409': { $ref: '#/components/responses/Error' }
+
+  # ---------------- catalog ----------------
+  /catalog/categories:
+    get:
+      tags: [catalog]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Category' } } } }
+  /catalog/services:
+    get:
+      tags: [catalog]
+      security: []
+      parameters:
+        - { name: categoryId, in: query, schema: { $ref: '#/components/schemas/CategoryId' } }
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Service' } } } }
+  /catalog/services/{serviceId}:
+    get:
+      tags: [catalog]
+      security: []
+      parameters:
+        - { name: serviceId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Service' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  # ---------------- addresses ----------------
+  /addresses:
+    get:
+      tags: [addresses]
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Address' } } } }
+    post:
+      tags: [addresses]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AddressInput' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Address' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+  /addresses/{addressId}:
+    parameters:
+      - { name: addressId, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [addresses]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AddressInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Address' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [addresses]
+      responses:
+        '204': { description: Removed (soft delete; past bookings keep their copy) }
+
+  # ---------------- slots + bookings ----------------
+  /slots:
+    get:
+      tags: [bookings]
+      summary: Six 2-hour windows (8-20) for a date; CLOSED within 60 min of start
+      parameters:
+        - { name: serviceId, in: query, required: true, schema: { type: string } }
+        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Slot' } } } }
+  /bookings:
+    get:
+      tags: [bookings]
+      parameters:
+        - { name: scope, in: query, schema: { type: string, enum: [active, past, all], default: all } }
+      responses:
+        '200':
+          description: Newest first
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Booking' } } } }
+    post:
+      tags: [bookings]
+      summary: Create a booking (waits for the ₹49 visit fee)
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 64 } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/NewBooking' } } }
+      responses:
+        '201': { description: Created (status AWAITING_PAYMENT), content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    get:
+      tags: [bookings]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/stream:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    get:
+      tags: [bookings]
+      summary: Live updates (Server-Sent Events). Each event `booking` carries the full Booking JSON.
+      responses:
+        '200': { description: text/event-stream, content: { text/event-stream: { schema: { type: string } } } }
+  /bookings/{bookingId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    post:
+      tags: [bookings]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { reason: { oneOf: [{ $ref: '#/components/schemas/CancelReason' }, { type: 'null' }] } } }
+      responses:
+        '200': { description: Cancelled (visitPayment REFUNDED if before EN_ROUTE), content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/reschedule:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    post:
+      tags: [bookings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [time], properties: { time: { $ref: '#/components/schemas/VisitTime' } } }
+      responses:
+        '200': { description: Back to MATCHING, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/quotes/{which}/answer:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+      - { name: which, in: path, required: true, schema: { type: string, enum: [MAIN, EXTRA] } }
+    post:
+      tags: [bookings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answer]
+              properties:
+                answer: { type: string, enum: [APPROVE, REVISION, DECLINE], description: REVISION only for MAIN }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/rating:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    post:
+      tags: [bookings]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RatingInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/call:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    post:
+      tags: [bookings]
+      summary: Masked call to the assigned technician (later; Exotel bridge)
+      responses:
+        '200':
+          description: Number to dial; it connects to the technician without revealing either number
+          content: { application/json: { schema: { type: object, properties: { dialNumber: { type: string } } } } }
+
+  # ---------------- payments ----------------
+  /bookings/{bookingId}/payments:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    post:
+      tags: [payments]
+      summary: Start paying the visit fee (VISIT) or the bill (FINAL). CASH only for FINAL.
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, method]
+              properties:
+                kind: { type: string, enum: [VISIT, FINAL] }
+                method: { $ref: '#/components/schemas/PaymentMethod' }
+      responses:
+        '200':
+          description: Razorpay order to open in the checkout sheet, or the booking (cash, waiting for the technician to confirm)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/PaymentOrder'
+                  - $ref: '#/components/schemas/Booking'
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /payments/{paymentId}/verify:
+    parameters:
+      - { name: paymentId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [payments]
+      summary: Called after the Razorpay sheet returns; verifies the signature server-side
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [razorpayOrderId, razorpayPaymentId, razorpaySignature]
+              properties:
+                razorpayOrderId: { type: string }
+                razorpayPaymentId: { type: string }
+                razorpaySignature: { type: string }
+      responses:
+        '200': { description: Result, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentResult' } } } }
+        '402': { $ref: '#/components/responses/Error' }
+  /webhooks/razorpay:
+    post:
+      tags: [payments]
+      security: []
+      summary: Razorpay events (payment.captured, payment.failed, refund.processed). Verify X-Razorpay-Signature; dedupe by event id.
+      responses:
+        '200': { description: Accepted }
+
+  # ---------------- uploads ----------------
+  /uploads/photos:
+    post:
+      tags: [uploads]
+      summary: Get a signed URL to PUT one photo (jpeg/png/heic, max 8 MB). EXIF location is stripped server-side.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentType, bytes]
+              properties:
+                contentType: { type: string, enum: [image/jpeg, image/png, image/heic] }
+                bytes: { type: integer, maximum: 8388608 }
+                stage: { type: string, enum: [PROBLEM, INSPECTION, COMPLETION], default: PROBLEM }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UploadTicket' } } } }
+  /uploads/audio:
+    post:
+      tags: [uploads]
+      summary: Signed URL for one voice note (audio/m4a, max 2 MB, max 60 s)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentType, bytes]
+              properties:
+                contentType: { type: string, enum: [audio/m4a, audio/mp4, audio/aac] }
+                bytes: { type: integer, maximum: 2097152 }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UploadTicket' } } } }
+
+  # ---------------- ai ----------------
+  /ai/top-problems:
+    get:
+      tags: [ai]
+      summary: The 6 problems most booked around a PIN code (city-wide if no PIN)
+      parameters:
+        - { name: pincode, in: query, schema: { type: string, pattern: '^[1-9][0-9]{5}$' } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/LocalTopProblems' } } } }
+  /ai/classify-photo:
+    post:
+      tags: [ai]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [photoId], properties: { photoId: { type: string } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PhotoSuggestion' } } } }
+  /ai/transcribe:
+    post:
+      tags: [ai]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [audioId, locale]
+              properties:
+                audioId: { type: string }
+                serviceId: { type: [string, 'null'] }
+                locale: { $ref: '#/components/schemas/Locale' }
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: object, properties: { text: { type: string } } } } }
+  /ai/chat:
+    post:
+      tags: [ai]
+      summary: Support assistant. Answers only about the caller's own bookings; offers a human when unsure.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message, locale]
+              properties:
+                message: { type: string, maxLength: 1000 }
+                locale: { $ref: '#/components/schemas/Locale' }
+                conversationId: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ChatReply' } } } }
+
+  # ---------------- notifications ----------------
+  /notifications:
+    get:
+      tags: [notifications]
+      summary: Inbox for the signed-in user (either role), newest first
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AppNotification' } } } }
+  /notifications/read:
+    post:
+      tags: [notifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [ids], properties: { ids: { type: array, items: { type: string } } } }
+      responses:
+        '204': { description: OK }
+  /devices:
+    post:
+      tags: [notifications]
+      summary: Register this device's push token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pushToken, platform]
+              properties:
+                pushToken: { type: string }
+                platform: { type: string, enum: [ios, android, web] }
+      responses:
+        '204': { description: OK }
+
+  # ---------------- support ----------------
+  /support/callback:
+    post:
+      tags: [support]
+      summary: Ask customer care to call back
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingId: { type: string }
+                reason: { type: string, maxLength: 300 }
+      responses:
+        '201': { description: OK, content: { application/json: { schema: { type: object, properties: { ticketId: { type: string } } } } } }
+  /support/tickets:
+    post:
+      tags: [support]
+      summary: Raise an issue (customer SOS "alert team" uses kind UNSAFE, priority URGENT)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                bookingId: { type: string }
+                kind: { type: string, enum: [UNSAFE, PAYMENT_PROBLEM, OTHER] }
+                note: { type: string, maxLength: 1000 }
+      responses:
+        '201': { description: OK, content: { application/json: { schema: { type: object, properties: { ticketId: { type: string } } } } } }
+
+  # ---------------- technician ----------------
+  /tech/me:
+    get:
+      tags: [technician]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechProfile' } } } }
+  /tech/profile:
+    put:
+      tags: [technician]
+      summary: Submit or correct the profile; verification becomes PENDING
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/TechProfileInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechProfile' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+  /tech/availability:
+    post:
+      tags: [technician]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [online], properties: { online: { type: boolean } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechProfile' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+  /tech/location:
+    post:
+      tags: [technician]
+      summary: Location while online / on a job (every 60 s). Never shown to customers before EN_ROUTE.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lat, lng]
+              properties:
+                lat: { type: number }
+                lng: { type: number }
+                accuracy: { type: number }
+      responses:
+        '204': { description: OK }
+  /tech/offers/current:
+    get:
+      tags: [technician]
+      responses:
+        '200':
+          description: The open offer for me, or null
+          content: { application/json: { schema: { oneOf: [{ $ref: '#/components/schemas/JobOffer' }, { type: 'null' }] } } }
+  /tech/offers/{offerId}/accept:
+    parameters:
+      - { name: offerId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [technician]
+      responses:
+        '200': { description: Assigned, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } }
+        '410': { $ref: '#/components/responses/Error' }
+  /tech/offers/{offerId}/reject:
+    parameters:
+      - { name: offerId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [technician]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { oneOf: [{ type: string, enum: [TOO_FAR, BUSY, NOT_MY_SKILL, OTHER] }, { type: 'null' }] }
+      responses:
+        '204': { description: OK }
+  /tech/jobs:
+    get:
+      tags: [technician]
+      parameters:
+        - { name: scope, in: query, schema: { type: string, enum: [active, past, all], default: all } }
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Job' } } } }
+  /tech/jobs/{jobId}:
+    parameters:
+      - $ref: '#/components/parameters/JobId'
+    get:
+      tags: [technician]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /tech/jobs/{jobId}/stream:
+    parameters:
+      - $ref: '#/components/parameters/JobId'
+    get:
+      tags: [technician]
+      summary: Live updates (SSE), event `job` with the full Job
+      responses:
+        '200': { description: text/event-stream, content: { text/event-stream: { schema: { type: string } } } }
+  /tech/jobs/{jobId}/start-trip:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post: { tags: [technician], responses: { '200': { $ref: '#/components/responses/JobOk' }, '409': { $ref: '#/components/responses/Error' } } }
+  /tech/jobs/{jobId}/arrived:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post: { tags: [technician], responses: { '200': { $ref: '#/components/responses/JobOk' }, '409': { $ref: '#/components/responses/Error' } } }
+  /tech/jobs/{jobId}/verify-start-code:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post:
+      tags: [technician]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [code], properties: { code: { type: string, pattern: '^[0-9]{4}$' } } }
+      responses:
+        '200': { $ref: '#/components/responses/JobOk' }
+        '400': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /tech/jobs/{jobId}/quotes:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post:
+      tags: [technician]
+      summary: Send the repair quote (MAIN) or extra work (EXTRA). Price-checked before the customer sees it.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/QuoteInput' } } }
+      responses:
+        '200': { $ref: '#/components/responses/JobOk' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /tech/jobs/{jobId}/start-work:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post: { tags: [technician], responses: { '200': { $ref: '#/components/responses/JobOk' }, '409': { $ref: '#/components/responses/Error' } } }
+  /tech/jobs/{jobId}/complete:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post: { tags: [technician], responses: { '200': { $ref: '#/components/responses/JobOk' }, '409': { $ref: '#/components/responses/Error' } } }
+  /tech/jobs/{jobId}/confirm-cash:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post: { tags: [technician], responses: { '200': { $ref: '#/components/responses/JobOk' }, '409': { $ref: '#/components/responses/Error' } } }
+  /tech/jobs/{jobId}/reports:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post:
+      tags: [technician]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [issue]
+              properties:
+                issue: { $ref: '#/components/schemas/TechIssue' }
+                note: { type: string, maxLength: 500 }
+      responses:
+        '200': { $ref: '#/components/responses/JobOk' }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/earnings:
+    get:
+      tags: [technician]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Earnings' } } } }
+
+  # ---------------- coordinator (API only in v1; for technicians without smartphones) ----------------
+  /coordinator/jobs/{jobId}/assign:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post:
+      tags: [coordinator]
+      summary: Assign a MATCHING booking to a technician directly (audited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [technicianId], properties: { technicianId: { type: string } } }
+      responses:
+        '200': { $ref: '#/components/responses/JobOk' }
+  /coordinator/jobs/{jobId}/actions/{action}:
+    parameters:
+      - { $ref: '#/components/parameters/JobId' }
+      - { name: action, in: path, required: true, schema: { type: string, enum: [start-trip, arrived, verify-start-code, quotes, start-work, complete, confirm-cash, reports] } }
+    post:
+      tags: [coordinator]
+      summary: Perform a technician action on behalf of a technician without a phone (same body as the technician endpoint; audited)
+      responses:
+        '200': { $ref: '#/components/responses/JobOk' }
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    BookingId: { name: bookingId, in: path, required: true, schema: { type: string } }
+    JobId: { name: jobId, in: path, required: true, schema: { type: string }, description: Same id as the booking }
+  responses:
+    Error:
+      description: Error
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorBody' } } }
+    JobOk:
+      description: Updated job
+      content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } }
+  schemas:
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION, UNAUTHENTICATED, NOT_FOUND, CONFLICT, OTP_INVALID, OTP_EXPIRED, OTP_LOCKED, SLOT_UNAVAILABLE,
+                     INSTANT_UNAVAILABLE, PAYMENT_FAILED, OFFER_EXPIRED, NOT_VERIFIED, RATE_LIMITED]
+            message: { type: string, description: For logs; the app shows its own translated text }
+            attemptsLeft: { type: integer }
+            retryAfterSec: { type: integer }
+            fields: { type: object, additionalProperties: { type: string, enum: [REQUIRED, INVALID] } }
+            requestId: { type: string }
+    Locale: { type: string, enum: [en, te] }
+    Localized:
+      type: object
+      required: [en, te]
+      properties: { en: { type: string }, te: { type: string } }
+    EpochMs: { type: integer, description: Unix time in milliseconds }
+    CategoryId: { type: string, enum: [PLUMBING, ELECTRICAL, AC, APPLIANCE, CLEANING, CARPENTRY] }
+    OtpChallenge:
+      type: object
+      required: [challengeId, phone, resendAfterSec, expiresAt, demoCode]
+      properties:
+        challengeId: { type: string }
+        phone: { type: string }
+        resendAfterSec: { type: integer, example: 30 }
+        expiresAt: { $ref: '#/components/schemas/EpochMs' }
+        demoCode: { type: 'null', description: Always null from the real backend }
+    AuthResult:
+      type: object
+      required: [accessToken, refreshToken, expiresIn, isNew]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, description: seconds }
+        isNew: { type: boolean, description: Customer without a name yet / technician without a submitted profile }
+        customer: { $ref: '#/components/schemas/Customer' }
+        technician: { $ref: '#/components/schemas/TechProfile' }
+    Customer:
+      type: object
+      required: [id, phone, name]
+      properties:
+        id: { type: string }
+        phone: { type: string }
+        name: { type: string, description: Empty until the name step }
+    Category:
+      type: object
+      required: [id, name, tagline, art, wash]
+      properties:
+        id: { $ref: '#/components/schemas/CategoryId' }
+        name: { $ref: '#/components/schemas/Localized' }
+        tagline: { $ref: '#/components/schemas/Localized' }
+        art: { type: string, enum: [tap, bulb, snowflake, tv, sponge, saw] }
+        wash: { type: string, description: Background tint name used by the app }
+    Issue:
+      type: object
+      required: [id, name]
+      properties: { id: { type: string }, name: { $ref: '#/components/schemas/Localized' } }
+    Service:
+      type: object
+      required: [id, categoryId, name, description, visitFee, repairFrom, durationMin, rating, reviews, issues, keywords]
+      properties:
+        id: { type: string }
+        categoryId: { $ref: '#/components/schemas/CategoryId' }
+        name: { $ref: '#/components/schemas/Localized' }
+        description: { $ref: '#/components/schemas/Localized' }
+        visitFee: { type: integer, example: 49 }
+        repairFrom: { type: integer, description: 'Typical minimum repair (used by the price check; not shown as a price)' }
+        durationMin: { type: array, items: { type: integer }, minItems: 2, maxItems: 2 }
+        rating: { type: number }
+        reviews: { type: integer }
+        issues: { type: array, items: { $ref: '#/components/schemas/Issue' } }
+        keywords: { type: array, items: { type: string } }
+        popular: { type: boolean }
+    AddressInput:
+      type: object
+      required: [label, house, street, landmark, city, pincode]
+      properties:
+        label: { type: string, enum: [HOME, WORK, OTHER] }
+        house: { type: string, minLength: 2, maxLength: 120 }
+        street: { type: string, minLength: 3, maxLength: 160 }
+        landmark: { type: string, maxLength: 120 }
+        city: { type: string, minLength: 2, maxLength: 60 }
+        pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+    Address:
+      allOf:
+        - $ref: '#/components/schemas/AddressInput'
+        - type: object
+          required: [id]
+          properties: { id: { type: string } }
+    Slot:
+      type: object
+      required: [id, date, startHour, endHour, state]
+      properties:
+        id: { type: string, example: '2026-10-17@10' }
+        date: { type: string, format: date }
+        startHour: { type: integer }
+        endHour: { type: integer }
+        state: { type: string, enum: [OPEN, FULL, CLOSED] }
+    VisitWindow:
+      type: object
+      required: [date, startHour, endHour]
+      properties:
+        date: { type: string, format: date }
+        startHour: { type: integer, enum: [8, 10, 12, 14, 16, 18] }
+        endHour: { type: integer, enum: [10, 12, 14, 16, 18, 20] }
+    VisitTime:
+      type: object
+      required: [mode, window]
+      properties:
+        mode: { type: string, enum: [INSTANT, SCHEDULED] }
+        window: { oneOf: [{ $ref: '#/components/schemas/VisitWindow' }, { type: 'null' }] }
+    VoiceNote:
+      type: object
+      required: [durationSec, transcript]
+      properties:
+        durationSec: { type: integer, maximum: 60 }
+        transcript: { type: string, maxLength: 1000 }
+        audioId: { type: string }
+    Photo:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        url: { type: string, description: Short-lived signed URL (responses only) }
+    ProblemDescription:
+      type: object
+      required: [issueIds, notes, voiceNote, photos]
+      properties:
+        issueIds: { type: array, items: { type: string } }
+        notes: { type: string, maxLength: 500 }
+        voiceNote: { oneOf: [{ $ref: '#/components/schemas/VoiceNote' }, { type: 'null' }] }
+        photos: { type: array, maxItems: 4, items: { $ref: '#/components/schemas/Photo' } }
+    NewBooking:
+      type: object
+      required: [serviceId, problem, addressId, time, preferWomenRated]
+      properties:
+        serviceId: { type: string }
+        problem: { $ref: '#/components/schemas/ProblemDescription' }
+        addressId: { type: string }
+        time: { $ref: '#/components/schemas/VisitTime' }
+        preferWomenRated: { type: boolean }
+    PaymentMethod: { type: string, enum: [UPI, CARD, NETBANKING, CASH] }
+    Payment:
+      type: object
+      required: [kind, amount, state, method, txnId, at]
+      properties:
+        kind: { type: string, enum: [VISIT, FINAL] }
+        amount: { type: integer }
+        state: { type: string, enum: [DUE, PROCESSING, PENDING, PAID, FAILED, REFUNDED] }
+        method: { oneOf: [{ $ref: '#/components/schemas/PaymentMethod' }, { type: 'null' }] }
+        txnId: { type: [string, 'null'] }
+        at: { type: [integer, 'null'] }
+    PaymentOrder:
+      type: object
+      required: [paymentId, provider, orderId, keyId, amount]
+      properties:
+        paymentId: { type: string }
+        provider: { type: string, enum: [RAZORPAY] }
+        orderId: { type: string }
+        keyId: { type: string, description: Razorpay public key id }
+        amount: { type: integer, description: rupees }
+    PaymentResult:
+      type: object
+      required: [state, booking]
+      properties:
+        state: { type: string, enum: [PAID, PENDING, FAILED] }
+        booking: { $ref: '#/components/schemas/Booking' }
+    Technician:
+      type: object
+      description: The assigned technician as the customer sees them
+      required: [id, name, gender, rating, jobs, years, womenRated, vehicle, maskedPhone, demo]
+      properties:
+        id: { type: string }
+        name: { $ref: '#/components/schemas/Localized' }
+        gender: { type: string, enum: [M, F] }
+        rating: { type: number }
+        jobs: { type: integer }
+        years: { type: integer }
+        womenRated: { type: boolean }
+        vehicle: { type: string }
+        maskedPhone: { type: string }
+        demo: { type: boolean, description: false from the real backend (the app type will relax this) }
+    QuoteLine:
+      type: object
+      required: [kind, name, qty, unitPrice]
+      properties:
+        kind: { type: string, enum: [LABOUR, MATERIAL] }
+        name: { $ref: '#/components/schemas/Localized' }
+        qty: { type: integer, minimum: 1, maximum: 99 }
+        unitPrice: { type: integer, minimum: 1 }
+    Quote:
+      type: object
+      required: [id, version, lines, labourTotal, materialTotal, total, diagnosis, review, decision, at]
+      properties:
+        id: { type: string }
+        version: { type: integer }
+        lines: { type: array, items: { $ref: '#/components/schemas/QuoteLine' } }
+        labourTotal: { type: integer }
+        materialTotal: { type: integer }
+        total: { type: integer, minimum: 100 }
+        diagnosis: { $ref: '#/components/schemas/Localized' }
+        review:
+          type: object
+          required: [state, typicalMin, typicalMax]
+          properties:
+            state: { type: string, enum: [CHECKING, FAIR, UNDER_REVIEW, CLEARED] }
+            typicalMin: { type: integer }
+            typicalMax: { type: integer }
+        decision: { type: string, enum: [PENDING, APPROVED, REVISION_REQUESTED, REJECTED] }
+        at: { $ref: '#/components/schemas/EpochMs' }
+    Rating:
+      type: object
+      required: [satisfied, stars, tags, comment, at]
+      properties:
+        satisfied: { type: boolean }
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        tags: { type: array, items: { type: string, enum: [onTime, polite, clean, fair, explained, fixed] } }
+        comment: { type: string, maxLength: 500 }
+        at: { $ref: '#/components/schemas/EpochMs' }
+    RatingInput:
+      type: object
+      required: [satisfied, stars, tags, comment]
+      properties:
+        satisfied: { type: boolean }
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        tags: { type: array, items: { type: string } }
+        comment: { type: string, maxLength: 500 }
+    BookingStatus:
+      type: string
+      enum: [AWAITING_PAYMENT, PAYMENT_PENDING, MATCHING, MATCHING_DELAYED, UNFULFILLED, ASSIGNED, EN_ROUTE, ARRIVED, INSPECTING,
+             QUOTE_SHARED, IN_PROGRESS, EXTRA_WORK, PAYMENT_DUE, COMPLETED, CLOSED_NO_REPAIR, CANCELLED]
+    CancelReason: { type: string, enum: [PLANS_CHANGED, FIXED, TOO_LONG, MISTAKE, OTHER] }
+    CloseReason: { type: string, enum: [CUSTOMER_DECLINED, CUSTOMER_UNAVAILABLE, CANNOT_COMPLETE] }
+    StatusEvent:
+      type: object
+      required: [status, at]
+      properties:
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        at: { $ref: '#/components/schemas/EpochMs' }
+    Booking:
+      type: object
+      required: [id, code, serviceId, categoryId, problem, address, time, preferWomenRated, status, technician, arrivalOtp, etaMin,
+                 visitPayment, quote, extraQuote, finalPayment, rating, createdAt, history, cancelReason, closeReason, workStarted, viaTechApp, demo]
+      properties:
+        id: { type: string }
+        code: { type: string, example: HF-48291 }
+        serviceId: { type: string }
+        categoryId: { $ref: '#/components/schemas/CategoryId' }
+        problem: { $ref: '#/components/schemas/ProblemDescription' }
+        address: { $ref: '#/components/schemas/Address' }
+        time: { $ref: '#/components/schemas/VisitTime' }
+        preferWomenRated: { type: boolean }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        technician: { oneOf: [{ $ref: '#/components/schemas/Technician' }, { type: 'null' }] }
+        arrivalOtp: { type: string, description: 4 digits; empty string until the visit fee is paid }
+        etaMin: { type: [integer, 'null'] }
+        visitPayment: { $ref: '#/components/schemas/Payment' }
+        quote: { oneOf: [{ $ref: '#/components/schemas/Quote' }, { type: 'null' }], description: null while not yet visible to the customer }
+        extraQuote: { oneOf: [{ $ref: '#/components/schemas/Quote' }, { type: 'null' }] }
+        finalPayment: { oneOf: [{ $ref: '#/components/schemas/Payment' }, { type: 'null' }] }
+        rating: { oneOf: [{ $ref: '#/components/schemas/Rating' }, { type: 'null' }] }
+        createdAt: { $ref: '#/components/schemas/EpochMs' }
+        history: { type: array, items: { $ref: '#/components/schemas/StatusEvent' } }
+        cancelReason: { oneOf: [{ $ref: '#/components/schemas/CancelReason' }, { type: 'null' }] }
+        closeReason: { oneOf: [{ $ref: '#/components/schemas/CloseReason' }, { type: 'null' }] }
+        workStarted: { type: boolean }
+        viaTechApp: { type: boolean, description: Always true from the real backend }
+        demo: { type: boolean, description: false from the real backend }
+    TechProfileInput:
+      type: object
+      required: [name, gender, experienceYears, skills, city, pincode, areas, vehicle]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 60 }
+        gender: { type: string, enum: [M, F] }
+        experienceYears: { type: integer, minimum: 0, maximum: 50 }
+        skills: { type: array, minItems: 1, maxItems: 6, items: { $ref: '#/components/schemas/CategoryId' } }
+        city: { type: string, minLength: 2, maxLength: 60 }
+        pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
+        areas: { type: string, minLength: 2, maxLength: 200 }
+        vehicle: { type: string, maxLength: 40 }
+        phoneType: { type: string, enum: [SMARTPHONE, KEYPAD, NONE], default: SMARTPHONE, description: Set by coordinators; the app sends SMARTPHONE }
+    TechProfile:
+      allOf:
+        - $ref: '#/components/schemas/TechProfileInput'
+        - type: object
+          required: [id, phone, verification, correctionNote, online, rating, jobsDone]
+          properties:
+            id: { type: string }
+            phone: { type: string }
+            verification: { oneOf: [{ type: string, enum: [PENDING, APPROVED, NEEDS_CORRECTION] }, { type: 'null' }] }
+            correctionNote: { oneOf: [{ $ref: '#/components/schemas/Localized' }, { type: 'null' }] }
+            online: { type: boolean }
+            rating: { type: [number, 'null'] }
+            jobsDone: { type: integer }
+    JobOffer:
+      type: object
+      required: [id, bookingId, code, serviceId, categoryId, issueIds, notes, photoCount, area, pincode, time, distanceKm, visitEarning, createdAt, expiresAt]
+      properties:
+        id: { type: string }
+        bookingId: { type: string }
+        code: { type: string }
+        serviceId: { type: string }
+        categoryId: { $ref: '#/components/schemas/CategoryId' }
+        issueIds: { type: array, items: { type: string } }
+        notes: { type: string }
+        photoCount: { type: integer }
+        area: { type: string, description: 'Locality and city only; never the house number' }
+        pincode: { type: string }
+        time: { $ref: '#/components/schemas/VisitTime' }
+        distanceKm: { type: number }
+        visitEarning: { type: integer }
+        createdAt: { $ref: '#/components/schemas/EpochMs' }
+        expiresAt: { $ref: '#/components/schemas/EpochMs' }
+    TechIssue: { type: string, enum: [CUSTOMER_UNAVAILABLE, WRONG_ADDRESS, UNSAFE, CANNOT_COMPLETE, PAYMENT_PROBLEM, OTHER] }
+    Job:
+      type: object
+      required: [id, code, serviceId, categoryId, problem, customerName, address, maskedPhone, time, status, quote, extraQuote, visitPayment,
+                 finalPayment, workStarted, closeReason, cancelReason, otpAttemptsLeft, earning, rating, history, acceptedAt, practice, demo]
+      properties:
+        id: { type: string }
+        code: { type: string }
+        serviceId: { type: string }
+        categoryId: { $ref: '#/components/schemas/CategoryId' }
+        problem: { $ref: '#/components/schemas/ProblemDescription' }
+        customerName: { type: string, description: First name only }
+        address: { $ref: '#/components/schemas/Address' }
+        maskedPhone: { type: string }
+        time: { $ref: '#/components/schemas/VisitTime' }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        quote: { oneOf: [{ $ref: '#/components/schemas/Quote' }, { type: 'null' }], description: Includes CHECKING / UNDER_REVIEW quotes }
+        extraQuote: { oneOf: [{ $ref: '#/components/schemas/Quote' }, { type: 'null' }] }
+        visitPayment: { $ref: '#/components/schemas/Payment' }
+        finalPayment: { oneOf: [{ $ref: '#/components/schemas/Payment' }, { type: 'null' }] }
+        workStarted: { type: boolean }
+        closeReason: { oneOf: [{ $ref: '#/components/schemas/CloseReason' }, { type: 'null' }] }
+        cancelReason: { oneOf: [{ $ref: '#/components/schemas/CancelReason' }, { type: 'null' }] }
+        otpAttemptsLeft: { type: integer }
+        earning: { type: integer }
+        rating: { oneOf: [{ $ref: '#/components/schemas/Rating' }, { type: 'null' }] }
+        history: { type: array, items: { $ref: '#/components/schemas/StatusEvent' } }
+        acceptedAt: { $ref: '#/components/schemas/EpochMs' }
+        practice: { type: boolean, description: Always false from the real backend }
+        demo: { type: boolean }
+    QuoteInput:
+      type: object
+      required: [which, diagnosis, lines]
+      properties:
+        which: { type: string, enum: [MAIN, EXTRA] }
+        diagnosis: { type: string, minLength: 3, maxLength: 500 }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: object
+            required: [kind, name, qty, unitPrice]
+            properties:
+              kind: { type: string, enum: [LABOUR, MATERIAL] }
+              name: { type: string, minLength: 1, maxLength: 80 }
+              qty: { type: integer, minimum: 1, maximum: 99 }
+              unitPrice: { type: integer, minimum: 1, maximum: 100000 }
+    Earnings:
+      type: object
+      required: [today, jobsToday, total, pendingPayout, nextPayoutOn, entries]
+      properties:
+        today: { type: integer }
+        jobsToday: { type: integer }
+        total: { type: integer }
+        pendingPayout: { type: integer }
+        nextPayoutOn: { type: string, format: date }
+        entries:
+          type: array
+          items:
+            type: object
+            required: [jobId, code, serviceId, amount, at, payout]
+            properties:
+              jobId: { type: string }
+              code: { type: string }
+              serviceId: { type: string }
+              amount: { type: integer }
+              at: { $ref: '#/components/schemas/EpochMs' }
+              payout: { type: string, enum: [PENDING, PAID] }
+    UploadTicket:
+      type: object
+      required: [id, uploadUrl, expiresAt]
+      properties:
+        id: { type: string, description: photoId / audioId to send in NewBooking or AI calls }
+        uploadUrl: { type: string, description: Pre-signed S3 PUT URL }
+        expiresAt: { $ref: '#/components/schemas/EpochMs' }
+    PhotoSuggestion:
+      type: object
+      required: [serviceId, confidence, alternatives]
+      properties:
+        serviceId: { type: [string, 'null'] }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        alternatives: { type: array, items: { type: string } }
+    LocalTopProblems:
+      type: object
+      required: [area, items]
+      properties:
+        area: { type: [string, 'null'] }
+        items:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items:
+            type: object
+            required: [serviceId, issueId, recentCount]
+            properties:
+              serviceId: { type: string }
+              issueId: { type: string }
+              recentCount: { type: integer }
+    ChatReply:
+      type: object
+      required: [text, suggestions, offerHuman]
+      properties:
+        text: { type: string }
+        suggestions: { type: array, items: { type: string } }
+        offerHuman: { type: boolean }
+        conversationId: { type: string }
+    AppNotification:
+      type: object
+      required: [id, kind, bookingId, params, at, read]
+      properties:
+        id: { type: string }
+        kind:
+          type: string
+          enum: [TECH_ASSIGNED, TECH_ON_THE_WAY, TECH_ARRIVED, QUOTE_READY, EXTRA_QUOTE, PAYMENT_DUE, BOOKING_COMPLETED, BOOKING_CANCELLED,
+                 NO_TECHNICIAN, JOB_OFFER, QUOTE_APPROVED, QUOTE_REVISION, QUOTE_DECLINED, EXTRA_APPROVED, EXTRA_DECLINED, PAYMENT_RECEIVED,
+                 JOB_CANCELLED, PROFILE_APPROVED, PROFILE_NEEDS_CORRECTION]
+        bookingId: { type: [string, 'null'] }
+        params: { type: object, additionalProperties: { type: [string, number] } }
+        at: { $ref: '#/components/schemas/EpochMs' }
+        read: { type: boolean }
