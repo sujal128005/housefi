@@ -1,9 +1,10 @@
 # Customer app (final) and Technician app: report
 
 Status: **customer and technician apps built, redesigned on the finalized Housefi logo, with branded error and
-offline handling; tested with unit tests and on the Android emulator (English and Telugu).** Admin portal: not
-started (as agreed). Your soft-3D illustrations are in the app (79 of them); the few still to generate are listed
-under "Illustrations still to generate".
+offline handling, the technician identity feature (photo, permanent ID, digital ID card, QR verification) and one
+written design system (`docs/DESIGN-SYSTEM.md`); tested with unit tests and on the Android emulator (English and
+Telugu).** Admin portal: not started (as agreed). Your soft-3D illustrations are in the app (79 of them); the few
+still to generate are listed under "Illustrations still to generate".
 
 Both interfaces live in one app and share one demo backend, the same way they will share the real backend: a
 customer's booking is offered to a technician who is online in the technician app; the technician's quote reaches
@@ -34,6 +35,42 @@ customer app can always be tried on its own.
 | Loading | Skeletons and the branded loader, never a blank screen |
 | Try it | Account / Profile → Demo settings → **Test the error screen** |
 
+## Technician identity, photo, permanent ID and digital ID card (this round)
+
+**Fully implemented in the app and the demo backend** (the demo backend stands in for the authoritative data layer;
+16 tests in `src/__tests__/identity.test.ts`):
+
+| Requirement | What the app does |
+|---|---|
+| Mandatory photo | Registration needs a profile photo: **Take a photo** (front camera, square crop) or **Upload**; shrunk to a 480 px JPEG. The demo also offers a labelled sample photo ("Sample photo (demo), not a real person"). No photo, no submit; the backend refuses it too |
+| Photo can't be replaced | After the first submission the photo and legal name are read-only (Edit profile shows them locked). The backend rejects a different name (`IDENTITY_LOCKED`) and ignores a new photo. Corrections: **Profile → Request a correction** (name or photo, with a note) |
+| Photo pending | Until verification is approved the photo is "under review" on the technician's card, and customers never get an unapproved photo |
+| Three read-only fields | Profile → **Identity**: full legal name, identity verification status, Housefi Technician ID. Plain text, not inputs |
+| Technician ID `N9-HF-T-XXXXXX` | Issued by the backend at the first submission: 6 characters from 31 unambiguous ones (no 0/O/1/I/L), drawn from the phone's cryptographic random source by rejection sampling; checked against a register of every ID ever issued (never reused). Not built from name, phone or a counter, and never used to sign in or to look anything up |
+| My Housefi ID | Profile → **My Housefi ID**: Housefi header with the logo and Nexara9, photo, legal name, role and skills, the full ID, the verification status, a QR code, and a live watermark (Housefi, the ID, the time) |
+| Customer view | On the booking, the assigned technician's photo, name, rating and **identity status**; tapping the photo, the name or **View Technician ID** opens the same card read-only. The backend answers only for the customer's own booking with a technician assigned (anyone else: not found) |
+| QR code | Points at Housefi's verification page with a random 24-character token (no personal data). In the demo it opens `housefi://verify/<token>`, a page inside the app, and the card says so ("Demo QR"). The page shows photo, first name and initial, ID, **Active / Not active** right now, and the status time |
+| Verification states | Pending, Approved, Needs correction, Rejected, Suspended, the same everywhere (registration, profile, card, verification page, customer booking). Only a genuine approval shows the green **Verified** tick; the demo's approval shows **Demo verification · simulated, not verified**. Rejected or suspended technicians can't go online, see "Your access is paused", and customers see the withdrawn status at once. Demo settings → **Suspend this technician** shows it |
+| No copy / share / save | The card has no such actions; text is not selectable; nothing about the card is logged or put on the clipboard |
+| Capture protection | Native (`expo-screen-capture`), on only while the card is on screen. Android: secure window (FLAG_SECURE). iOS 13+: content hidden from screenshots and recordings, app-switcher snapshot blurred, a message if a screenshot is tried |
+
+**Checked on the Android emulator:** the journey registers with a photo, reads the Technician ID from Profile and checks
+its format, opens My Housefi ID (same ID, demo status), opens the verification page from the card (Active), and opens
+the technician's card from the customer's booking. The screenshots of both card screens come back **blank**: Android's
+secure window blocked them, which the journey asserts.
+
+**Depends on the real backend and an admin tool (not built in this phase):** genuine identity checks (document upload
+is still "Soon"), photo approval by a reviewer, deciding correction requests, rejecting / suspending, the public
+verification web page on a Housefi domain, storing photos in a private bucket. The backend package (`docs/backend`)
+specifies all of it: endpoints, schema with database-level locks on the identity columns, the ID register, hashed QR
+tokens.
+
+**Platform limits (stated honestly):** nothing stops someone photographing the screen with another camera, which is why
+the card carries a live watermark and the QR shows the current status. On iOS the protection needs iOS 13 or later,
+and it has **not been tried on an iPhone yet**: CI builds the iOS app but does not drive these screens, so iOS
+behaviour comes from Expo's documentation, not from a test. The web preview has no capture protection (browsers
+don't offer it); the card there is for review only.
+
 ## What changed in the customer app (from your feedback)
 
 | Request | Done |
@@ -52,6 +89,7 @@ customer app can always be tried on its own.
 | Proper tracking | Live progress, animated map with ETA, arrival, inspection, quote, repair, payment |
 | AI support chat, then customer care | Help → AI chat (demo, rule-based) with "Talk to a person" hand-off |
 | After the job: Satisfied? Yes / No | Rating starts with "Were you satisfied with the work?" Yes / No, then stars and tags |
+| "Are you a woman?" on the rating | Optional checkbox **I'm a woman**, unticked by default, with a note that it stays private. It feeds the technician's **Rated highly by women** badge (and the "Prefer technicians rated highly by women" option): average 4.5+ stars from women; one such rating in the demo, at least 5 on the real backend. Never shown to anyone |
 | Language from location (coming soon) | Language screen: "Detect from my location" (Kurnool → Telugu; Delhi → Hindi "coming soon", stays English) |
 | Sounds and vibration | Interface sounds (expo-audio) and haptics at key moments; **Account → Sounds & vibration** turns both off; respects the phone's silent switch |
 | Notifications | Bell on Home with an inbox (assigned, on the way, arrived, quote ready, payment due, completed...) and live toasts |
@@ -100,16 +138,26 @@ files. The app's demo backend implements the same contract and is their working 
 
 | Check | Result |
 | --- | --- |
-| Unit tests | 68 / 68 passed |
+| Unit tests | 85 / 85 passed (16 new for technician identity, 1 for women's ratings) |
 | Typecheck, lint | clean |
 | expo-doctor | 21 / 21 |
 | Android release build (x86_64) | built |
-| Emulator journey, English (redesign + illustrations) | **passed**, 48 screenshots in `docs/screens/app/en/` |
-| Emulator journey, Telugu | **passed** on the second run, 48 screenshots in `docs/screens/app/te/` (first run: a keystroke into the address form was dropped by the emulator's keyboard; the same step passed in English and on the rerun) |
+| Emulator journey, English | **passed**, 54 screenshots in `docs/screens/app/en/`, now including the profile photo, the Technician ID format check, both ID cards (screenshots blank: blocked by Android's secure window, asserted), the verification page and "I'm a woman" on the rating |
+| Emulator journey, Telugu | **passed**, 54 screenshots in `docs/screens/app/te/` (same checks as English) |
 | Error handling on the emulator (`tools/recovery-check.mjs`) | **passed**: Wi-Fi and data off → offline strip over the current screen, back on → "Back online"; branded error screen with no technical text; Try again re-opens the same screen; Go to home goes home. Screenshots in `docs/screens/app/recovery/` |
-| GitHub Actions CI (Android build + both journeys + error check, iOS simulator build) | see the run for this commit |
+| GitHub Actions CI | previous commit (`988fddf`): checks and iOS build passed; the Android job failed in the technician form ("could not scroll": the test driver's swipes bounced past a narrow visible area). Fixed in the driver (closes the keyboard, smaller swipes after overshooting). This commit: see its run |
 
 Problems found and fixed while testing:
+
+- This round: blocking Android's `DETECT_SCREEN_CAPTURE` permission made the app crash at start (the screen-capture
+  module registers its callback on Android 14+). It is an install-time permission with no privacy cost, so it stays;
+  `READ_MEDIA_IMAGES` and `RECORD_AUDIO` (not needed) are removed.
+- This round: the verification page showed a stale status (it read the technician before the pending review was
+  applied); found by a test, fixed.
+- This round: on the card, "Open the verification page" sat exactly where the "My Housefi ID" row was on the
+  previous screen, so a carried-over tap could open it. The link now ignores taps for 0.7 s after the card appears.
+- This round: the verification screen said "You're verified!" for the demo's simulated approval, and the approval
+  notification said "You're verified". Both now say it is a simulated demo approval.
 
 - This round: if the sign-in check at start failed for a network reason, the app treated it as "signed out" and
   dropped the saved sign-in. Now only a session the server says has ended signs people out; a failed check shows

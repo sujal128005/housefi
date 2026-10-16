@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   radioOn: { borderColor: colors.blue },
   radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.blue },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 60, paddingVertical: space.sm },
-  rowIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  rowIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: radius.pill, alignSelf: 'flex-start' },
   banner: { flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.md, borderRadius: radius.md },
   bannerAction: { minHeight: 36, justifyContent: 'center', paddingHorizontal: space.xs },

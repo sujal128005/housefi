@@ -128,6 +128,14 @@ export const QUOTE_LINE_REVIEW = 5000;
 export const START_CODE_ATTEMPTS = 5;
 /** What the technician earns from the ₹49 visit fee, and their share of labour (materials are reimbursed in full). */
 export const TECH_VISIT_SHARE = 30;
+
+/** "Rated highly by women": average of at least 4.5 stars from ratings whose customer said they are a woman. */
+export const WOMEN_RATED_MIN_STARS = 4.5;
+
+export function isWomenRated(starsFromWomen: readonly number[], minRatings: number): boolean {
+  if (starsFromWomen.length < Math.max(1, minRatings)) return false;
+  return starsFromWomen.reduce((a, v) => a + v, 0) / starsFromWomen.length >= WOMEN_RATED_MIN_STARS;
+}
 export const TECH_LABOUR_SHARE = 0.8;
 /** How many lower-price requests a customer can make. */
 export const MAX_QUOTE_VERSIONS = 3;

@@ -230,6 +230,18 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
         '404': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/technician-card:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    get:
+      tags: [bookings, identity]
+      summary: Digital ID card of the technician assigned to this booking
+      description: >-
+        Only for the customer who owns the booking, and only once a technician is assigned. Anything else is 404
+        (never reveal that another person's booking exists). Shows the approved photo only. No caching (Cache-Control: no-store).
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechIdCard' } } } }
+        '404': { $ref: '#/components/responses/Error' }
   /bookings/{bookingId}/stream:
     parameters:
       - $ref: '#/components/parameters/BookingId'
@@ -536,6 +548,29 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechProfile' } } } }
         '422': { $ref: '#/components/responses/Error' }
+  /tech/id-card:
+    get:
+      tags: [technician, identity]
+      summary: The signed-in technician's own digital ID card (Cache-Control no-store)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechIdCard' } } } }
+        '404': { description: Profile not submitted yet, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorBody' } } } }
+  /tech/identity-corrections:
+    post:
+      tags: [technician, identity]
+      summary: Ask support to correct the legal name or photo (technicians cannot change them directly)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, note]
+              properties:
+                kind: { type: string, enum: [NAME, PHOTO] }
+                note: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechProfile' } } } }
   /tech/availability:
     post:
       tags: [technician]
@@ -703,6 +738,23 @@ paths:
       summary: Perform a technician action on behalf of a technician without a phone (same body as the technician endpoint; audited)
       responses:
         '200': { $ref: '#/components/responses/JobOk' }
+
+  # ---------------- public verification page ----------------
+  /verify/technicians/{token}:
+    parameters:
+      - { name: token, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9]{24}$' } }
+    get:
+      tags: [identity]
+      security: []
+      summary: Public check of a scanned Technician ID card (the QR code's target)
+      description: >-
+        No sign-in. Rate-limited per IP. The token is random (about 143 bits), stored only as a SHA-256 hash, carries no
+        personal data, and can be revoked and re-issued. Returns the minimum and the status right now (a withdrawn approval
+        shows immediately). Unknown or revoked tokens are 404. The HTML page at https://<verification domain>/t/{token}
+        renders this; it must be on a Housefi-controlled domain.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechVerifyResult' } } } }
+        '404': { $ref: '#/components/responses/Error' }
 
 components:
   securitySchemes:
@@ -895,8 +947,8 @@ components:
         booking: { $ref: '#/components/schemas/Booking' }
     Technician:
       type: object
-      description: The assigned technician as the customer sees them
-      required: [id, name, gender, rating, jobs, years, womenRated, vehicle, maskedPhone, demo]
+      description: The assigned technician as the customer sees them (identity fields read fresh on every request)
+      required: [id, name, gender, rating, jobs, years, womenRated, vehicle, maskedPhone, demo, techCode, photo, verification, verificationSimulated, skills, fictional]
       properties:
         id: { type: string }
         name: { $ref: '#/components/schemas/Localized' }
@@ -908,6 +960,64 @@ components:
         vehicle: { type: string }
         maskedPhone: { type: string }
         demo: { type: boolean, description: false from the real backend (the app type will relax this) }
+        techCode: { $ref: '#/components/schemas/TechCode' }
+        photo: { type: [string, 'null'], description: Short-lived signed URL of the APPROVED photo only; null otherwise }
+        verification: { $ref: '#/components/schemas/Verification' }
+        verificationSimulated: { type: boolean, description: Always false from the real backend }
+        skills: { type: array, items: { $ref: '#/components/schemas/CategoryId' } }
+        fictional: { type: boolean, description: Always false from the real backend }
+    TechCode:
+      type: string
+      pattern: '^N9-HF-T-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'
+      description: Permanent Housefi Technician ID. Random suffix from a CSPRNG, unique, never reused or reassigned. Not a credential.
+      example: N9-HF-T-7K4M9Q
+    Verification:
+      type: string
+      enum: [PENDING, APPROVED, NEEDS_CORRECTION, REJECTED, SUSPENDED]
+    TechIdentity:
+      type: object
+      required: [techCode, legalName, photo, photoStatus, simulated, correctionRequest]
+      properties:
+        techCode: { $ref: '#/components/schemas/TechCode' }
+        legalName: { type: string, description: As on the identity document; changed only by admin review }
+        photo: { type: string, description: Signed URL of the registration photo (the technician sees it even while PENDING) }
+        photoStatus: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+        simulated: { type: boolean, description: Always false from the real backend }
+        correctionRequest:
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              required: [kind, note, at]
+              properties: { kind: { type: string, enum: [NAME, PHOTO] }, note: { type: string }, at: { type: integer } }
+    TechIdCard:
+      type: object
+      description: Only what is needed to confirm a technician's Housefi identity. Never ID-document images or numbers, date of birth, address or phone.
+      required: [techCode, name, photo, photoStatus, gender, skills, verification, simulated, verifyUrl, verifyIsDemo, fictional]
+      properties:
+        techCode: { $ref: '#/components/schemas/TechCode' }
+        name: { type: string }
+        photo: { type: [string, 'null'] }
+        photoStatus: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+        gender: { type: string, enum: [M, F] }
+        skills: { type: array, items: { $ref: '#/components/schemas/CategoryId' } }
+        verification: { $ref: '#/components/schemas/Verification' }
+        simulated: { type: boolean }
+        verifyUrl: { type: string, format: uri, description: 'https://<verification domain>/t/{token}' }
+        verifyIsDemo: { type: boolean, description: Always false from the real backend }
+        fictional: { type: boolean }
+    TechVerifyResult:
+      type: object
+      required: [techCode, displayName, photo, gender, verification, simulated, active, checkedAt, fictional]
+      properties:
+        techCode: { $ref: '#/components/schemas/TechCode' }
+        displayName: { type: string, description: First name and last initial }
+        photo: { type: [string, 'null'], description: Approved photo only }
+        gender: { type: string, enum: [M, F] }
+        verification: { $ref: '#/components/schemas/Verification' }
+        simulated: { type: boolean }
+        active: { type: boolean, description: Allowed to work for Housefi right now }
+        checkedAt: { type: integer, description: Epoch ms }
+        fictional: { type: boolean }
     QuoteLine:
       type: object
       required: [kind, name, qty, unitPrice]
@@ -953,6 +1063,12 @@ components:
         stars: { type: integer, minimum: 1, maximum: 5 }
         tags: { type: array, items: { type: string } }
         comment: { type: string, maxLength: 500 }
+        byWoman:
+          type: boolean
+          default: false
+          description: >-
+            Optional, self-declared ("I'm a woman"). Used only to compute the technician's women_rated badge
+            (at least 5 such ratings averaging 4.5+). Never returned to anyone, never shown with the customer's name.
     BookingStatus:
       type: string
       enum: [AWAITING_PAYMENT, PAYMENT_PENDING, MATCHING, MATCHING_DELAYED, UNFULFILLED, ASSIGNED, EN_ROUTE, ARRIVED, INSPECTING,
@@ -1006,16 +1122,22 @@ components:
         pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
         areas: { type: string, minLength: 2, maxLength: 200 }
         vehicle: { type: string, maxLength: 40 }
+        photoUploadId:
+          type: string
+          description: >-
+            Required on the first submission (photo uploaded via POST /uploads with kind TECH_PHOTO; live capture or gallery).
+            Ignored afterwards. The demo app sends the photo inline as `photo` (data URI) instead.
         phoneType: { type: string, enum: [SMARTPHONE, KEYPAD, NONE], default: SMARTPHONE, description: Set by coordinators; the app sends SMARTPHONE }
     TechProfile:
       allOf:
         - $ref: '#/components/schemas/TechProfileInput'
         - type: object
-          required: [id, phone, verification, correctionNote, online, rating, jobsDone]
+          required: [id, phone, verification, identity, correctionNote, online, rating, jobsDone]
           properties:
             id: { type: string }
             phone: { type: string }
-            verification: { oneOf: [{ type: string, enum: [PENDING, APPROVED, NEEDS_CORRECTION] }, { type: 'null' }] }
+            verification: { oneOf: [{ $ref: '#/components/schemas/Verification' }, { type: 'null' }] }
+            identity: { oneOf: [{ $ref: '#/components/schemas/TechIdentity' }, { type: 'null' }], description: null until the first submission }
             correctionNote: { oneOf: [{ $ref: '#/components/schemas/Localized' }, { type: 'null' }] }
             online: { type: boolean }
             rating: { type: [number, 'null'] }

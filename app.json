@@ -20,7 +20,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "softwareKeyboardLayoutMode": "resize",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -35,8 +39,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Housefi lets you add photos of the problem so the technician knows what to bring.",
-          "cameraPermission": "Housefi lets you take a photo of the problem so the technician knows what to bring."
+          "photosPermission": "Housefi lets you add photos of the problem, and technicians upload their profile photo.",
+          "cameraPermission": "Housefi uses the camera for photos of the problem, and for the technician's profile photo.",
+          "microphonePermission": false
         }
       ],
       [

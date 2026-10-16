@@ -1,5 +1,6 @@
 // Root of the app: fonts, providers (state, language, backend, booking draft, toasts) and the navigation stack.
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { getRandomBytes } from 'expo-crypto';
 import { useFonts } from 'expo-font';
 import { getLocales } from 'expo-localization';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
@@ -55,7 +56,8 @@ export default function RootLayout() {
   // App fonts and the two icon fonts load before the splash screen hides, so no icon pops in late.
   const [fontsLoaded, fontError] = useFonts({ ...FONT_ASSETS, ...Ionicons.font, ...MaterialCommunityIcons.font });
   // DEMO backend: the only backend in this phase. A LIVE backend implements the same interface (services/api.ts).
-  const backend = useMemo(() => createMockBackend({ store: deviceStore }), []);
+  // Technician IDs and verification tokens come from the system's cryptographic random source.
+  const backend = useMemo(() => createMockBackend({ store: deviceStore, randomBytes: getRandomBytes }), []);
   useEffect(() => installGlobalErrorHandler(), []);
   return (
     <SafeAreaProvider>

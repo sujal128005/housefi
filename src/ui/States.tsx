@@ -72,7 +72,8 @@ export function ErrorBanner({ error }: { readonly error: unknown }) {
   if (!error) return null;
   if (isApiError(error, 'UNAUTHENTICATED')) return <SessionEnded inline />;
   const network = isApiError(error, 'NETWORK');
-  const text = network ? `${t('error.network.title')}. ${t('error.network.body')}` : t('error.generic');
+  const text = network ? `${t('error.network.title')}. ${t('error.network.body')}`
+    : isApiError(error, 'IDENTITY_LOCKED') ? t('error.identityLocked') : t('error.generic');
   return (
     <View style={styles.banners}>
       <Banner tone="danger" text={text} testID="error-banner" />

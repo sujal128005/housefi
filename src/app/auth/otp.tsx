@@ -184,7 +184,7 @@ export default function Otp() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   sms: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.demoTint, ...shadow.card },
-  smsIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.demo, alignItems: 'center', justifyContent: 'center' },
+  smsIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.demo, alignItems: 'center', justifyContent: 'center' },
   fill: { minHeight: 44, minWidth: 48, justifyContent: 'center', alignItems: 'center' },
   sub: { gap: 0 },
   change: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' },

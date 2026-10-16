@@ -18,6 +18,7 @@ state machine, starter prompt).
 | Sound & vibration | expo-audio with Kenney "Interface Sounds" (CC0) in `assets/sounds`, expo-haptics | Felt and heard at key moments; one switch turns both off |
 | Device | expo-location (address and language from location), expo-image-picker (problem photos) | |
 | Fonts | Anek Latin (English) and Anek Telugu (Telugu), one family for both scripts | OFL, bundled |
+| Technician ID card | expo-screen-capture (Android secure window, iOS capture protection), react-native-qrcode-svg (QR on the existing SVG library), expo-crypto (random IDs and tokens), expo-image-manipulator (480 px profile photos) | Native protection, no extra servers |
 | Storage | AsyncStorage | Demo data and preferences stay on the device |
 
 ## How the code is organised
@@ -27,9 +28,12 @@ src/
   app/            screens (Expo Router)
     (tabs)/       customer: Home, Bookings, Help, Account
     book/         customer booking: snap, problem, voice, photos, address, when, confirm, confirmed
-    booking/      booking hub (live), receipt, rating
-    tech/         technician: setup, verification, (tabs)/ Home, Jobs, Earnings, Profile, offer, job, quote
-  domain/         types and pure rules (validation, slots, quotes, earnings, lifecycle, language from location)
+    booking/      booking hub (live), receipt, rating, assigned technician's ID card
+    tech/         technician: setup (photo, legal name), verification, (tabs)/ Home, Jobs, Earnings, Profile, offer, job,
+                  quote, id-card (My Housefi ID)
+    verify/       verification page a Technician ID card's QR code opens
+  domain/         types and pure rules (validation, slots, quotes, earnings, lifecycle, language from location,
+                  technician identity: ID format and generation, verification display)
   data/           DEMO catalogue, prices and fictional technicians
   services/
     api.ts        the backend contract the screens use (customer, technician, AI, notifications)

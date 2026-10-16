@@ -1,6 +1,6 @@
 import { CATEGORIES, SERVICES } from '../data/catalog';
 import {
-  bookableDates, canCancel, cancelRefundsVisitFee, DEMO_TIMING, earningFor, etaMinutes, finalAmount, nextPayoutDate, priceCheck, quoteProblem, isInstantAvailable, isoDate, isValidName, isValidPincode,
+  bookableDates, canCancel, cancelRefundsVisitFee, DEMO_TIMING, earningFor, etaMinutes, finalAmount, nextPayoutDate, priceCheck, quoteProblem, isInstantAvailable, isoDate, isValidName, isValidPincode, isWomenRated,
   matchingStatusAt, matchingStep, normalizePhone, progressIndex, search, slotsFor, validateAddress,
 } from '../domain/rules';
 import { languageForPlace } from '../domain/language';
@@ -203,5 +203,16 @@ describe('language from location', () => {
 
   it('falls back to English', () => {
     expect(languageForPlace('', '')).toEqual({ language: 'en', supported: true });
+  });
+});
+
+describe('rated highly by women', () => {
+  it('needs enough ratings from women, averaging 4.5 stars or more', () => {
+    expect(isWomenRated([], 1)).toBe(false);
+    expect(isWomenRated([5], 1)).toBe(true);
+    expect(isWomenRated([5, 4], 1)).toBe(true);
+    expect(isWomenRated([5, 4, 4], 1)).toBe(false);
+    expect(isWomenRated([5, 5, 5, 5], 5)).toBe(false);
+    expect(isWomenRated([5, 5, 5, 5, 4], 5)).toBe(true);
   });
 });

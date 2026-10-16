@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   amountBox: { alignItems: 'center', gap: 2, paddingVertical: space.md },
   method: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 64, paddingHorizontal: space.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface },
   methodOn: { borderColor: colors.blue, backgroundColor: '#FBFCFF' },
-  methodIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  methodIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
   secure: { flexDirection: 'row', alignItems: 'center', gap: space.xs, justifyContent: 'center' },
   center: { alignItems: 'center', gap: space.md, paddingTop: space.md },
   pulseBox: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center' },

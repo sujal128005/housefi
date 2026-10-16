@@ -122,5 +122,5 @@ const styles = StyleSheet.create({
   earn: { alignItems: 'flex-end', gap: 2 },
   money: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   info: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
-  infoIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  infoIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
 });

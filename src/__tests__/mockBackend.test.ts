@@ -383,7 +383,7 @@ describe('demo AI', () => {
 describe('technician app', () => {
   const PROFILE = {
     name: 'Swathi Naidu', gender: 'F' as const, experienceYears: 5, skills: ['PLUMBING' as const], city: 'Hyderabad', pincode: '500034',
-    areas: 'Banjara Hills, Jubilee Hills', vehicle: '',
+    areas: 'Banjara Hills, Jubilee Hills', vehicle: '', photo: 'demo:tech_woman',
   };
 
   async function techSignIn(backend: Backend, phone = '9000000001') {
@@ -510,8 +510,13 @@ describe('technician app', () => {
     const earnings = await t.backend.tech.earnings(tech);
     expect(earnings.today).toBe(30 + 80 + 200);
     expect(earnings.entries[0]?.payout).toBe('PENDING');
-    await t.backend.bookings.rate(c.token, c.id, { satisfied: true, stars: 5, tags: ['fixed'], comment: '' });
+    expect((await t.backend.bookings.get(c.token, c.id)).technician?.womenRated).toBe(false);
+    await expect(t.backend.bookings.rate(c.token, c.id, { satisfied: true, stars: 5, tags: [], comment: '', byWoman: 'yes' as unknown as boolean }))
+      .rejects.toMatchObject({ code: 'VALIDATION' });
+    await t.backend.bookings.rate(c.token, c.id, { satisfied: true, stars: 5, tags: ['fixed'], comment: '', byWoman: true });
     expect((await t.backend.tech.me(tech)).rating).toBe(5);
+    // A 5-star rating from a customer who said she is a woman: the technician now shows "Rated highly by women".
+    expect((await t.backend.bookings.get(c.token, c.id)).technician?.womenRated).toBe(true);
   });
 
   it('gives the job to someone else when the offer is missed or rejected', async () => {

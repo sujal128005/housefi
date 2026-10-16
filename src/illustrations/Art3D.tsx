@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, type ComponentProps } from 'react';
 import { Animated, Easing, Image, Platform, StyleSheet, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { colors } from '../theme/tokens';
 import { useReducedMotion } from '../ui/motion';
 
 type Glyph = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -190,6 +191,18 @@ const IMG = {
 
 export type ArtName = keyof typeof ART | keyof typeof IMG;
 
+/** Symbols for the small, functional size (under 32 pt), where a detailed illustration would turn to blur. */
+const FLAT: Partial<Record<string, Glyph>> = {
+  svc_tap: 'faucet', svc_leak: 'pipe-leak', svc_drain: 'pipe-wrench', svc_tank: 'water-pump', svc_fan: 'ceiling-fan',
+  svc_switch: 'light-switch', svc_wiring: 'flash', svc_light: 'ceiling-light', svc_ac: 'air-conditioner', svc_ac_repair: 'air-conditioner',
+  svc_fridge: 'fridge', svc_washer: 'washing-machine', svc_ro: 'water', svc_geyser: 'water-boiler', svc_kitchen: 'countertop',
+  svc_bath: 'toilet', svc_sofa: 'sofa', svc_door: 'door', svc_furniture: 'wardrobe', svc_carpentry: 'hand-saw',
+  customer: 'account', tech_hero: 'account-hard-hat', pay_success: 'check-circle', pay_pending: 'timer-sand', card_failed: 'credit-card-off',
+  cash: 'cash', earnings: 'chart-line', pay_due: 'cash-clock', trophy: 'trophy', refund: 'cash-refund', verify_pending: 'timer-sand',
+  verify_ok: 'shield-check', verify_fix: 'alert-circle', start_code: 'numeric', job_offer: 'bell-ring', finding: 'map-search',
+  inspecting: 'magnify', no_results: 'magnify-close', tech_done: 'check-decagram',
+};
+
 /** Picture for one service (its own illustration), for lists and headers that show a specific service. */
 const SERVICE_ART: Record<string, ArtName> = {
   'plumb-tap': 'svc_tap', 'plumb-leak': 'svc_leak', 'plumb-block': 'svc_drain', 'plumb-tank': 'svc_tank',
@@ -251,6 +264,14 @@ export function Art3D({ name, size = 96, float = false, shadow = false, style, b
   }, [float, reduce, v]);
   const img = (IMG as Record<string, ImageSourcePropType>)[name];
   const spec = (ART as Record<string, ArtSpec>)[name] ?? ART.sparkles;
+  if (size < 32) {
+    // Functional size: a simple symbol in a soft chip, not a shrunken illustration.
+    return (
+      <View style={[styles.flat, { width: size, height: size, borderRadius: size * 0.3 }, style]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <MaterialCommunityIcons name={FLAT[name] ?? spec.glyph} size={Math.round(size * 0.62)} color={colors.navy} />
+      </View>
+    );
+  }
   // Tiles sit a little inside the requested box so the glow and shadow have room.
   const tile = Math.round(size * (img ? 0.9 : 0.78));
   const lift = v.interpolate({ inputRange: [0, 1], outputRange: [0, -size * 0.06] });
@@ -286,6 +307,7 @@ const styles = StyleSheet.create({
   tileShadow: { shadowOpacity: 0.35 },
   glow: { position: 'absolute', opacity: 0.16 },
   badge: { position: 'absolute' },
+  flat: { backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
   imgTile: { backgroundColor: '#FFFFFF', shadowColor: '#0A2A8F', shadowOpacity: 0.16 },
   shadow: { backgroundColor: 'rgba(42, 28, 174, 0.12)', marginTop: -2 },
 });

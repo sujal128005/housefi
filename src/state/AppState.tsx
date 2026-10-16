@@ -165,7 +165,7 @@ const TECH_SIGNED_OUT: TechSession = {
   token: '',
   profile: {
     id: '', phone: '', name: '', gender: 'M', experienceYears: 0, skills: [], city: '', pincode: '', areas: '', vehicle: '', verification: null,
-    correctionNote: null, online: false, rating: null, jobsDone: 0,
+    identity: null, correctionNote: null, online: false, rating: null, jobsDone: 0,
   },
 };
 

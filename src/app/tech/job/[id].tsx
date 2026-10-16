@@ -423,7 +423,7 @@ function stageOf(j: Job): Stage {
         ? { art: 'memo', title: 'tj.s.revision', body: 'tj.s.revisionBody', wash: 'peach' }
         : { art: 'hourglass', title: 'tj.s.waitApproval', body: 'tj.s.waitApprovalBody', wash: 'sky', pulse: true };
     case 'IN_PROGRESS':
-      if (!j.workStarted) return { art: 'thumbs_up', title: 'tj.s.approved', body: 'tj.s.approvedBody', wash: 'mint' };
+      if (!j.workStarted) return { art: 'tech_done', title: 'tj.s.approved', body: 'tj.s.approvedBody', wash: 'mint' };
       if (j.extraQuote?.decision === 'PENDING') return { art: 'robot', title: 'tj.s.extraChecking', body: 'tj.s.checkingBody', wash: 'lavender', pulse: true };
       return { art: 'tools', title: 'tj.s.working', body: 'tj.s.workingBody', wash: 'mint' };
     case 'EXTRA_WORK': return { art: 'hourglass', title: 'tj.s.waitExtra', body: 'tj.s.waitExtraBody', wash: 'sky', pulse: true };

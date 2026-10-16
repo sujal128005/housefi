@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1, gap: 2 },
   card: { paddingBottom: space.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  icon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
   iconOn: { backgroundColor: colors.blue },
   edit: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', minHeight: 36, marginTop: space.xs, marginLeft: 44 + space.md },
   add: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 64, paddingHorizontal: space.lg, borderRadius: radius.lg, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.blue, backgroundColor: colors.blueTint },

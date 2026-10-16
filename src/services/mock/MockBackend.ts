@@ -12,11 +12,13 @@ import {
 import {
   canCancel, cancelRefundsVisitFee, canReschedule, DEMO_TIMING, earningFor, etaMinutes, finalAmount, isActive, isInstantAvailable, isValidName,
   isValidPincode, labourTotal, materialTotal, matchingStatusAt, MAX_QUOTE_VERSIONS, nextPayoutDate, normalizePhone, priceCheck, quoteProblem,
-  quoteTotal, slotsFor, START_CODE_ATTEMPTS, TECH_VISIT_SHARE, typicalRange, validateAddress, weekStart, windowStart, type MatchingScenario,
+  quoteTotal, slotsFor, START_CODE_ATTEMPTS, TECH_VISIT_SHARE, typicalRange, isWomenRated, validateAddress, weekStart, windowStart, type MatchingScenario,
 } from '../../domain/rules';
+import { displayName, isValidPhoto, newTechCode, newVerifyToken, VERIFY_TOKEN_RE, type RandomBytes } from '../../domain/identity';
 import type {
-  Address, AddressInput, Booking, BookingStatus, CancelReason, CategoryId, Customer, Earnings, Job, JobOffer, Payment, PaymentMethod, Quote,
-  QuoteLine, Session, StatusEvent, TechIssue, TechProfile, TechProfileInput, Technician, VisitTime,
+  Address, AddressInput, AssignedTechnician, Booking, BookingStatus, CancelReason, CategoryId, Customer, Earnings, Job, JobOffer, Payment,
+  PaymentMethod, Quote, QuoteLine, Session, StatusEvent, TechIdCard, TechIssue, TechProfile, TechProfileInput, Technician, TechVerifyResult,
+  VisitTime,
 } from '../../domain/types';
 import { quoteVisible } from '../../domain/types';
 import {
@@ -24,7 +26,8 @@ import {
   type NotificationKind, type OtpChallenge, type PaymentResult, type QuoteAnswer, type QuoteInput,
 } from '../api';
 
-const STORE_KEY = 'housefi.demo-backend.v3';
+// v4: technician identity (ID, photo, verification). Older demo data is dropped, not migrated.
+const STORE_KEY = 'housefi.demo-backend.v4';
 const OTP_TTL_MS = 5 * 60_000;
 const OTP_RESEND_SEC = 30;
 const OTP_MAX_ATTEMPTS = 3;
@@ -48,7 +51,15 @@ interface StoredBooking extends Booking {
 
 interface StoredTech extends TechProfile {
   readonly submittedAt: number | null;
+  /** Token behind the ID card's QR code (the verification page link); issued with the Technician ID. */
+  readonly verifyToken: string | null;
 }
+
+/**
+ * Where the ID card's QR code points in the demo: the verification page inside this app (route verify/[token]).
+ * The live backend points it at Housefi's public verification page instead.
+ */
+export const DEMO_VERIFY_BASE = 'housefi://verify/';
 
 interface StoredOffer {
   readonly id: string;
@@ -70,6 +81,12 @@ interface DemoState {
   offers: StoredOffer[];
   notifications: Record<string, AppNotification[]>;
   tickets: { id: string; bookingId: string; by: string; issue: TechIssue; note: string; at: number }[];
+  /** Every Technician ID ever issued. Never shrinks: an ID is never given to anyone else. */
+  issuedTechCodes: string[];
+  /** Verification-page token -> "tech:<id>" (technician-app account) or "fict:<id>" (fictional demo technician). */
+  verifyTokens: Record<string, string>;
+  /** IDs and tokens of the fictional demo technicians, issued the first time each is assigned. */
+  fictional: Record<string, { techCode: string; verifyToken: string }>;
   settings: DemoSettings;
 }
 
@@ -87,6 +104,8 @@ export interface MockOptions {
   /** Simulated network latency in ms: [min, max]. Use [0, 0] in tests. */
   readonly latency?: readonly [number, number];
   readonly random?: () => number;
+  /** Cryptographic random bytes (Technician IDs, verification tokens). Defaults to globalThis.crypto. */
+  readonly randomBytes?: RandomBytes;
   /** Poll interval for watch(), ms. */
   readonly pollMs?: number;
 }
@@ -97,8 +116,14 @@ const DEFAULT_SETTINGS: DemoSettings = {
 
 const emptyState = (): DemoState => ({
   customers: {}, sessions: {}, addresses: {}, bookings: {}, techs: {}, techSessions: {}, offers: [], notifications: {}, tickets: [],
-  settings: DEFAULT_SETTINGS,
+  issuedTechCodes: [], verifyTokens: {}, fictional: {}, settings: DEFAULT_SETTINGS,
 });
+
+function defaultRandomBytes(n: number): Uint8Array {
+  const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
+  if (!c?.getRandomValues) throw new Error('no cryptographic random source');
+  return c.getRandomValues(new Uint8Array(n));
+}
 
 const due = (kind: 'VISIT' | 'FINAL', amount: number): Payment => ({ kind, amount, state: 'DUE', method: null, txnId: null, at: null });
 const same = (text: string) => ({ en: text, te: text });
@@ -107,6 +132,7 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 export function createMockBackend(opts: MockOptions): Backend {
   const now = opts.now ?? (() => Date.now());
   const random = opts.random ?? Math.random;
+  const randomBytes = opts.randomBytes ?? defaultRandomBytes;
   const [minLat, maxLat] = opts.latency ?? [300, 700];
   const pollMs = opts.pollMs ?? 1000;
   const challenges = new Map<string, Challenge>();
@@ -209,7 +235,10 @@ export function createMockBackend(opts: MockOptions): Backend {
       });
     }
     notify(tech.id, 'PROFILE_APPROVED', null);
-    return putTech({ ...tech, verification: 'APPROVED', correctionNote: null });
+    return putTech({
+      ...tech, verification: 'APPROVED', correctionNote: null,
+      identity: tech.identity ? { ...tech.identity, photoStatus: 'APPROVED' } : null,
+    });
   }
 
   function maskedFor(seed: string): string {
@@ -219,10 +248,91 @@ export function createMockBackend(opts: MockOptions): Backend {
     return `+91 80${n.slice(0, 3)} ${n.slice(3)}`;
   }
 
-  function publicTech(tech: StoredTech): Technician {
+  function publicTech(tech: StoredTech): AssignedTechnician {
     return {
       id: tech.id, name: same(tech.name), gender: tech.gender, rating: tech.rating ?? 0, jobs: tech.jobsDone, years: tech.experienceYears,
-      womenRated: false, vehicle: tech.vehicle, maskedPhone: maskedFor(tech.id), demo: true,
+      womenRated: womenRatedFor(tech.id), vehicle: tech.vehicle, maskedPhone: maskedFor(tech.id), demo: true, ...identityView(tech),
+    };
+  }
+
+  /**
+   * "Rated highly by women" for a technician-app account, from ratings whose customer ticked "I'm a woman". The demo
+   * needs one such rating; the live backend should require at least 5 (see docs/backend).
+   */
+  function womenRatedFor(techId: string): boolean {
+    const stars = allBookings().filter((x) => x.techId === techId && x.rating?.byWoman === true).map((x) => x.rating?.stars ?? 0);
+    return isWomenRated(stars, 1);
+  }
+
+  /** The identity part a customer may see: approved photo only, current verification state. */
+  function identityView(tech: StoredTech): Pick<AssignedTechnician, 'techCode' | 'photo' | 'verification' | 'verificationSimulated' | 'skills' | 'fictional'> {
+    const idn = tech.identity;
+    return {
+      techCode: idn?.techCode ?? '', photo: idn?.photoStatus === 'APPROVED' ? idn.photo : null, verification: tech.verification ?? 'PENDING',
+      verificationSimulated: true, skills: tech.skills, fictional: false,
+    };
+  }
+
+  // ---------- identity ----------
+
+  function issueTechCode(): string {
+    const s = S();
+    const code = newTechCode(randomBytes, new Set(s.issuedTechCodes));
+    s.issuedTechCodes.push(code);
+    dirty = true;
+    return code;
+  }
+
+  function issueVerifyToken(key: string): string {
+    const s = S();
+    let token = newVerifyToken(randomBytes);
+    while (s.verifyTokens[token]) token = newVerifyToken(randomBytes);
+    s.verifyTokens[token] = key;
+    dirty = true;
+    return token;
+  }
+
+  function fictionalIdentity(t: Technician): { techCode: string; verifyToken: string } {
+    const s = S();
+    const cur = s.fictional[t.id];
+    if (cur) return cur;
+    const issued = { techCode: issueTechCode(), verifyToken: issueVerifyToken(`fict:${t.id}`) };
+    s.fictional[t.id] = issued;
+    return issued;
+  }
+
+  function fictionalById(techId: string): Technician | undefined {
+    return Object.values(DEMO_TECHNICIANS).flat().find((x) => x.id === techId);
+  }
+
+  function fictionalSkills(techId: string): CategoryId[] {
+    return Object.entries(DEMO_TECHNICIANS).filter(([, list]) => list.some((x) => x.id === techId)).map(([k]) => k as CategoryId);
+  }
+
+  /** A fictional demo technician: approved by the demo (simulated), no photo (the app shows an illustration). */
+  function assignedFictional(t: Technician): AssignedTechnician {
+    return {
+      ...t, techCode: fictionalIdentity(t).techCode, photo: null, verification: 'APPROVED', verificationSimulated: true,
+      skills: fictionalSkills(t.id), fictional: true,
+    };
+  }
+
+  /** ID card of a technician-app account. `forCustomer`: only an approved photo is shown. */
+  function cardForTech(tech: StoredTech, forCustomer: boolean): TechIdCard {
+    const idn = tech.identity;
+    if (!idn || !tech.verifyToken) throw new ApiError('NOT_FOUND');
+    return {
+      techCode: idn.techCode, name: idn.legalName, photo: forCustomer && idn.photoStatus !== 'APPROVED' ? null : idn.photo,
+      photoStatus: idn.photoStatus, gender: tech.gender, skills: tech.skills, verification: tech.verification ?? 'PENDING', simulated: idn.simulated,
+      verifyUrl: DEMO_VERIFY_BASE + tech.verifyToken, verifyIsDemo: true, fictional: false,
+    };
+  }
+
+  function cardForFictional(t: Technician): TechIdCard {
+    const { techCode, verifyToken } = fictionalIdentity(t);
+    return {
+      techCode, name: t.name.en, photo: null, photoStatus: 'APPROVED', gender: t.gender, skills: fictionalSkills(t.id), verification: 'APPROVED',
+      simulated: true, verifyUrl: DEMO_VERIFY_BASE + verifyToken, verifyIsDemo: true, fictional: true,
     };
   }
 
@@ -267,10 +377,10 @@ export function createMockBackend(opts: MockOptions): Backend {
     throw new ApiError('NOT_FOUND');
   }
 
-  function pickTechnician(b: StoredBooking): Technician | null {
+  function pickTechnician(b: StoredBooking): AssignedTechnician | null {
     const pool = DEMO_TECHNICIANS[b.categoryId] ?? [];
-    if (b.preferWomenRated) return pool.find((x) => x.womenRated) ?? pool[0] ?? null;
-    return pool[0] ?? null;
+    const t = (b.preferWomenRated ? pool.find((x) => x.womenRated) : undefined) ?? pool[0];
+    return t ? assignedFictional(t) : null;
   }
 
   function buildQuote(b: StoredBooking, lines: QuoteLine[], diagnosis: { en: string; te: string }, version: number, at: number): Quote {
@@ -514,7 +624,11 @@ export function createMockBackend(opts: MockOptions): Backend {
     const { customerId: _c, scenario: _s, extraWorkPlanned: _e, phaseStartedAt, techId: _t, practice: _p, declinedBy: _d, otpTries: _o, ...rest } = b;
     const etaMin = b.status === 'EN_ROUTE' ? etaMinutes(T.travelSec - (now() - phaseStartedAt) / 1000) : null;
     // The customer sees a quote only after it passes the price check.
-    return { ...rest, etaMin, quote: quoteVisible(b.quote) ? b.quote : null, extraQuote: quoteVisible(b.extraQuote) ? b.extraQuote : null };
+    // A technician-app account's photo and verification are read fresh (an approval can be withdrawn after assignment).
+    const stored = b.techId ? techById(b.techId) : undefined;
+    const tech = stored ? advanceTech(stored) : undefined;
+    const technician = rest.technician && tech ? { ...rest.technician, ...identityView(tech), womenRated: womenRatedFor(tech.id) } : rest.technician;
+    return { ...rest, technician, etaMin, quote: quoteVisible(b.quote) ? b.quote : null, extraQuote: quoteVisible(b.extraQuote) ? b.extraQuote : null };
   }
 
   function jobView(b: StoredBooking): Job {
@@ -830,6 +944,20 @@ export function createMockBackend(opts: MockOptions): Backend {
         return publicBooking((await touch(token, bookingId)).b);
       },
 
+      async technicianCard(token, bookingId) {
+        await request('READ');
+        // touch() only finds the customer's own bookings: anyone else's is NOT_FOUND.
+        const { b } = await touch(token, bookingId);
+        if (!b.technician) throw new ApiError('NOT_FOUND');
+        const stored = b.techId ? techById(b.techId) : undefined;
+        if (stored) return cardForTech(advanceTech(stored), true);
+        const fictional = fictionalById(b.technician.id);
+        if (!fictional) throw new ApiError('NOT_FOUND');
+        const card = cardForFictional(fictional);
+        if (dirty) await save();
+        return card;
+      },
+
       async list(token) {
         const s = await request('READ');
         const c = customerFor(s, token);
@@ -875,8 +1003,9 @@ export function createMockBackend(opts: MockOptions): Backend {
         const { list, index, b } = await touch(token, bookingId);
         if (b.status !== 'COMPLETED' && b.status !== 'CLOSED_NO_REPAIR') throw new ApiError('CONFLICT');
         if (b.rating) throw new ApiError('CONFLICT');
-        if (!Number.isInteger(rating.stars) || rating.stars < 1 || rating.stars > 5 || typeof rating.satisfied !== 'boolean') throw new ApiError('VALIDATION');
-        const nb = { ...b, rating: { ...rating, comment: rating.comment.slice(0, 500), at: now() } };
+        if (!Number.isInteger(rating.stars) || rating.stars < 1 || rating.stars > 5 || typeof rating.satisfied !== 'boolean'
+          || (rating.byWoman !== undefined && typeof rating.byWoman !== 'boolean')) throw new ApiError('VALIDATION');
+        const nb = { ...b, rating: { ...rating, byWoman: rating.byWoman === true, comment: rating.comment.slice(0, 500), at: now() } };
         const tech = techById(b.techId);
         if (tech) {
           const rated = allBookings().filter((x) => x.techId === tech.id && x.rating && x.id !== b.id).map((x) => x.rating?.stars ?? 0);
@@ -961,7 +1090,7 @@ export function createMockBackend(opts: MockOptions): Backend {
           const existing = s.techs[phone];
           const tech: StoredTech = existing ?? {
             id: id('tech'), phone, name: '', gender: 'M', experienceYears: 0, skills: [], city: '', pincode: '', areas: '', vehicle: '',
-            verification: null, correctionNote: null, online: false, rating: null, jobsDone: 0, submittedAt: null,
+            verification: null, identity: null, correctionNote: null, online: false, rating: null, jobsDone: 0, submittedAt: null, verifyToken: null,
           };
           s.techs[phone] = tech;
           const token = id('ttok');
@@ -1002,11 +1131,38 @@ export function createMockBackend(opts: MockOptions): Backend {
           || input.city.trim().length < 2 || !isValidPincode(input.pincode.trim()) || input.areas.trim().length < 2) {
           throw new ApiError('VALIDATION');
         }
+        if (tech.verification === 'REJECTED' || tech.verification === 'SUSPENDED') throw new ApiError('CONFLICT');
+        // Identity is fixed at the first submission: legal name and photo, and the permanent Technician ID.
+        const first = tech.identity === null;
+        if (first && !isValidPhoto(input.photo)) throw new ApiError('VALIDATION');
+        if (!first && input.name.trim() !== tech.identity?.legalName) throw new ApiError('IDENTITY_LOCKED');
+        const identity = tech.identity ?? {
+          techCode: issueTechCode(), legalName: input.name.trim(), photo: input.photo as string, photoStatus: 'PENDING' as const, simulated: true,
+          correctionRequest: null,
+        };
         const next = putTech({
-          ...tech, name: input.name.trim(), gender: input.gender, experienceYears: input.experienceYears, skills: [...new Set(input.skills)] as CategoryId[],
+          ...tech, name: identity.legalName, gender: input.gender, experienceYears: input.experienceYears, skills: [...new Set(input.skills)] as CategoryId[],
           city: input.city.trim(), pincode: input.pincode.trim(), areas: input.areas.trim(), vehicle: input.vehicle.trim().slice(0, 40),
-          verification: 'PENDING', correctionNote: null, online: false, submittedAt: now(),
+          verification: 'PENDING', correctionNote: null, online: false, submittedAt: now(), identity,
+          verifyToken: tech.verifyToken ?? issueVerifyToken(`tech:${tech.id}`),
         });
+        await save();
+        return publicProfile(next);
+      },
+
+      async idCard(token) {
+        const s = await request('READ');
+        const card = cardForTech(techFor(s, token), false);
+        if (dirty) await save();
+        return card;
+      },
+
+      async requestIdentityCorrection(token, kind, note) {
+        const s = await request('WRITE');
+        const tech = techFor(s, token);
+        if (!tech.identity) throw new ApiError('NOT_FOUND');
+        if ((kind !== 'NAME' && kind !== 'PHOTO') || note.trim().length < 3) throw new ApiError('VALIDATION');
+        const next = putTech({ ...tech, identity: { ...tech.identity, correctionRequest: { kind, note: note.trim().slice(0, 300), at: now() } } });
         await save();
         return publicProfile(next);
       },
@@ -1213,6 +1369,35 @@ export function createMockBackend(opts: MockOptions): Backend {
       notifications,
     },
 
+    verify: {
+      // Public: no sign-in. The token is random and carries no personal data; the answer is the minimum and the status now.
+      async technician(verifyToken) {
+        const s = await request('READ');
+        const key = VERIFY_TOKEN_RE.test(verifyToken) ? s.verifyTokens[verifyToken] : undefined;
+        if (!key) throw new ApiError('NOT_FOUND');
+        const [kind, techId] = [key.slice(0, 5), key.slice(5)];
+        if (kind === 'tech:') {
+          const stored = techById(techId);
+          const tech = stored ? advanceTech(stored) : undefined;
+          if (dirty) await save();
+          if (!tech?.identity) throw new ApiError('NOT_FOUND');
+          const verification = tech.verification ?? 'PENDING';
+          return {
+            techCode: tech.identity.techCode, displayName: displayName(tech.identity.legalName),
+            photo: tech.identity.photoStatus === 'APPROVED' ? tech.identity.photo : null, gender: tech.gender, verification,
+            simulated: tech.identity.simulated, active: verification === 'APPROVED', checkedAt: now(), fictional: false,
+          } satisfies TechVerifyResult;
+        }
+        const t = fictionalById(techId);
+        const issued = t ? s.fictional[t.id] : undefined;
+        if (!t || !issued) throw new ApiError('NOT_FOUND');
+        return {
+          techCode: issued.techCode, displayName: displayName(t.name.en), photo: null, gender: t.gender, verification: 'APPROVED', simulated: true,
+          active: true, checkedAt: now(), fictional: true,
+        } satisfies TechVerifyResult;
+      },
+    },
+
     demo: {
       async settings() {
         return (await load()).settings;
@@ -1276,6 +1461,13 @@ export function createMockBackend(opts: MockOptions): Backend {
         const { b } = await touchJob(techToken, jobId);
         return b.arrivalOtp;
       },
+      async setSuspended(techToken, suspended) {
+        const s = await load();
+        const tech = techFor(s, techToken);
+        if (!tech.identity || (tech.verification !== 'APPROVED' && tech.verification !== 'SUSPENDED')) throw new ApiError('CONFLICT');
+        putTech({ ...tech, verification: suspended ? 'SUSPENDED' : 'APPROVED', online: suspended ? false : tech.online });
+        await save();
+      },
       async reset() {
         state = emptyState();
         challenges.clear();
@@ -1285,7 +1477,7 @@ export function createMockBackend(opts: MockOptions): Backend {
   };
 
   function publicProfile(t: StoredTech): TechProfile {
-    const { submittedAt: _s, ...rest } = t;
+    const { submittedAt: _s, verifyToken: _v, ...rest } = t;
     return rest;
   }
 

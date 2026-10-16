@@ -1,8 +1,9 @@
 // Building blocks of the booking screens: progress stepper, technician card, arrival OTP, quote, bill, safety tools.
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 import { finalAmount, lineTotal, PROGRESS_STEPS, progressIndex } from '../domain/rules';
-import type { Booking, Quote, Technician } from '../domain/types';
+import type { AssignedTechnician, Booking, Quote } from '../domain/types';
 import { Art3D } from '../illustrations/Art3D';
 import { formatRupees } from '../i18n/format';
 import { useI18n, type StringKey } from '../i18n/I18n';
@@ -13,6 +14,7 @@ import { ConfirmSheet, NotInDemoSheet, Sheet, useToast } from './Overlays';
 import { visitTimeText } from './present';
 import { Banner, Card, Divider, Pill } from './Surfaces';
 import { Tap } from './Tap';
+import { TechPhoto, VerificationPill } from './TechIdentity';
 import { Txt } from './Txt';
 import { feedback } from '../services/feedback';
 
@@ -50,26 +52,41 @@ export function ProgressStepper({ booking }: { readonly booking: Booking }) {
   );
 }
 
-export function TechnicianCard({ tech, booking }: { readonly tech: Technician; readonly booking: Booking }) {
+/**
+ * The assigned technician: approved photo, name, rating, identity status. Tapping the photo, the name or "View
+ * Technician ID" opens their digital ID card.
+ */
+export function TechnicianCard({ tech, booking }: { readonly tech: AssignedTechnician; readonly booking: Booking }) {
   const { t, l } = useI18n();
   const [contact, setContact] = useState<'CALL' | 'CHAT' | null>(null);
+  const openId = () => router.push({ pathname: '/booking/technician', params: { id: booking.id } });
   return (
     <Card style={styles.tech} testID="tech-card">
       <View style={styles.techRow}>
-        <View style={styles.avatar}><Art3D name={tech.gender === 'F' ? 'tech_woman' : 'tech_man'} size={64} /></View>
+        <Tap onPress={openId} accessibilityRole="button" accessibilityLabel={`${l(tech.name)}, ${t('id.tapToView')}`} testID="tech-card-photo" scale={0.96}>
+          <TechPhoto photo={tech.photo} gender={tech.gender} size={72} />
+        </Tap>
         <View style={styles.flex}>
-          <Txt variant="title3">{l(tech.name)}</Txt>
+          <Txt variant="title3" onPress={openId} accessibilityRole="button" testID="tech-card-name">{l(tech.name)}</Txt>
           <View style={styles.meta}>
             <Icon name="star" size={14} color="yellow" />
             <Txt variant="label">{tech.rating > 0 ? tech.rating.toFixed(1) : t('track.newTech')}</Txt>
             <Txt variant="footnote" color="inkMuted">· {t('track.jobs', { count: tech.jobs })} · {t('track.experience', { years: tech.years })}</Txt>
           </View>
           <View style={styles.badges}>
-            <Pill label={t('track.verified')} tone="success" icon="shield-checkmark" />
+            <VerificationPill state={tech.verification} simulated={tech.verificationSimulated} />
             {tech.womenRated ? <Pill label={t('track.womenRated')} tone="info" icon="heart" /> : null}
           </View>
         </View>
       </View>
+      <Tap onPress={openId} style={styles.idLink} accessibilityRole="button" testID="tech-card-id">
+        <Icon name="id-card" size={20} color="navy" />
+        <View style={styles.flex}>
+          <Txt variant="label" color="navy">{t('id.tapToView')}</Txt>
+          {tech.techCode ? <Txt variant="caption" color="inkMuted" lang="en">{tech.techCode}</Txt> : null}
+        </View>
+        <Icon name="chevron-forward" size={18} color="inkMuted" />
+      </Tap>
       <View style={styles.vehicle}>
         <Art3D name="scooter" size={26} />
         <Txt variant="footnote" color="inkMuted">{tech.vehicle}</Txt>
@@ -308,6 +325,7 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginVertical: 2 },
   badges: { flexDirection: 'row', gap: space.xs, flexWrap: 'wrap' },
   vehicle: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  idLink: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 52, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: colors.blueTint },
   actions: { flexDirection: 'row', gap: space.sm },
   otp: { gap: space.md, padding: space.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.blueTint },
   otpHot: { backgroundColor: colors.navy, borderColor: colors.navy, ...shadow.raised },

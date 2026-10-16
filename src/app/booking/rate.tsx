@@ -10,6 +10,7 @@ import { useSession } from '../../state/AppState';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Chip, ErrorBanner, Field, Header, Icon, Screen, Tap, Txt, useToast } from '../../ui';
 import { feedback } from '../../services/feedback';
+import { TechPhoto } from '../../ui/TechIdentity';
 
 const TAGS: readonly StringKey[] = ['rate.tag.onTime', 'rate.tag.polite', 'rate.tag.clean', 'rate.tag.fair', 'rate.tag.explained', 'rate.tag.fixed'];
 const LABELS: readonly StringKey[] = ['rate.l1', 'rate.l2', 'rate.l3', 'rate.l4', 'rate.l5'];
@@ -25,6 +26,8 @@ export default function Rate() {
   const [stars, setStars] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [comment, setComment] = useState('');
+  /** Optional: "I'm a woman". Only feeds the technician's "Rated highly by women" badge. */
+  const [byWoman, setByWoman] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const bounce = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(1))).current;
@@ -48,7 +51,7 @@ export default function Rate() {
     setBusy(true);
     setError(null);
     try {
-      await backend.bookings.rate(session.token, id, { satisfied: satisfied ?? stars >= 3, stars, tags: tags.map((k) => k.replace('rate.tag.', '')), comment: comment.trim() });
+      await backend.bookings.rate(session.token, id, { satisfied: satisfied ?? stars >= 3, stars, tags: tags.map((k) => k.replace('rate.tag.', '')), comment: comment.trim(), byWoman });
       feedback('success');
       toast.show(t('rate.thanks'), 'heart');
       router.back();
@@ -64,7 +67,7 @@ export default function Rate() {
     <Screen testID="rate" wash="peach" header={<Header title={t('rate.title')} />}
       footer={<Button label={t('rate.submit')} onPress={() => void submit()} disabled={stars === 0 || satisfied === null} loading={busy} testID="rate-submit" />}>
       <View style={styles.head}>
-        <View style={styles.avatar}><Art3D name={tech?.gender === 'F' ? 'tech_woman' : 'tech_man'} size={96} /></View>
+        <TechPhoto photo={tech?.photo} gender={tech?.gender ?? 'M'} size={104} />
         <Txt variant="title2" align="center" heading>{t('rate.heading', { name: tech ? l(tech.name) : '' })}</Txt>
       </View>
       <Txt variant="title3" align="center" heading>{t('rate.satisfied')}</Txt>
@@ -95,6 +98,14 @@ export default function Rate() {
         {TAGS.map((k) => <Chip key={k} label={t(k)} selected={tags.includes(k)} onPress={() => setTags((a) => (a.includes(k) ? a.filter((x) => x !== k) : [...a, k]))} testID={`tag-${k}`} />)}
       </View>
       <Field label={t('rate.comment')} optional value={comment} onChangeText={setComment} multiline maxLength={300} placeholder={t('rate.commentPlaceholder')} testID="rate-comment" textAlignVertical="top" />
+      <Tap onPress={() => setByWoman((v) => !v)} style={[styles.check, byWoman && styles.checkOn]} haptic accessibilityRole="checkbox"
+        accessibilityState={{ checked: byWoman }} accessibilityLabel={t('rate.byWoman')} accessibilityHint={t('rate.byWomanSub')} testID="rate-by-woman">
+        <View style={[styles.box, byWoman && styles.boxOn]}>{byWoman ? <Icon name="checkmark" size={16} color="onNavy" /> : null}</View>
+        <View style={styles.flex}>
+          <Txt variant="bodyStrong">{t('rate.byWoman')} <Txt variant="footnote" color="inkMuted">{t('common.optional')}</Txt></Txt>
+          <Txt variant="footnote" color="inkMuted">{t('rate.byWomanSub')}</Txt>
+        </View>
+      </Tap>
       {satisfied === false || (stars > 0 && stars <= 2) ? <Banner tone="warning" text={t('rate.sorry')} action={t('hub.help')} onAction={() => router.push('/support')} /> : null}
       <ErrorBanner error={error} />
     </Screen>
@@ -102,6 +113,11 @@ export default function Rate() {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  check: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },
+  checkOn: { borderColor: colors.blue, backgroundColor: colors.blueTint },
+  box: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: colors.lineStrong, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  boxOn: { backgroundColor: colors.blue, borderColor: colors.blue },
   head: { alignItems: 'center', gap: space.sm },
   avatar: { width: 120, height: 120, borderRadius: 60, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   stars: { flexDirection: 'row', justifyContent: 'center', gap: space.sm },

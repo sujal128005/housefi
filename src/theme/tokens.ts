@@ -70,7 +70,8 @@ export const BRAND_GRADIENT = ['#1E86FF', '#0A3CF5', '#0628C9'] as const;
 export type WashName = keyof typeof washes;
 
 export const space = { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, x3: 32, x4: 40, x5: 56 } as const;
-export const radius = { sm: 10, md: 14, lg: 18, xl: 22, xxl: 28, pill: 999 } as const;
+/** `icon`: the soft square chip behind functional icons in rows and lists (40 pt). */
+export const radius = { icon: 12, sm: 10, md: 14, lg: 18, xl: 22, xxl: 28, pill: 999 } as const;
 
 /** Side padding of every screen. */
 export const GUTTER = 20;

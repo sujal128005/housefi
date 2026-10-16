@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   card: { gap: space.md },
   svcRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
-  rowIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  rowIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
   edit: { minHeight: 36, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
   pref: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line },
   prefOn: { borderColor: colors.blue, backgroundColor: '#FBFCFF' },
@@ -220,5 +220,5 @@ const styles = StyleSheet.create({
   good: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
   method: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 60, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.line },
   methodOn: { borderColor: colors.blue, backgroundColor: '#FBFCFF' },
-  methodIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  methodIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
 });

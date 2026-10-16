@@ -19,6 +19,7 @@ import { Banner, DemoPill, ErrorBanner, Icon, SectionTitle, Sheet, Tap, Txt, Was
 import { Appear, Pulse } from '../../../ui/motion';
 import { NotificationList } from '../../../ui/Notifications';
 import { JobCard, techStepIndex, TECH_STEPS } from '../../../ui/TechParts';
+import { TechPhoto } from '../../../ui/TechIdentity';
 
 function greetingKey(h: number): StringKey {
   return h < 12 ? 'home.morning' : h < 17 ? 'home.afternoon' : 'home.evening';
@@ -114,7 +115,7 @@ export default function TechHome() {
       <Wash name={p.online ? 'mint' : 'sky'} fade style={styles.wash} />
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space.md }]} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
-          <View style={styles.avatar}><Art3D name={p.gender === 'F' ? 'tech_woman' : 'tech_man'} size={44} /></View>
+          <TechPhoto photo={p.identity?.photo} gender={p.gender} size={48} />
           <View style={styles.flex}>
             <Txt variant="footnote" color="inkMuted">{t(greetingKey(new Date().getHours()))},</Txt>
             <Txt variant="title2" numberOfLines={1} testID="tech-home-name">{first} 👋</Txt>

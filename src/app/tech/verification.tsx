@@ -1,5 +1,6 @@
-// Verification status after submitting the profile: Pending (checking), Approved (go to home) or Needs correction
-// (with what to fix). Checks again every few seconds.
+// Verification status after submitting the profile: Pending (checking), Approved (go to home), Needs correction
+// (with what to fix), or Rejected / Suspended (no jobs; contact support). Checks again every few seconds. An approval
+// made by the demo backend is called a demo approval, never "verified".
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -12,6 +13,7 @@ import { useAppState, useTechSession } from '../../state/AppState';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Card, Header, Icon, Screen, Txt } from '../../ui';
 import { Pop, Pulse } from '../../ui/motion';
+import { VerificationPill } from '../../ui/TechIdentity';
 
 export default function Verification() {
   const { t, l } = useI18n();
@@ -19,6 +21,8 @@ export default function Verification() {
   const session = useTechSession();
   const { updateTech, setRole } = useAppState();
   const v = session.profile.verification;
+  const simulated = session.profile.identity?.simulated ?? true;
+  const stopped = v === 'REJECTED' || v === 'SUSPENDED';
   const last = useRef(v);
 
   useEffect(() => {
@@ -51,7 +55,7 @@ export default function Verification() {
   return (
     <Screen
       testID="tech-verification"
-      wash={v === 'APPROVED' ? 'mint' : v === 'NEEDS_CORRECTION' ? 'peach' : 'sky'}
+      wash={v === 'APPROVED' ? 'mint' : v === 'NEEDS_CORRECTION' || stopped ? 'peach' : 'sky'}
       header={<Header back={false} />}
       footer={v === 'APPROVED' ? <Button label={t('tverify.go')} trailingIcon="arrow-forward" onPress={() => resetTo('/tech/home')} testID="tverify-go" />
         : v === 'NEEDS_CORRECTION' ? <Button label={t('tverify.fix')} icon="create-outline" onPress={() => router.push({ pathname: '/tech/setup', params: { edit: '1' } })} testID="tverify-fix" />
@@ -65,7 +69,7 @@ export default function Verification() {
           <>
             <Pop><Art3D name="verify_ok" size={140} shadow /></Pop>
           </>
-        ) : v === 'NEEDS_CORRECTION' ? <Art3D name="verify_fix" size={130} float shadow /> : (
+        ) : v === 'NEEDS_CORRECTION' || stopped ? <Art3D name="verify_fix" size={130} float shadow /> : (
           <>
             <Pulse size={200} color={colors.blue} />
             <Art3D name="verify_pending" size={120} float />
@@ -73,10 +77,13 @@ export default function Verification() {
         )}
       </View>
       <Txt variant="title1" align="center" heading accessibilityLiveRegion="polite">
-        {v === 'APPROVED' ? t('tverify.approved') : v === 'NEEDS_CORRECTION' ? t('tverify.correction') : t('tverify.pending')}
+        {v === 'APPROVED' ? (simulated ? t('tverify.approvedDemo') : t('tverify.approved')) : v === 'NEEDS_CORRECTION' ? t('tverify.correction')
+          : stopped ? t('tverify.stopped') : t('tverify.pending')}
       </Txt>
+      <View style={styles.pill}><VerificationPill state={v} simulated={simulated} /></View>
       <Txt variant="body" color="inkMuted" align="center">
-        {v === 'APPROVED' ? t('tverify.approvedBody') : v === 'NEEDS_CORRECTION' ? t('tverify.correctionBody') : t('tverify.pendingBody')}
+        {v === 'APPROVED' ? (simulated ? t('tverify.approvedDemoBody') : t('tverify.approvedBody')) : v === 'NEEDS_CORRECTION' ? t('tverify.correctionBody')
+          : stopped ? t('tverify.stoppedBody') : t('tverify.pendingBody')}
       </Txt>
       {v === 'NEEDS_CORRECTION' && session.profile.correctionNote ? <Banner tone="warning" icon="alert-circle" text={l(session.profile.correctionNote)} /> : null}
       <Card style={styles.steps}>
@@ -95,6 +102,7 @@ export default function Verification() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   art: { alignItems: 'center', justifyContent: 'center', height: 210 },
+  pill: { flexDirection: 'row', justifyContent: 'center' },
   steps: { gap: space.md },
   step: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   dot: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: colors.lineStrong, alignItems: 'center', justifyContent: 'center' },

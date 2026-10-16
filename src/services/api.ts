@@ -3,7 +3,8 @@
 // screens never change when it arrives.
 import type {
   Address, AddressInput, Booking, CancelReason, Category, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo,
-  ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIssue, TechProfile, TechProfileInput, TechSession, VisitTime,
+  ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession,
+  TechVerifyResult, VisitTime,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
 
@@ -20,6 +21,8 @@ export type ApiErrorCode =
   | 'PAYMENT_FAILED'
   | 'OFFER_EXPIRED'
   | 'NOT_VERIFIED'
+  /** Identity fields (legal name, photo, Technician ID) cannot be changed by the technician. */
+  | 'IDENTITY_LOCKED'
   | 'CONFLICT';
 
 export class ApiError extends Error {
@@ -104,6 +107,11 @@ export interface BookingApi {
    */
   decideQuote(token: string, id: string, which: 'MAIN' | 'EXTRA', answer: QuoteAnswer): Promise<Booking>;
   rate(token: string, id: string, rating: Omit<Rating, 'at'>): Promise<Booking>;
+  /**
+   * The digital ID card of the technician assigned to this customer's booking. NOT_FOUND unless the booking is the
+   * customer's own and a technician is assigned (the same answer for other people's bookings, so nothing leaks).
+   */
+  technicianCard(token: string, bookingId: string): Promise<TechIdCard>;
   /** Live updates for one booking (polling today; a socket later). Returns an unsubscribe function. */
   watch(token: string, id: string, onChange: (b: Booking) => void, onError?: (e: unknown) => void): () => void;
 }
@@ -199,8 +207,16 @@ export interface TechAuthApi {
 export interface TechApi {
   readonly auth: TechAuthApi;
   me(token: string): Promise<TechProfile>;
-  /** First submission and corrections; puts the profile (back) into verification. */
+  /**
+   * First submission and corrections; puts the profile (back) into verification. The first submission needs a photo
+   * and fixes the identity (legal name, photo) and issues the Technician ID. Later submissions may change work details
+   * only: a different name is IDENTITY_LOCKED and a photo is ignored.
+   */
   submitProfile(token: string, input: TechProfileInput): Promise<TechProfile>;
+  /** The signed-in technician's own digital ID card. */
+  idCard(token: string): Promise<TechIdCard>;
+  /** Asks support to correct the legal name or photo (the technician cannot change them directly). */
+  requestIdentityCorrection(token: string, kind: 'NAME' | 'PHOTO', note: string): Promise<TechProfile>;
   /** Online = ready to receive job offers. Only verified technicians can go online. */
   setOnline(token: string, online: boolean): Promise<TechProfile>;
   /** The job currently offered to this technician, if any. */
@@ -252,7 +268,15 @@ export interface DemoControls {
   practiceJob(techToken: string): Promise<JobOffer>;
   /** Technician app: the code the customer would read out at the door (in the demo, both sides are on one phone). */
   startCode(techToken: string, jobId: string): Promise<string>;
+  /** Technician app: withdraws (or restores) this technician's approval, to show a suspended ID card and verification. */
+  setSuspended(techToken: string, suspended: boolean): Promise<void>;
   reset(): Promise<void>;
+}
+
+/** Housefi's public verification page for a scanned Technician ID card. No sign-in; minimal data. */
+export interface VerifyApi {
+  /** NOT_FOUND for an unknown or withdrawn token. */
+  technician(verifyToken: string): Promise<TechVerifyResult>;
 }
 
 export interface Backend {
@@ -264,6 +288,7 @@ export interface Backend {
   readonly ai: AiApi;
   readonly notifications: NotificationApi;
   readonly tech: TechApi;
+  readonly verify: VerifyApi;
   readonly demo: DemoControls | null;
 }
 

@@ -102,9 +102,13 @@ export async function tap(sel, timeoutMs) {
 }
 
 /** Scrolls the main content until the selector is on screen (and not hidden under the footer). */
-export async function scrollTo(sel, { maxSwipes = 8, bottomLimit = 0.86 } = {}) {
+export async function scrollTo(sel, { maxSwipes = 10, bottomLimit = 0.86 } = {}) {
   const { h } = screen();
+  // An open keyboard shrinks the window; close it so the target has room to settle.
+  await hideKeyboard();
   let lastY = null;
+  let lastDir = 0;
+  let stride = 0.4;
   for (let k = 0; k <= maxSwipes; k++) {
     const all = find(dump(), sel);
     const n = all && onScreen(all) ? all : null;
@@ -112,8 +116,12 @@ export async function scrollTo(sel, { maxSwipes = 8, bottomLimit = 0.86 } = {}) 
     // At the end of the list the element cannot move further up; accept it if it is fully on screen.
     if (n && lastY !== null && n.y1 === lastY && n.y2 < h * 0.97) return n;
     lastY = n ? n.y1 : null;
-    if (n && n.y1 <= h * 0.08) swipe(0.3, 0.6);
-    else swipe(0.72, 0.32);
+    const dir = n && n.y1 <= h * 0.08 ? -1 : 1;
+    // Overshot the other way: halve the swipe so it settles instead of bouncing past the visible band.
+    if (lastDir !== 0 && dir !== lastDir) stride = Math.max(0.1, stride / 2);
+    lastDir = dir;
+    if (dir < 0) swipe(0.3, 0.3 + stride);
+    else swipe(0.72, 0.72 - stride);
     await sleep(500);
   }
   throw new Error(`Could not scroll to ${JSON.stringify(sel)}`);

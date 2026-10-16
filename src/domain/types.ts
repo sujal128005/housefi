@@ -162,6 +162,20 @@ export interface Technician {
   readonly demo: true;
 }
 
+/** A technician as the customer of an assigned booking sees them (the booking's snapshot plus their identity). */
+export interface AssignedTechnician extends Technician {
+  /** Permanent Housefi Technician ID, N9-HF-T-XXXXXX. */
+  readonly techCode: string;
+  /** The approved profile photo (a URI, or "demo:<illustration>" for the demo's sample photos); null when none is on file. */
+  readonly photo: string | null;
+  readonly verification: Verification;
+  /** The verification came from the demo backend: it is simulated, never a real check. */
+  readonly verificationSimulated: boolean;
+  readonly skills: readonly CategoryId[];
+  /** A fictional technician of the demo (no real person, no real photo). */
+  readonly fictional: boolean;
+}
+
 export interface QuoteLine {
   readonly kind: 'LABOUR' | 'MATERIAL';
   /** Technician-typed lines carry the same text in both languages. */
@@ -213,6 +227,11 @@ export interface Rating {
   readonly stars: number;
   readonly tags: readonly string[];
   readonly comment: string;
+  /**
+   * Optional, self-declared by the customer ("I'm a woman"). Used only to work out a technician's "Rated highly by
+   * women" badge; never shown to anyone or attached to the customer's name.
+   */
+  readonly byWoman?: boolean;
   readonly at: number;
 }
 
@@ -236,7 +255,7 @@ export interface Booking {
   readonly time: VisitTime;
   readonly preferWomenRated: boolean;
   readonly status: BookingStatus;
-  readonly technician: Technician | null;
+  readonly technician: AssignedTechnician | null;
   /** 4-digit code the customer tells the technician at the door (starts the visit). */
   readonly arrivalOtp: string;
   /** Live estimate while the technician travels, in (demo) minutes. */
@@ -277,7 +296,62 @@ export const ACTIVE_STATUSES: readonly BookingStatus[] = [
 
 // ---------- technician side ----------
 
-export type Verification = 'PENDING' | 'APPROVED' | 'NEEDS_CORRECTION';
+/**
+ * PENDING: submitted, being checked. APPROVED: checked and allowed to work. NEEDS_CORRECTION: sent back with a note.
+ * REJECTED: not accepted. SUSPENDED: was approved, access withdrawn later. Only APPROVED technicians get jobs.
+ */
+export type Verification = 'PENDING' | 'APPROVED' | 'NEEDS_CORRECTION' | 'REJECTED' | 'SUSPENDED';
+
+/**
+ * Who the technician is, as Housefi holds it. Set once when the profile is first submitted; after that the technician
+ * cannot change it (corrections go through support / admin review).
+ */
+export interface TechIdentity {
+  /** Permanent, unique, non-sequential Housefi Technician ID (N9-HF-T-XXXXXX), assigned by the backend. */
+  readonly techCode: string;
+  /** Full legal name, as on the identity document. */
+  readonly legalName: string;
+  /** Profile photo taken or uploaded at registration ("demo:<illustration>" for the demo's sample photo). */
+  readonly photo: string;
+  /** PENDING until the verification is approved. */
+  readonly photoStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  /** The verification is simulated by the demo backend (never a real check). */
+  readonly simulated: boolean;
+  /** A correction the technician asked support for (name or photo), if any. */
+  readonly correctionRequest: { readonly kind: 'NAME' | 'PHOTO'; readonly note: string; readonly at: number } | null;
+}
+
+/** The digital Housefi Technician ID card: only what is needed to confirm who the technician is. */
+export interface TechIdCard {
+  readonly techCode: string;
+  readonly name: string;
+  readonly photo: string | null;
+  readonly photoStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  readonly gender: Gender;
+  readonly skills: readonly CategoryId[];
+  readonly verification: Verification;
+  readonly simulated: boolean;
+  /** Link in the QR code: Housefi's verification page with a random, non-guessable token (no personal data). */
+  readonly verifyUrl: string;
+  /** The verification page is the demo one inside this app, not a live public page. */
+  readonly verifyIsDemo: boolean;
+  readonly fictional: boolean;
+}
+
+/** What Housefi's verification page shows for a scanned card: the minimum, and the status as of now. */
+export interface TechVerifyResult {
+  readonly techCode: string;
+  /** First name and last initial. */
+  readonly displayName: string;
+  readonly photo: string | null;
+  readonly gender: Gender;
+  readonly verification: Verification;
+  readonly simulated: boolean;
+  /** Allowed to work for Housefi right now. */
+  readonly active: boolean;
+  readonly checkedAt: number;
+  readonly fictional: boolean;
+}
 
 export interface TechProfileInput {
   readonly name: string;
@@ -291,6 +365,8 @@ export interface TechProfileInput {
   readonly areas: string;
   /** Optional, e.g. "Scooter · TS 09 AB 1234". */
   readonly vehicle: string;
+  /** Required on the first submission (taken or uploaded); ignored afterwards: the photo cannot be replaced by the technician. */
+  readonly photo?: string;
 }
 
 export interface TechProfile extends TechProfileInput {
@@ -298,6 +374,8 @@ export interface TechProfile extends TechProfileInput {
   readonly phone: string;
   /** null until the profile is submitted. */
   readonly verification: Verification | null;
+  /** null until the profile is first submitted. */
+  readonly identity: TechIdentity | null;
   readonly correctionNote: Localized | null;
   /** Available for new jobs. */
   readonly online: boolean;

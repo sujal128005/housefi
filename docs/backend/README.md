@@ -271,7 +271,7 @@ Every app action that talks to the backend, mapped from `src/services/api.ts` to
 | Cancel | `POST /bookings/{id}/cancel` | `{ reason }` | `Booking` |
 | Reschedule | `POST /bookings/{id}/reschedule` | `{ time }` | `Booking` |
 | Answer quote | `POST /bookings/{id}/quotes/{MAIN\|EXTRA}/answer` | `{ answer: "APPROVE" \| "REVISION" \| "DECLINE" }` | `Booking` |
-| Rate | `POST /bookings/{id}/rating` | `{ satisfied, stars, tags, comment }` | `Booking` |
+| Rate | `POST /bookings/{id}/rating` | `{ satisfied, stars, tags, comment, byWoman? }` (`byWoman`: optional "I'm a woman"; only recomputes the technician's `women_rated`: 5+ such ratings averaging 4.5+; never returned) | `Booking` |
 | Masked call | `POST /bookings/{id}/call` | | `{ dialNumber }` (Exotel bridge) |
 | Notifications | `GET /notifications`, `POST /notifications/read`, `POST /devices` | `{ ids }` / `{ pushToken, platform }` | `AppNotification[]` |
 | AI: top problems near me | `GET /ai/top-problems?pincode=` | | `{ area, items[6] }` |
@@ -300,6 +300,10 @@ Every app action that talks to the backend, mapped from `src/services/api.ts` to
 | Cash received | `POST /tech/jobs/{id}/confirm-cash` | | `Job` |
 | Report a problem | `POST /tech/jobs/{id}/reports` | `{ issue, note }` | `Job` |
 | Earnings | `GET /tech/earnings` | | `Earnings` |
+| My Housefi ID | `GET /tech/id-card` | | `TechIdCard` (404 before the first submission) |
+| Ask for an identity correction | `POST /tech/identity-corrections` | `{ kind: NAME\|PHOTO, note }` | `TechProfile` |
+| Customer: assigned technician's ID card | `GET /bookings/{id}/technician-card` | | `TechIdCard`; 404 unless it is the customer's own booking with a technician assigned |
+| QR verification page (public, no sign-in) | `GET /verify/technicians/{token}` | | `TechVerifyResult`; 404 for unknown / revoked tokens |
 
 ### Errors
 
@@ -318,10 +322,47 @@ Body: `{ "error": { "code": "SLOT_UNAVAILABLE", "message": "for logs, not shown"
 | `PAYMENT_FAILED` | 402 | provider refused | retry / other method |
 | `OFFER_EXPIRED` | 410 | offer timed out or withdrawn | "Offer expired" |
 | `NOT_VERIFIED` | 403 | technician not approved | verification status |
+| `IDENTITY_LOCKED` | 409 | the technician tried to change the legal name (or photo) after registration | "Ask support for a correction" |
 | `RATE_LIMITED` | 429 | too many requests (`retryAfterSec`) | wait |
 | `NETWORK` | (client) | no connection / timeout | try again |
 
 Also: `ApiErrorCode` in `api.ts` lists the codes the app knows. Add `RATE_LIMITED` there when integrating.
+
+---
+
+## 6b. Technician identity: photo, permanent ID, digital ID card, verification page
+
+What the app does today (against the demo backend, `src/services/mock/MockBackend.ts`, tests in
+`src/__tests__/identity.test.ts`) and what the real backend must enforce:
+
+- **Photo, mandatory.** First `PUT /tech/profile` needs a photo (live camera or gallery; the app crops it square and
+  sends a 480 px JPEG). Store it in a private bucket; serve only short-lived signed URLs. `photoStatus` stays
+  `PENDING` until verification is approved; customers only ever get the **approved** photo.
+- **Locked identity.** The first submission fixes `legal_name`, the photo and issues the Technician ID. Later
+  submissions may change work details only: a different name is `IDENTITY_LOCKED`; a photo is ignored. Corrections
+  are `identity_correction_requests`, decided by admin review (audited). Enforce in the database (grants above), not
+  only in the API.
+- **Technician ID `N9-HF-T-XXXXXX`.** Six characters from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (31^6 ≈ 887 million) drawn
+  with a CSPRNG by rejection sampling (`src/domain/identity.ts` has the reference code). Insert into
+  `issued_tech_codes` in the same transaction; on a unique-key clash draw again. Never derived from name, phone or a
+  sequence; never reused; never accepted as a credential or as permission to read anything.
+- **Verification states:** `PENDING`, `APPROVED`, `NEEDS_CORRECTION`, `REJECTED`, `SUSPENDED`. Only `APPROVED`
+  technicians get offers or go online. Withdrawing approval (`SUSPENDED`) takes them offline, and every customer-facing
+  read (booking, ID card, verification page) reflects it immediately. The app shows the green "Verified" tick only for
+  `APPROVED` with `simulated: false`; the real backend always sends `simulated: false`, `verifyIsDemo: false`,
+  `fictional: false`.
+- **QR code** = `https://<Housefi verification domain>/t/{token}`: a random 24-character token (store its SHA-256),
+  no personal data in the URL. The page shows photo (approved only), first name + last initial, Technician ID,
+  current status and "checked at". Rate-limit it, `noindex`, no analytics on the token. In the demo the QR opens
+  `housefi://verify/{token}`, a page inside the app, and the card says so.
+- **Who sees a card:** the technician (their own) and the customer of a booking with that technician assigned. Any
+  other request is 404. Responses `Cache-Control: no-store`; do not log card bodies or tokens.
+- **The card never carries** identity-document images or numbers, date of birth, home address or phone number.
+
+Screen-capture protection is on the device (`expo-screen-capture`): Android secure window (FLAG_SECURE: no
+screenshots or recordings, blank in recent apps); iOS 13+ hides the screen from screenshots and recordings, blurs the
+app-switcher snapshot and tells the person on a screenshot attempt. No platform can stop a photo taken with another
+camera, which is why the card has a live watermark and the QR shows the current status.
 
 ---
 

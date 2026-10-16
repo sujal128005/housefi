@@ -66,7 +66,6 @@ export default function Snap() {
         <>
           <Appear style={styles.hero}>
             <Art3D name="camera" size={120} float shadow />
-            <Art3D name="sparkles" size={44} style={styles.sparkle} />
           </Appear>
           <Txt variant="title1" align="center" heading>{t('snap.heading')}</Txt>
           <Txt variant="callout" color="inkMuted" align="center">{t('snap.body')}</Txt>
@@ -143,7 +142,6 @@ export default function Snap() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   hero: { alignItems: 'center', marginTop: space.md },
-  sparkle: { position: 'absolute', top: 0, right: '28%' },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm, justifyContent: 'space-between' },
   samples: { flexDirection: 'row', gap: space.sm },
   sample: { flex: 1, aspectRatio: 1, borderRadius: radius.md, overflow: 'hidden', borderWidth: 2, borderColor: colors.surface },

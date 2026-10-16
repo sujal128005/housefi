@@ -17,7 +17,8 @@ CREATE TYPE booking_status   AS ENUM ('AWAITING_PAYMENT', 'PAYMENT_PENDING', 'MA
 CREATE TYPE cancel_reason    AS ENUM ('PLANS_CHANGED', 'FIXED', 'TOO_LONG', 'MISTAKE', 'OTHER', 'UNPAID_EXPIRED', 'UNFULFILLED_EXPIRED');
 CREATE TYPE close_reason     AS ENUM ('CUSTOMER_DECLINED', 'CUSTOMER_UNAVAILABLE', 'CANNOT_COMPLETE');
 CREATE TYPE gender           AS ENUM ('M', 'F');
-CREATE TYPE verification     AS ENUM ('PENDING', 'APPROVED', 'NEEDS_CORRECTION');
+CREATE TYPE verification     AS ENUM ('PENDING', 'APPROVED', 'NEEDS_CORRECTION', 'REJECTED', 'SUSPENDED');
+CREATE TYPE photo_status     AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
 CREATE TYPE phone_type       AS ENUM ('SMARTPHONE', 'KEYPAD', 'NONE');
 CREATE TYPE offer_state      AS ENUM ('OPEN', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'WITHDRAWN');
 CREATE TYPE offer_channel    AS ENUM ('APP', 'SMS', 'IVR', 'COORDINATOR');
@@ -152,9 +153,49 @@ CREATE TABLE technicians (
   last_location_at timestamptz,
   submitted_at     timestamptz,
   verified_at      timestamptz,
-  updated_at       timestamptz NOT NULL DEFAULT now()
+  -- Identity, fixed at the first submission. The app role has no UPDATE right on these columns (see grants below);
+  -- only the admin review service changes them, and every change is written to audit_log.
+  tech_code        text UNIQUE CHECK (tech_code ~ '^N9-HF-T-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$'),
+  legal_name       text,
+  photo_object_key text,                         -- private bucket; served only as short-lived signed URLs
+  photo_status     photo_status,
+  identity_locked_at timestamptz,
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  CHECK ((tech_code IS NULL) = (identity_locked_at IS NULL))
 );
 CREATE INDEX ON technicians (pincode) WHERE online AND verification = 'APPROVED';
+
+-- Every Technician ID ever issued. Rows are never deleted, so an ID is never given to anyone else.
+CREATE TABLE issued_tech_codes (
+  tech_code     text PRIMARY KEY,
+  technician_id uuid NOT NULL REFERENCES technicians(user_id),
+  issued_at     timestamptz NOT NULL DEFAULT now()
+);
+
+-- QR verification tokens: only the SHA-256 of the token is stored. Revoke and re-issue if a card is misused.
+CREATE TABLE technician_verify_tokens (
+  token_hash    bytea PRIMARY KEY,
+  technician_id uuid NOT NULL REFERENCES technicians(user_id),
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  revoked_at    timestamptz
+);
+CREATE UNIQUE INDEX ON technician_verify_tokens (technician_id) WHERE revoked_at IS NULL;
+
+-- Name / photo corrections go through support and admin review.
+CREATE TABLE identity_correction_requests (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  technician_id uuid NOT NULL REFERENCES technicians(user_id),
+  kind          text NOT NULL CHECK (kind IN ('NAME', 'PHOTO')),
+  note          text NOT NULL CHECK (char_length(note) BETWEEN 3 AND 300),
+  state         text NOT NULL DEFAULT 'OPEN' CHECK (state IN ('OPEN', 'APPROVED', 'REJECTED')),
+  reviewed_by   uuid REFERENCES users(id),
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  reviewed_at   timestamptz
+);
+-- Grants (run as owner): the API's role may set identity once, never change it.
+--   REVOKE UPDATE (tech_code, legal_name, photo_object_key, identity_locked_at) ON technicians FROM housefi_api;
+--   and set them only through SECURITY DEFINER function register_identity(technician_id, legal_name, photo_key),
+--   which refuses when identity_locked_at IS NOT NULL.
 CREATE INDEX ON technicians USING gist (last_location);
 
 CREATE TABLE technician_skills (
@@ -314,6 +355,9 @@ CREATE TABLE ratings (
   stars         smallint NOT NULL CHECK (stars BETWEEN 1 AND 5),
   tags          text[] NOT NULL DEFAULT '{}',
   comment       text NOT NULL DEFAULT '',
+  -- Optional "I'm a woman" from the customer. Only feeds technicians.women_rated
+  -- (>= 5 such ratings, average >= 4.5); never exposed through the API.
+  by_woman      boolean NOT NULL DEFAULT false,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 

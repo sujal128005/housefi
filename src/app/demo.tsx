@@ -20,7 +20,7 @@ export default function DemoSettingsScreen() {
   const { t } = useI18n();
   const backend = useBackend();
   const toast = useToast();
-  const { signOut, techSignOut } = useAppState();
+  const { signOut, techSignOut, techSession, updateTech } = useAppState();
   const draft = useDraft();
   const [s, setS] = useState<DemoSettings | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -35,6 +35,18 @@ export default function DemoSettingsScreen() {
   };
 
   const failOn = (v: FailNext) => s?.failNext === v;
+  const techV = techSession?.profile.verification;
+  const canSuspend = !!techSession?.profile.identity && (techV === 'APPROVED' || techV === 'SUSPENDED');
+  const suspend = async (on: boolean) => {
+    if (!backend.demo || !techSession) return;
+    try {
+      await backend.demo.setSuspended(techSession.token, on);
+      updateTech(await backend.tech.me(techSession.token));
+      toast.show(on ? t('id.v.SUSPENDED') : t('id.v.DEMO'), on ? 'ban' : 'flask');
+    } catch {
+      toast.show(t('error.generic'), 'alert-circle');
+    }
+  };
 
   return (
     <Screen testID="demo-settings" header={<Header title={t('demo.title')} />}>
@@ -111,6 +123,18 @@ export default function DemoSettingsScreen() {
             </View>
           </Card>
         </>
+      ) : null}
+      {canSuspend ? (
+        <Card style={styles.card}>
+          <View style={styles.switchRow}>
+            <View style={styles.flex}>
+              <Txt variant="bodyStrong">{t('demo.suspend')}</Txt>
+              <Txt variant="footnote" color="inkMuted">{t('demo.suspendSub')}</Txt>
+            </View>
+            <Switch value={techV === 'SUSPENDED'} onValueChange={(v) => void suspend(v)} testID="demo-suspend"
+              trackColor={{ true: colors.demo, false: colors.lineStrong }} thumbColor={colors.surface} accessibilityLabel={t('demo.suspend')} />
+          </View>
+        </Card>
       ) : null}
       <Card style={styles.card}>
         <View style={styles.switchRow}>
