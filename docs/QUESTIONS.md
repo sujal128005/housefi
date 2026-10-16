@@ -58,3 +58,16 @@ Found while reading the handoff and building. Each one says what the backend doe
     without `simulated`. The app's types currently say `demo: true` (literal), so they need relaxing.
 16. Product decisions still open (from README): the optional "I am a woman" field for the women-rated badge, and
     the Telugu speech-to-text provider.
+
+## Found in step 2 (auth)
+
+17. **Technician sign-in before the profile exists.** `AuthResult.technician` is a full `TechProfile`, whose required
+    fields (`gender`, `skills` with at least 1 item, `name` with at least 2 characters, ...) cannot be filled before
+    `PUT /tech/profile`. What should a new technician get?
+    *Until then:* empty strings, `skills: []`, `gender: "M"` as a placeholder, `verification: null`, `isNew: true`.
+    This does not validate against `openapi.yaml`. Options: make those fields optional or nullable while
+    `verification` is null, or return `technician: null` with `isNew: true`.
+18. **Concurrent refreshes.** Two refreshes with the same token count as reuse and end the session (see
+    API-NOTES.md). Is single-flight refresh in `HttpBackend` fine, or do you need a short grace window?
+19. **SMS language.** `PATCH /me` stores `locale`, but MSG91 sends whatever DLT template is configured. Do you want
+    a Telugu template for Telugu users (a second `MSG91_OTP_TEMPLATE_ID_TE`)?

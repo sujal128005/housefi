@@ -15,6 +15,7 @@ const production = {
   TOKEN_PEPPER_B64: secret(),
   PHONE_HASH_KEY_B64: secret(),
   KMS_KEY_ID: 'alias/housefi-pii',
+  SMS_PROVIDER: 'msg91',
   MSG91_AUTH_KEY: 'k',
   MSG91_OTP_TEMPLATE_ID: 't',
   RAZORPAY_KEY_ID: 'rzp_live_x',
@@ -33,26 +34,42 @@ function problems(raw: NodeJS.ProcessEnv): readonly string[] {
 }
 
 describe('parseEnv', () => {
-  it('gives development defaults that match .env.example and the app rules', () => {
-    const env = parseEnv({});
-    expect(env.NODE_ENV).toBe('development');
+  it('gives defaults that match .env.example and the app rules', () => {
+    const env = parseEnv({ NODE_ENV: 'test' });
     expect(env.PORT).toBe(4000);
     expect(env.VISIT_FEE_RUPEES).toBe(49);
     expect(env.OFFER_TIMEOUT_SEC).toBe(45);
+    expect(env.OTP_TTL_SEC).toBe(300);
+    expect(env.OTP_MAX_ATTEMPTS).toBe(3);
+    expect(env.JWT_ACCESS_TTL_SEC).toBe(900);
     expect(env.INSTANT_HOURS).toEqual([7, 21]);
+    expect(env.SMS_PROVIDER).toBe('console');
     expect(env.CORS_ORIGINS).toEqual([]);
     expect(env.TRUST_PROXY).toBe(false);
   });
 
-  it('accepts the committed .env.example as a working local configuration', () => {
-    const example = parseDotEnv(readFileSync(join(__dirname, '../../.env.example'), 'utf8'));
-    const env = parseEnv(example);
-    expect(env.NODE_ENV).toBe('development');
-    expect(env.CORS_ORIGINS).toEqual(['http://localhost:8081']);
+  describe('the committed .env.example', () => {
+    const example = () => parseDotEnv(readFileSync(join(__dirname, '../../.env.example'), 'utf8'));
+    const devSecrets = {
+      JWT_PRIVATE_KEY_B64: pem, JWT_PUBLIC_KEY_B64: pem, OTP_PEPPER_B64: secret(), TOKEN_PEPPER_B64: secret(),
+      PHONE_HASH_KEY_B64: secret(), LOCAL_DATA_KEY_B64: secret(),
+    };
+
+    it('works for local development once "npm run setup" has filled the secrets', () => {
+      const env = parseEnv({ ...example(), ...devSecrets });
+      expect(env.NODE_ENV).toBe('development');
+      expect(env.CORS_ORIGINS).toEqual(['http://localhost:8081']);
+    });
+
+    it('points to "npm run setup" while the secrets are blank', () => {
+      const found = problems(example());
+      expect(found).toHaveLength(6);
+      for (const p of found) expect(p).toMatch(/^[A-Z0-9_]+: required \(run "npm run setup"/);
+    });
   });
 
   it('treats empty values as unset, like the blanks in .env.example', () => {
-    const env = parseEnv({ OTP_PEPPER_B64: '', PORT: '', CORS_ORIGINS: 'http://localhost:8081, https://preview.housefi.app' });
+    const env = parseEnv({ NODE_ENV: 'test', OTP_PEPPER_B64: '', PORT: '', CORS_ORIGINS: 'http://localhost:8081, https://preview.housefi.app' });
     expect(env.OTP_PEPPER_B64).toBeUndefined();
     expect(env.PORT).toBe(4000);
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:8081', 'https://preview.housefi.app']);
@@ -86,8 +103,16 @@ describe('parseEnv', () => {
     expect(found).toEqual(expect.arrayContaining([expect.stringMatching(/^OTP_PEPPER_B64: /), expect.stringMatching(/^PHONE_HASH_KEY_B64: /)]));
   });
 
+  it('refuses to print sign-in codes to the log in production', () => {
+    expect(problems({ ...production, SMS_PROVIDER: 'console' })).toEqual(['SMS_PROVIDER: must be msg91 in production']);
+  });
+
+  it('requires a 32-byte local data key', () => {
+    expect(problems({ NODE_ENV: 'test', LOCAL_DATA_KEY_B64: secret(48) })).toEqual(['LOCAL_DATA_KEY_B64: must be 32 bytes, base64']);
+  });
+
   it('checks the matching timeouts are in order', () => {
-    expect(problems({ MATCHING_DELAYED_AFTER_MIN: '30', MATCHING_GIVE_UP_AFTER_MIN: '10' })).toEqual([
+    expect(problems({ NODE_ENV: 'test', MATCHING_DELAYED_AFTER_MIN: '30', MATCHING_GIVE_UP_AFTER_MIN: '10' })).toEqual([
       'MATCHING_GIVE_UP_AFTER_MIN: must be greater than MATCHING_DELAYED_AFTER_MIN',
     ]);
   });

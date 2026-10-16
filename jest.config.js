@@ -20,4 +20,6 @@ module.exports = {
   },
   setupFiles: ['<rootDir>/test/setup-env.ts'],
   clearMocks: true,
+  // e2e tests share one database and truncate it between tests.
+  maxWorkers: 1,
 };

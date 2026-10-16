@@ -1,13 +1,99 @@
 // Housefi database. Models are added feature by feature (auth, catalog, bookings, ...), each with a committed
 // migration, following docs/schema.sql. Money is stored in paise (BigInt); the API speaks whole rupees.
+// Columns ending in Enc hold AES-256-GCM envelope ciphertext (src/common/crypto); Hash columns hold HMAC-SHA256.
+// PostGIS is enabled with the first table that needs it (addresses, step 4).
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  extensions = [postgis, pgcrypto]
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- enums (mirror the app's src/domain/types.ts) ----------
+
+enum UserRole {
+  CUSTOMER
+  TECHNICIAN
+  COORDINATOR
+  ADMIN
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+
+  @@map("user_status")
+}
+
+enum Locale {
+  en
+  te
+
+  @@map("locale")
+}
+
+// ---------- identity ----------
+
+/// One row per account. The same phone may hold one CUSTOMER and one TECHNICIAN account (separate users).
+model User {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role      UserRole
+  phoneEnc  Bytes      @map("phone_enc")
+  /// HMAC(phone) for lookup; the phone itself is only stored encrypted.
+  phoneHash Bytes      @map("phone_hash")
+  nameEnc   Bytes?     @map("name_enc")
+  locale    Locale     @default(en)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  refreshTokens RefreshToken[]
+
+  @@unique([role, phoneHash])
+  @@map("users")
+}
+
+/// One SMS code. The code is stored only as HMAC(pepper, challengeId:code).
+model OtpChallenge {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phoneHash  Bytes     @map("phone_hash")
+  /// Encrypted phone, needed to create the account on success (not in docs/schema.sql; see docs/API-NOTES.md).
+  phoneEnc   Bytes     @map("phone_enc")
+  role       UserRole
+  codeHash   Bytes     @map("code_hash")
+  attempts   Int       @default(0)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  ip         String?   @db.Inet
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([phoneHash, createdAt(sort: Desc)])
+  @@map("otp_challenges")
+}
+
+/// Refresh tokens, stored only as HMAC(pepper, token). Each sign-in starts a family; every refresh replaces the
+/// token with a new one in the same family. Presenting a used or revoked token revokes the whole family.
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  familyId  String    @map("family_id") @db.Uuid
+  tokenHash Bytes     @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  device    String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("refresh_tokens")
 }

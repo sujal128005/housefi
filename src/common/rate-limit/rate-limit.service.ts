@@ -18,6 +18,7 @@ export interface Limit {
 @Injectable()
 export class RateLimitService {
   private readonly log = new Logger(RateLimitService.name);
+  private lastWarnAt = 0;
 
   constructor(@Inject(RATE_LIMIT_STORE) private readonly store: RateLimitStore) {}
 
@@ -27,7 +28,11 @@ export class RateLimitService {
     try {
       hit = await this.store.hit(`rl:${key}`, windowSec * 1000);
     } catch (err) {
-      this.log.warn(`rate-limit store unavailable (${(err as Error).message}); failing ${onStoreError}`);
+      // At most one warning a minute: during a Redis outage every request would otherwise log one.
+      if (Date.now() - this.lastWarnAt > 60_000) {
+        this.lastWarnAt = Date.now();
+        this.log.warn(`rate-limit store unavailable (${(err as Error).message}); failing ${onStoreError}`);
+      }
       if (onStoreError === 'closed') throw new AppError('RATE_LIMITED', { retryAfterSec: windowSec });
       return;
     }

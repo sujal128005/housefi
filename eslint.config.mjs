@@ -14,6 +14,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { console: 'readonly', process: 'readonly', Buffer: 'readonly' } },
+  },
+  {
     files: ['**/*.js', '**/*.cjs'],
     languageOptions: { sourceType: 'commonjs', globals: { module: 'writable', require: 'readonly' } },
     rules: { '@typescript-eslint/no-require-imports': 'off' },

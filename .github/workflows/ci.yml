@@ -12,7 +12,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Postgres and Redis are ready for the e2e tests that need them (from the auth step on).
+    # e2e tests run against this Postgres (npm test applies the migrations first).
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -29,7 +29,7 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
     env:
-      DATABASE_URL: postgresql://housefi:housefi@localhost:5432/housefi?schema=public
+      DATABASE_URL_TEST: postgresql://housefi:housefi@localhost:5432/housefi?schema=public
       REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4

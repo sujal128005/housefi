@@ -3,6 +3,7 @@ import type { FastifyReply } from 'fastify';
 import Redis from 'ioredis';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { SkipRateLimit } from '../../common/rate-limit/rate-limit.guard';
+import { Public } from '../auth/auth.guard';
 import { InjectRedis } from '../../common/redis/redis.module';
 
 type CheckState = 'up' | 'down' | 'disabled';
@@ -27,6 +28,7 @@ async function check(run: () => Promise<unknown>): Promise<CheckState> {
 /** Public, unauthenticated, not rate limited. No personal data, no configuration values. */
 @Controller('health')
 @SkipRateLimit()
+@Public()
 export class HealthController {
   private readonly startedAt = Date.now();
 

@@ -14,6 +14,12 @@ const base64Secret = z
   .refine((v) => Buffer.from(v, 'base64').length >= MIN_SECRET_BYTES, `must decode to at least ${MIN_SECRET_BYTES} bytes`)
   .optional();
 
+/** Exactly 32 bytes: the local master key for field encryption (AES-256). */
+const base64Key32 = z
+  .string()
+  .refine((v) => /^[A-Za-z0-9+/]+={0,2}$/.test(v) && Buffer.from(v, 'base64').length === 32, 'must be 32 bytes, base64')
+  .optional();
+
 /** Base64-encoded PEM key (JWT signing keys). */
 const base64Pem = z
   .string()
@@ -63,9 +69,11 @@ export const envSchema = z
     OTP_RESEND_AFTER_SEC: int(30, 0),
 
     KMS_KEY_ID: z.string().optional(),
-    LOCAL_DATA_KEY_B64: base64Secret,
+    LOCAL_DATA_KEY_B64: base64Key32,
     PHONE_HASH_KEY_B64: base64Secret,
 
+    /** console = print codes to the server log (development only); msg91 = send real SMS. */
+    SMS_PROVIDER: z.enum(['console', 'msg91']).default('console'),
     MSG91_AUTH_KEY: z.string().optional(),
     MSG91_OTP_TEMPLATE_ID: z.string().optional(),
     MSG91_SENDER_ID: z.string().default('HOUSFI'),
@@ -107,14 +115,24 @@ export const envSchema = z
     const require = (key: keyof typeof e, why: string) => {
       if (e[key] === undefined) ctx.addIssue({ code: 'custom', path: [key], message: `required ${why}` });
     };
+    const authSecrets = ['JWT_PRIVATE_KEY_B64', 'JWT_PUBLIC_KEY_B64', 'OTP_PEPPER_B64', 'TOKEN_PEPPER_B64', 'PHONE_HASH_KEY_B64'] as const;
+    if (e.NODE_ENV === 'development') {
+      for (const k of authSecrets) require(k, '(run "npm run setup" to generate local secrets)');
+      if (e.LOCAL_DATA_KEY_B64 === undefined && e.KMS_KEY_ID === undefined) {
+        require('LOCAL_DATA_KEY_B64', '(run "npm run setup" to generate local secrets)');
+      }
+    }
     if (e.NODE_ENV === 'production') {
       const keys = [
-        'JWT_PRIVATE_KEY_B64', 'JWT_PUBLIC_KEY_B64', 'OTP_PEPPER_B64', 'TOKEN_PEPPER_B64', 'PHONE_HASH_KEY_B64', 'KMS_KEY_ID',
-        'MSG91_AUTH_KEY', 'MSG91_OTP_TEMPLATE_ID', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RAZORPAY_WEBHOOK_SECRET',
+        ...authSecrets, 'KMS_KEY_ID', 'MSG91_AUTH_KEY', 'MSG91_OTP_TEMPLATE_ID', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET',
+        'RAZORPAY_WEBHOOK_SECRET',
       ] as const;
       for (const k of keys) require(k, 'in production');
       if (e.LOCAL_DATA_KEY_B64 !== undefined) {
         ctx.addIssue({ code: 'custom', path: ['LOCAL_DATA_KEY_B64'], message: 'must not be set in production (use KMS_KEY_ID)' });
+      }
+      if (e.SMS_PROVIDER !== 'msg91') {
+        ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'must be msg91 in production' });
       }
       if (!e.PUBLIC_BASE_URL.startsWith('https://')) {
         ctx.addIssue({ code: 'custom', path: ['PUBLIC_BASE_URL'], message: 'must be https:// in production' });

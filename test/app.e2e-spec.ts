@@ -1,22 +1,20 @@
-// End-to-end tests of the HTTP stack (adapter, hooks, helmet, CORS, guard, filter) exactly as main.ts sets it up.
+// End-to-end tests of the HTTP stack (adapter, hooks, helmet, CORS, guards, filter) exactly as main.ts sets it up.
 // No Postgres or Redis needed: the database client is replaced, and rate limits use the in-memory store in tests.
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { z } from 'zod';
-import { AppModule } from '../src/app.module';
 import { AppError } from '../src/common/errors/app-error';
-import { PrismaService } from '../src/common/prisma/prisma.module';
 import { RateLimit } from '../src/common/rate-limit/rate-limit.guard';
 import { ZodValidationPipe } from '../src/common/validation/zod-validation.pipe';
-import { parseEnv } from '../src/config/env';
-import { configureApp, createAdapter } from '../src/http';
+import { Public } from '../src/modules/auth/auth.guard';
+import { buildTestApp } from './helpers';
 
 const EchoBody = z.object({ name: z.string().min(2).max(60), pincode: z.string().regex(/^[1-9][0-9]{5}$/) });
 
 /** Routes that exist only in this test, to exercise validation, AppError and rate limits. */
 @Controller('test')
+@Public()
 class TestController {
   @Post('echo')
   echo(@Body(new ZodValidationPipe(EchoBody)) body: z.infer<typeof EchoBody>): z.infer<typeof EchoBody> {
@@ -40,20 +38,12 @@ class TestController {
   }
 }
 
-async function buildApp(opts: { database?: 'up' | 'down'; env?: NodeJS.ProcessEnv } = {}): Promise<NestFastifyApplication> {
-  const config = parseEnv({ NODE_ENV: 'test', CORS_ORIGINS: 'http://localhost:8081', RATE_LIMIT_PER_MIN: '5', ...opts.env });
+async function buildApp(opts: { database?: 'up' | 'down' } = {}): Promise<NestFastifyApplication> {
   const fakePrisma = {
     $queryRaw: () => (opts.database === 'down' ? Promise.reject(new Error('ECONNREFUSED')) : Promise.resolve([{ '?column?': 1 }])),
     $disconnect: () => Promise.resolve(),
   };
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(config)], controllers: [TestController] })
-    .overrideProvider(PrismaService)
-    .useValue(fakePrisma)
-    .compile();
-  const app = moduleRef.createNestApplication<NestFastifyApplication>(createAdapter(config));
-  await configureApp(app, config);
-  await app.init();
-  await app.getHttpAdapter().getInstance().ready();
+  const { app } = await buildTestApp({ env: { RATE_LIMIT_PER_MIN: '5' }, controllers: [TestController], prisma: fakePrisma });
   return app;
 }
 

@@ -44,4 +44,8 @@ export class MemoryRateLimitStore implements RateLimitStore {
     this.windows.set(key, w);
     return { count: w.count, resetInMs: w.resetAt - t };
   }
+
+  clear(): void {
+    this.windows.clear();
+  }
 }
