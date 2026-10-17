@@ -108,7 +108,7 @@ would downgrade Expo by thirteen versions, so none were forced; re-check when Ex
 | QR code | Points at Housefi's verification page with a random 24-character token (no personal data). In the demo it opens `housefi://verify/<token>`, a page inside the app, and the card says so ("Demo QR"). The page shows photo, first name and initial, ID, **Active / Not active** right now, and the status time |
 | Verification states | Pending, Approved, Needs correction, Rejected, Suspended, the same everywhere (registration, profile, card, verification page, customer booking). Only a genuine approval shows the green **Verified** tick; the demo's approval shows **Demo verification · simulated, not verified**. Rejected or suspended technicians can't go online, see "Your access is paused", and customers see the withdrawn status at once. Demo settings → **Suspend this technician** shows it |
 | No copy / share / save | The card has no such actions; text is not selectable; nothing about the card is logged or put on the clipboard |
-| Capture protection | Native (`expo-screen-capture`), on only while the card is on screen. Android: secure window (FLAG_SECURE), verified on the emulator. iOS (16.4+, not yet tested on an iPhone): a screenshot is still saved but the app area comes out blank, and the app says it couldn't be captured; while the phone is recorded or mirrored (screen recording, AirPlay, QuickTime) the card is covered in black, on the phone too; the app-switcher preview is blurred. If switching protection on fails, the app retries instead of silently leaving the card unprotected |
+| Capture protection | Native (`expo-screen-capture`), on only while the card is on screen. Android: secure window (FLAG_SECURE), verified on the emulator. iOS (16.4+, not yet tested on an iPhone): a screenshot is still saved but the app area comes out blank, and the app says it couldn't be captured; while the phone is recorded or mirrored (screen recording, AirPlay, QuickTime) the card is covered in black, on the phone too (a recording gets no message); the app-switcher preview is blurred (or blank); all of this relies on an undocumented iOS behaviour. If switching protection on fails, the app retries instead of silently leaving the card unprotected |
 
 **Checked on the Android emulator:** the journey registers with a photo, reads the Technician ID from Profile and checks
 its format, opens My Housefi ID (same ID, demo status), opens the verification page from the card (Active), and opens
@@ -140,11 +140,14 @@ protection (browsers don't offer it); the card there is for review only.
 2. Start a Control Center screen recording on Profile, then open the card: the phone shows black; go back and content
    returns. The recording is black while the card was shown.
 3. Mirror with AirPlay or QuickTime: the card is black on both screens.
-4. Swipe up to the app switcher from the card: the preview is blurred; reopen and the card is sharp.
-5. From the card open the verification page: a screenshot there is normal; go back and a screenshot is blank again.
-6. Send the app to the background on the card and reopen: still protected.
-7. Repeat 1 and 2 on the customer's Technician ID.
-8. On an iPad, rotate or resize (Stage Manager) on the card: it still shows fully and a screenshot is still blank.
+4. Swipe up to the app switcher from the card: the preview is blurred or blank (either is fine; the card must not be
+   readable); reopen and the card is sharp. Pull down Control Center and Notification Center on the card: the card
+   blurs; close them: it is sharp again and the app is still running.
+5. Start a screen recording while the card is already showing: it turns black at once; stop it: the card returns.
+6. From the card open the verification page: a screenshot there is normal; go back and a screenshot is blank again.
+7. Send the app to the background on the card and reopen: still protected.
+8. Repeat 1 and 2 on the customer's Technician ID.
+9. On an iPad, rotate or resize (Stage Manager) on the card: it still shows fully and a screenshot is still blank.
 
 ## What changed in the customer app (from your feedback)
 
