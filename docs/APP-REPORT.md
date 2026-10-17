@@ -52,7 +52,7 @@ customer app can always be tried on its own.
 | QR code | Points at Housefi's verification page with a random 24-character token (no personal data). In the demo it opens `housefi://verify/<token>`, a page inside the app, and the card says so ("Demo QR"). The page shows photo, first name and initial, ID, **Active / Not active** right now, and the status time |
 | Verification states | Pending, Approved, Needs correction, Rejected, Suspended, the same everywhere (registration, profile, card, verification page, customer booking). Only a genuine approval shows the green **Verified** tick; the demo's approval shows **Demo verification · simulated, not verified**. Rejected or suspended technicians can't go online, see "Your access is paused", and customers see the withdrawn status at once. Demo settings → **Suspend this technician** shows it |
 | No copy / share / save | The card has no such actions; text is not selectable; nothing about the card is logged or put on the clipboard |
-| Capture protection | Native (`expo-screen-capture`), on only while the card is on screen. Android: secure window (FLAG_SECURE). iOS 13+: content hidden from screenshots and recordings, app-switcher snapshot blurred, a message if a screenshot is tried |
+| Capture protection | Native (`expo-screen-capture`), on only while the card is on screen. Android: secure window (FLAG_SECURE), verified on the emulator. iOS (16.4+, not yet tested on an iPhone): a screenshot is still saved but the app area comes out blank, and the app says it couldn't be captured; while the phone is recorded or mirrored (screen recording, AirPlay, QuickTime) the card is covered in black, on the phone too; the app-switcher preview is blurred. If switching protection on fails, the app retries instead of silently leaving the card unprotected |
 
 **Checked on the Android emulator:** the journey registers with a photo, reads the Technician ID from Profile and checks
 its format, opens My Housefi ID (same ID, demo status), opens the verification page from the card (Active), and opens
@@ -69,10 +69,26 @@ specifies all of it: endpoints, schema with database-level locks on the identity
 tokens.
 
 **Platform limits (stated honestly):** nothing stops someone photographing the screen with another camera, which is why
-the card carries a live watermark and the QR shows the current status. On iOS the protection needs iOS 13 or later,
-and it has **not been tried on an iPhone yet**: CI builds the iOS app but does not drive these screens, so iOS
-behaviour comes from Expo's documentation, not from a test. The web preview has no capture protection (browsers
-don't offer it); the card there is for review only.
+the card carries a live watermark and the QR shows the current status. On iOS the protection has **not been tried
+on an iPhone or simulator yet**: CI builds the iOS app but does not drive these screens, so the iOS behaviour above is
+read from the installed `expo-screen-capture` 57.0.4 native code, not from a test. iOS can't refuse a screenshot: the
+picture is still saved, with the app area blank, and the app tells the person afterwards; a screen recording gets no
+message. The screenshot blocking relies on an undocumented iOS behaviour, so a future iOS update could weaken it.
+Simulator screenshots in CI would not show the protection either (they read the screen image directly), so the check
+is a short manual checklist on a real iPhone; see "iOS verification" below. The web preview has no capture
+protection (browsers don't offer it); the card there is for review only.
+
+**iOS verification (manual, about 10 minutes on a TestFlight or development build):**
+1. On My Housefi ID take a screenshot: the "can't be captured" message appears and the saved image is blank where
+   the app is. Back on Profile, a screenshot shows normal content.
+2. Start a Control Center screen recording on Profile, then open the card: the phone shows black; go back and content
+   returns. The recording is black while the card was shown.
+3. Mirror with AirPlay or QuickTime: the card is black on both screens.
+4. Swipe up to the app switcher from the card: the preview is blurred; reopen and the card is sharp.
+5. From the card open the verification page: a screenshot there is normal; go back and a screenshot is blank again.
+6. Send the app to the background on the card and reopen: still protected.
+7. Repeat 1 and 2 on the customer's Technician ID.
+8. On an iPad, rotate or resize (Stage Manager) on the card: it still shows fully and a screenshot is still blank.
 
 ## What changed in the customer app (from your feedback)
 
@@ -183,16 +199,23 @@ Problems found and fixed while testing:
 
 ## Illustrations still to generate
 
-Everything else uses your illustrations; these spots still show the earlier code-drawn tile:
+Reviewed against every place the app draws a picture (anything under 32 pt is drawn as a simple symbol, so it
+needs no illustration). Four spots still show the earlier code-drawn tile:
 
-| Name | Where it appears | What to generate |
+| Name | Where it appears (size) | What to generate, or an existing tile that would do |
 |---|---|---|
-| AI assistant | Help (AI chat), support chat avatar, "AI wrote this down" on voice notes, AI price check on quotes and jobs (7 places) | A friendly Housefi AI helper: a small rounded robot or a glowing chat bubble with a sparkle, cobalt and cyan, same pastel tile |
-| SOS / safety | SOS button on the booking screen and the technician's job screen, safety card | A red-and-white emergency beacon or shield marked "SOS"; calm, not scary |
-| Technician offline | Technician Home while offline ("go online to get jobs") | The technician resting with a moon, or a phone with a pause badge |
-| Morning / Afternoon / Evening | Time-slot headers on "When should we come?" (small, 22 pt) | Three small tiles: sun, sun with cloud, moon |
-| Not satisfied | "Were you satisfied?" No button (Yes is a thumbs up) | A thumbs down (or neutral face) to pair with a thumbs up |
-| Language globe with Telugu | Language screen | Your globe shows A, अ and 文; ours should show **A** and **తె** (Telugu), Hindi optional |
+| AI assistant | Help tab header (104 pt), support chat header (72), booking screen "Need help?" row (40), technician job while the AI checks a quote (104, two states) | A friendly AI helper (chat bubble with a sparkle, cobalt and cyan). Stopgap: the chat-bubbles tile already generated ("3D Home Services App Icon Grid", tile 5 counting from 1) |
+| SOS / safety | Safety button on the booking screen (34) and its SOS sheet (56); technician job "report a problem" row (36) | A calm red-and-white beacon or shield marked "SOS". Stopgap: the orange warning triangle ("Pastel 3D UI Illustration Tile Set", tile 9) |
+| Technician offline | Technician Home while offline (90) | The technician resting with a moon, or a phone with a pause badge. No existing tile fits |
+| Satisfied? Yes / No | Rating screen: both buttons (64); "No" is currently the same thumbs-up turned upside down | A **thumbs up** and a separate **thumbs down** in the same style. Stopgap for Yes: the technician thumbs-up with a medal ("Friendly Home Services Character Set", tile 6) |
+
+Not needed after all: morning / afternoon / evening (shown at 22 pt as simple symbols). Optional polish: the language
+globe already uses your illustration, but its letters are A, अ and 文; a version with **A** and **తె** (Telugu)
+would fit the app better.
+
+Also found in the review: the small "badge" pictures (e.g. a toolbox next to the technician) are not drawn on top of
+illustrations, so three of them never appear; "no technician found" uses the same hourglass picture as "waiting"; and
+one cut tile (`refund`, 14 KB) is not used yet.
 
 ## Not real yet (by design in this phase)
 

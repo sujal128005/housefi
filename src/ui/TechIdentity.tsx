@@ -10,7 +10,7 @@ import {
 } from 'expo-screen-capture';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Image, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { AppState, Image, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Svg, { Path } from 'react-native-svg';
 import { categoryById } from '../data/catalog';
@@ -179,18 +179,40 @@ const CAPTURE_KEY = 'housefi-id-card';
 
 /**
  * Wraps a screen that shows an ID card. Native protection while the card is on screen (switched off when another
- * screen covers it): Android marks the window secure (FLAG_SECURE: no screenshots, no screen recording, blank in
- * recent apps); iOS 13+ hides the content from screenshots and recordings, blurs the app-switcher snapshot, and tells
- * the person when a screenshot was attempted. Neither can stop someone photographing the phone with another camera.
+ * screen covers it):
+ * - Android: the window is marked secure (FLAG_SECURE): no screenshots or recordings, blank in recent apps. Verified
+ *   on the emulator.
+ * - iOS (16.4+, not yet tried on a device): a screenshot is still saved but the app area comes out blank (the window is
+ *   drawn inside a secure text field, an undocumented iOS behaviour); while the screen is recorded or mirrored the card
+ *   is covered in black, on the phone too; the app-switcher preview is blurred; after a screenshot the person is told.
+ * Nothing stops someone photographing the phone with another camera.
+ *
+ * If switching protection on fails (iOS: the window is not attached yet), it is retried rather than silently skipped.
  */
 export function IdCardShield({ children, onCaptureAttempt }: { readonly children: ReactNode; readonly onCaptureAttempt?: () => void }) {
   useFocusEffect(useCallback(() => {
     if (Platform.OS === 'web') return undefined;
-    void preventScreenCaptureAsync(CAPTURE_KEY).catch(() => undefined);
+    let alive = true;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const protect = (attempt: number) => {
+      preventScreenCaptureAsync(CAPTURE_KEY).catch((e: unknown) => {
+        if (__DEV__) console.warn('ID card capture protection could not be switched on yet', e);
+        // A failed attempt leaves nothing behind (the key is released), so trying again is safe.
+        if (alive && attempt < 3) retry = setTimeout(() => protect(attempt + 1), 400);
+      });
+    };
+    protect(0);
+    // Back from the background or a system sheet: make sure protection is on (a no-op when it already is).
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && alive) protect(0);
+    });
     const ios = Platform.OS === 'ios';
     if (ios) void enableAppSwitcherProtectionAsync(0.9).catch(() => undefined);
     const sub = ios ? addScreenshotListener(() => onCaptureAttempt?.()) : null;
     return () => {
+      alive = false;
+      if (retry) clearTimeout(retry);
+      appState.remove();
       sub?.remove();
       if (ios) void disableAppSwitcherProtectionAsync().catch(() => undefined);
       void allowScreenCaptureAsync(CAPTURE_KEY).catch(() => undefined);
