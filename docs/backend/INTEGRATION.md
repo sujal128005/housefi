@@ -71,3 +71,6 @@ Unknown codes are treated by their HTTP status.
 9. **Catalogue:** confirm `GET /catalog/categories` and `GET /catalog/services` return the `Category` / `Service`
    shapes (localized names in English and Telugu, issues, visit fee).
 10. **Pagination** for bookings, jobs, notifications and earnings once lists grow.
+
+When the backend is built, its team runs the review in `REVIEW-PROMPT.md` (security, leaks, races, payments,
+identity) before the app is pointed at it.
