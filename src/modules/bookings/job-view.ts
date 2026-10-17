@@ -3,7 +3,9 @@ import type { BookingStatus, CancelReason, CategoryId, CloseReason, Prisma } fro
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import type { AddressDto } from '../addresses/addresses.service';
 import { ACTIVE_STATUSES } from './booking-status';
+import { technicianEarning } from '../jobs/price-check';
 import { BOOKING_INCLUDE, type BookingRow, EMPTY_ADDRESS, latest, payment, type PaymentDto } from './booking-view';
+import { approvedQuotes, latestQuote, type QuoteDto, toQuoteDto } from './quote-view';
 
 export const JOB_INCLUDE = { ...BOOKING_INCLUDE, customer: { select: { nameEnc: true } } } satisfies Prisma.BookingInclude;
 export type JobRow = BookingRow & { customer: { nameEnc: Uint8Array | null } };
@@ -29,9 +31,9 @@ export interface JobDto {
   readonly maskedPhone: string;
   readonly time: { readonly mode: 'INSTANT'; readonly window: null } | { readonly mode: 'SCHEDULED'; readonly window: { date: string; startHour: number; endHour: number } };
   readonly status: BookingStatus;
-  /** Quotes arrive with job actions (step 9). */
-  readonly quote: null;
-  readonly extraQuote: null;
+  /** The latest repair quote, including ones still being checked (CHECKING / UNDER_REVIEW). */
+  readonly quote: QuoteDto | null;
+  readonly extraQuote: QuoteDto | null;
   readonly visitPayment: PaymentDto;
   readonly finalPayment: PaymentDto | null;
   readonly workStarted: boolean;
@@ -49,19 +51,23 @@ export interface JobDto {
 export interface JobViewOptions {
   readonly now: number;
   readonly visitShareRupees: number;
+  readonly labourSharePercent: number;
   readonly startCodeMaxAttempts: number;
 }
+
+const tech = (q: Parameters<typeof toQuoteDto>[0] | undefined) => (q ? toQuoteDto(q) : null);
 
 const API_CANCEL_REASONS = new Set<CancelReason>(['PLANS_CHANGED', 'FIXED', 'TOO_LONG', 'MISTAKE', 'OTHER']);
 
 /**
- * What the job earns the technician so far: the visit share once the visit is on (also when it ends without repair,
- * or the customer cancels after the trip started), nothing when cancelled before the trip. Labour and materials are
- * added with quotes (step 9) and the earnings ledger (step 10).
+ * What the job earns the technician so far (README §10): nothing when cancelled before the trip; the visit share
+ * once the visit is on (also when it ends without repair or is cancelled after the trip started); plus the labour
+ * share and materials of approved quotes when the repair goes ahead. Step 10 records the same amounts in the ledger.
  */
-function earningSoFar(b: BookingRow, visitShare: number): number {
-  if (b.status !== 'CANCELLED') return visitShare;
-  return b.events.some((e) => e.status === 'EN_ROUTE') ? visitShare : 0;
+function earningSoFar(b: BookingRow, opts: JobViewOptions): number {
+  if (b.status === 'CANCELLED') return b.events.some((e) => e.status === 'EN_ROUTE') ? opts.visitShareRupees : 0;
+  if (b.status === 'CLOSED_NO_REPAIR') return opts.visitShareRupees;
+  return technicianEarning(opts.visitShareRupees, opts.labourSharePercent, approvedQuotes(b.quotes));
 }
 
 export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOptions): Promise<JobDto> {
@@ -98,15 +104,15 @@ export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOpti
         ? { mode: 'SCHEDULED', window: { date: b.windowDate.toISOString().slice(0, 10), startHour: b.windowStartHour, endHour: b.windowEndHour } }
         : { mode: 'INSTANT', window: null },
     status: b.status,
-    quote: null,
-    extraQuote: null,
+    quote: tech(latestQuote(b.quotes, 'MAIN')),
+    extraQuote: tech(latestQuote(b.quotes, 'EXTRA')),
     visitPayment: payment(visit),
     finalPayment: final ? payment(final) : null,
     workStarted: b.workStarted,
     closeReason: b.closeReason,
     cancelReason: b.cancelReason && API_CANCEL_REASONS.has(b.cancelReason) ? (b.cancelReason as JobDto['cancelReason']) : null,
     otpAttemptsLeft: Math.max(0, opts.startCodeMaxAttempts - b.startCodeAttempts),
-    earning: earningSoFar(b, opts.visitShareRupees),
+    earning: earningSoFar(b, opts),
     rating: null,
     history: b.events.map((e) => ({ status: e.status, at: e.at.getTime() })),
     acceptedAt: accepted?.getTime() ?? 0,

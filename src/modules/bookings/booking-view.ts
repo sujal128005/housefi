@@ -3,13 +3,15 @@ import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, Cl
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import { paiseToRupees } from '../../common/money';
 import type { AddressDto } from '../addresses/addresses.service';
+import { latestQuote, type QuoteDto, type QuoteRow, toQuoteDto } from './quote-view';
 
-export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User }) | null };
+export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User }) | null; quotes: QuoteRow[] };
 
 export const BOOKING_INCLUDE = {
   events: { orderBy: [{ at: 'asc' }, { id: 'asc' }] },
   payments: { orderBy: { createdAt: 'asc' } },
   technician: { include: { user: true } },
+  quotes: { include: { lines: true }, orderBy: [{ which: 'asc' }, { version: 'asc' }] },
 } satisfies Prisma.BookingInclude;
 
 /** openapi.yaml Technician: the assigned technician as the customer sees them. */
@@ -59,8 +61,9 @@ export interface BookingDto {
   readonly arrivalOtp: string;
   readonly etaMin: number | null;
   readonly visitPayment: PaymentDto;
-  readonly quote: null;
-  readonly extraQuote: null;
+  /** The latest repair quote that passed the price check; null while none has. */
+  readonly quote: QuoteDto | null;
+  readonly extraQuote: QuoteDto | null;
   readonly finalPayment: PaymentDto | null;
   readonly rating: null;
   readonly createdAt: number;
@@ -106,6 +109,11 @@ export async function technicianDto(t: Technician & { user: User }, cipher: Fiel
   };
 }
 
+function visibleQuote(quotes: QuoteRow[], which: 'MAIN' | 'EXTRA'): QuoteDto | null {
+  const q = latestQuote(quotes, which, true);
+  return q ? toQuoteDto(q) : null;
+}
+
 export const EMPTY_ADDRESS: AddressDto = { id: '', label: 'OTHER', house: '', street: '', landmark: '', city: '', pincode: '' };
 
 export async function toBookingDto(b: BookingRow, cipher: FieldCipher): Promise<BookingDto> {
@@ -138,8 +146,8 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher): Promise<
     arrivalOtp,
     etaMin: b.etaMin,
     visitPayment: payment(visit),
-    quote: null,
-    extraQuote: null,
+    quote: visibleQuote(b.quotes, 'MAIN'),
+    extraQuote: visibleQuote(b.quotes, 'EXTRA'),
     finalPayment: final ? payment(final) : null,
     rating: null,
     createdAt: b.createdAt.getTime(),

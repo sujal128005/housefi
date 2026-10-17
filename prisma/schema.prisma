@@ -59,8 +59,9 @@ model User {
   refreshTokens RefreshToken[]
   addresses     Address[]
   bookings      Booking[]
-  technician    Technician?    @relation("TechnicianUser")
-  coordinated   Technician[]   @relation("TechnicianCoordinator")
+  technician    Technician?     @relation("TechnicianUser")
+  tickets       SupportTicket[]
+  coordinated   Technician[]    @relation("TechnicianCoordinator")
 
   @@unique([role, phoneHash])
   @@map("users")
@@ -336,12 +337,14 @@ model Booking {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  service    Service        @relation(fields: [serviceId], references: [id])
-  customer   User           @relation(fields: [customerId], references: [id])
-  technician Technician?    @relation(fields: [technicianId], references: [userId])
+  service    Service         @relation(fields: [serviceId], references: [id])
+  customer   User            @relation(fields: [customerId], references: [id])
+  technician Technician?     @relation(fields: [technicianId], references: [userId])
   events     BookingEvent[]
   payments   Payment[]
   offers     JobOffer[]
+  quotes     Quote[]
+  tickets    SupportTicket[]
 
   @@unique([customerId, idempotencyKey])
   @@index([customerId, createdAt(sort: Desc)])
@@ -601,4 +604,125 @@ model ServiceAreaPincode {
 
   @@id([pincode, nearPincode])
   @@map("service_area_pincodes")
+}
+
+// ---------- quotes ----------
+
+enum QuoteWhich {
+  MAIN
+  EXTRA
+
+  @@map("quote_which")
+}
+
+enum QuoteLineKind {
+  LABOUR
+  MATERIAL
+
+  @@map("quote_line_kind")
+}
+
+enum QuoteReview {
+  CHECKING
+  FAIR
+  UNDER_REVIEW
+  CLEARED
+
+  @@map("quote_review")
+}
+
+enum QuoteDecision {
+  PENDING
+  APPROVED
+  REVISION_REQUESTED
+  REJECTED
+
+  @@map("quote_decision")
+}
+
+/// The repair quote (MAIN) or extra work found during the repair (EXTRA). Each revision is a new version; old
+/// versions are kept (superseded) for audit.
+model Quote {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId       String        @map("booking_id") @db.Uuid
+  which           QuoteWhich
+  version         Int
+  /// What the technician found (their own words).
+  diagnosis       String
+  labourPaise     BigInt        @map("labour_paise")
+  materialPaise   BigInt        @map("material_paise")
+  totalPaise      BigInt        @map("total_paise")
+  review          QuoteReview   @default(CHECKING)
+  /// The service's usual range at the time of the quote (price check).
+  typicalMinPaise BigInt        @map("typical_min_paise")
+  typicalMaxPaise BigInt        @map("typical_max_paise")
+  decision        QuoteDecision @default(PENDING)
+  createdBy       String        @map("created_by") @db.Uuid
+  /// Null while reviews are cleared automatically (no reviewers yet).
+  reviewedBy      String?       @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?     @map("reviewed_at") @db.Timestamptz(6)
+  createdAt       DateTime      @map("created_at") @db.Timestamptz(6)
+  decidedAt       DateTime?     @map("decided_at") @db.Timestamptz(6)
+  superseded      Boolean       @default(false)
+
+  booking Booking     @relation(fields: [bookingId], references: [id])
+  lines   QuoteLine[]
+
+  @@unique([bookingId, which, version])
+  @@index([review, createdAt])
+  @@map("quotes")
+}
+
+model QuoteLine {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quoteId   String        @map("quote_id") @db.Uuid
+  kind      QuoteLineKind
+  name      String
+  qty       Int
+  unitPaise BigInt        @map("unit_paise")
+  sort      Int
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, sort])
+  @@map("quote_lines")
+}
+
+// ---------- support ----------
+
+enum TicketState {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+
+  @@map("ticket_state")
+}
+
+enum TicketPriority {
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("ticket_priority")
+}
+
+/// Problems for the support team: technician reports, locked start codes, and (step 13) customer tickets.
+model SupportTicket {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId  String?        @map("booking_id") @db.Uuid
+  raisedBy   String         @map("raised_by") @db.Uuid
+  /// TechIssue values, 'START_CODE_LOCKED', later 'UNSAFE', 'CALLBACK', 'PAYMENT_PROBLEM' from customers.
+  kind       String
+  note       String         @default("")
+  state      TicketState    @default(OPEN)
+  priority   TicketPriority @default(NORMAL)
+  createdAt  DateTime       @map("created_at") @db.Timestamptz(6)
+  resolvedAt DateTime?      @map("resolved_at") @db.Timestamptz(6)
+
+  booking Booking? @relation(fields: [bookingId], references: [id])
+  raiser  User     @relation(fields: [raisedBy], references: [id])
+
+  @@index([state, priority, createdAt])
+  @@index([bookingId])
+  @@map("support_tickets")
 }

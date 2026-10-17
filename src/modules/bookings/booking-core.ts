@@ -89,6 +89,25 @@ export class BookingCore {
     return result;
   }
 
+  /**
+   * Runs `fn` on a locked booking assigned to this technician (NOT_FOUND for anyone else) and publishes a live update
+   * when `fn` reports a change. Same shape as mutateOwned, for the technician's job actions.
+   */
+  async mutateAssigned<T>(
+    technicianId: string,
+    id: string,
+    fn: (tx: Prisma.TransactionClient, b: Booking) => Promise<{ changed: boolean; result: T }>,
+  ): Promise<T> {
+    if (!UUID.test(id)) throw new AppError('NOT_FOUND');
+    const { changed, result } = await this.prisma.$transaction(async (tx) => {
+      const b = await this.lock(tx, id);
+      if (!b || b.technicianId !== technicianId) throw new AppError('NOT_FOUND');
+      return fn(tx, b);
+    });
+    if (changed) this.updates.publish(id);
+    return result;
+  }
+
   // ---------- reads ----------
 
   async get(customerId: string, id: string): Promise<BookingDto> {
@@ -139,7 +158,12 @@ export class BookingCore {
   }
 
   private jobViewOptions(): JobViewOptions {
-    return { now: this.clock.now(), visitShareRupees: this.config.TECH_VISIT_SHARE_RUPEES, startCodeMaxAttempts: this.config.START_CODE_MAX_ATTEMPTS };
+    return {
+      now: this.clock.now(),
+      visitShareRupees: this.config.TECH_VISIT_SHARE_RUPEES,
+      labourSharePercent: this.config.TECH_LABOUR_SHARE_PERCENT,
+      startCodeMaxAttempts: this.config.START_CODE_MAX_ATTEMPTS,
+    };
   }
 
   // ---------- unpaid expiry ----------

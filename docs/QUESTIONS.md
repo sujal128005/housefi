@@ -137,3 +137,16 @@ Found while reading the handoff and building. Each one says what the backend doe
     new offers until it is done. Should only jobs happening now count?
 38. **Neighbouring PIN codes:** dispatch matches the booking's PIN plus neighbours from `service_area_pincodes`,
     which is empty. Who can provide the neighbour list for Hyderabad?
+
+## Found in step 9 (job actions)
+
+39. **Extra work rules:** README §5 says every quote needs a labour line and at least ₹100, but the app's demo
+    extras are a single material (e.g. "New tap ₹340"). The backend applies the rule to the repair quote only.
+    Is that right?
+40. **One approved extra per job**, because the contract has a single `extraQuote`. Is that enough, or can a
+    repair need several approved extras?
+41. **Unanswered quotes:** STATE-MACHINE.md says the technician may close the visit as `CUSTOMER_DECLINED` after
+    30 minutes without an answer, and reminds the customer after 5. There is no endpoint for the first (QUESTIONS.md
+    #8); reminders come with notifications (step 11). Should a 30-minute timeout close it automatically instead?
+42. **ETA** is a straight-line estimate (x1.4 at 20 km/h). Is that good enough until a routing API (Google
+    Distance Matrix) is added?

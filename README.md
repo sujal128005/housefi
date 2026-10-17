@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-8 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-9 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -21,8 +21,10 @@ Build steps 1-8 of 14 (`docs/STARTER-PROMPT.md`) are done:
    verification with `npm run tech` (audited).
 8. Dispatch: `GET /v1/tech/offers/current`, `POST /v1/tech/offers/{id}/accept|reject`, `GET /v1/tech/jobs[/{id}][/stream]`;
    sequential 45 s offers, ranking, still searching / none found, reassignment, offline after 3 misses.
+9. Job actions: `POST /v1/tech/jobs/{id}/start-trip|arrived|verify-start-code|quotes|start-work|complete|confirm-cash|reports`,
+   `POST /v1/bookings/{id}/quotes/{MAIN|EXTRA}/answer`; rule-based price check, ETA from location updates.
 
-Next is **step 9**: job actions (trip, arrival, start code, quotes and price check, work, cash, reports).
+Next is **step 10**: the earnings ledger and `GET /v1/tech/earnings`.
 
 ## Run it locally
 
@@ -106,14 +108,15 @@ src/
     users/                GET/PATCH/DELETE /me (delete = anonymise); maps a user to the API's Customer shape
     addresses/            saved addresses: encrypted house/street/landmark, PostGIS point, soft delete that wipes
     slots/                slot-rules.ts (IST windows, cutoff, 7 days) + per-area capacity and window holds
-    bookings/             booking-status.ts (the state machine), job-view.ts (the technician's Job),
+    bookings/             booking-status.ts (the state machine), job-view.ts (the technician's Job), quote-view.ts,
                           booking-core.ts (locks, transitions, reads, expiry;
                           shared with payments and later steps), service (create, cancel, reschedule),
                           booking-view.ts (rows -> API shape), booking-updates.ts (live-update bus), SSE stream
     payments/             Razorpay client + signatures, start / verify / settle, webhooks (deduplicated, redacted),
                           refunds (claimed, retried), reconciliation and cash confirmation; worker every minute
     technicians/          profile, availability, location; tech-verification.service.ts (approve / correct)
-    dispatch/             ranking + offers, accept / reject, timers (DispatchWorker every 5 s), offers and jobs API
+    dispatch/             ranking + offers, accept / reject, timers (DispatchWorker every 5 s), offers API
+    jobs/                 the visit step by step (jobs.service.ts), price-check.ts, review auto-clear worker, jobs API
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
   common/audit/          append-only audit_log of privileged actions
   common/http/sse.ts     Server-Sent Events helper (booking and job streams)
@@ -311,3 +314,31 @@ configured"); everything else works.
   does this, because it involves the refund).
 - **Neighbouring PIN codes** live in `service_area_pincodes` (store both directions). It starts empty, so only
   the same PIN matches; see QUESTIONS.md #38.
+
+## Decisions taken in step 9
+
+- **"Who may do what" is enforced exactly.** Each action checks the status (and `workStarted` or the quote
+  decision where the table says so) under the booking's row lock, and only the assigned technician (or the owning
+  customer, for answers) can act. Anything else is `CONFLICT`; someone else's job is `NOT_FOUND`.
+- **The price check runs synchronously.** `price-check.ts` (pure functions, in paise) applies README §10.
+  - `FAIR`: within or below the usual range. It is shared at once and the booking moves to `QUOTE_SHARED` or
+    `EXTRA_WORK`.
+  - `UNDER_REVIEW`: above 1.5 x the typical maximum, or any line above ₹5,000. The customer doesn't see it.
+    `JobsWorker` clears it after 2 minutes, records it in `audit_log`, and shares it.
+- **Quotes have versions.**
+  - A revision is a new version; the old one is kept (superseded).
+  - The customer sees the latest version that passed the check; the technician sees the latest version.
+  - A partial unique index allows only one quote of each kind waiting at a time.
+- **Extra work:** after the repair started; one approved extra per job, and a declined one can be followed by a
+  new proposal. The bill is the approved repair quote plus the approved extra.
+- **Start code:** compared in constant time. Each wrong attempt is committed before answering, so it always
+  counts. The 5th wrong attempt locks the visit and opens a `HIGH` support ticket.
+- **ETA:** straight-line distance x 1.4 at 20 km/h. It is set at the start of the trip and refreshed by location
+  updates during it. The customer gets minutes, never coordinates.
+- **Reports:** `CUSTOMER_UNAVAILABLE` (at the door) and `CANNOT_COMPLETE` (inspecting, quote shared, repairing)
+  close the visit; any note goes to a support ticket. Other issues open a ticket (`UNSAFE` urgent,
+  `PAYMENT_PROBLEM` high) and leave the job unchanged.
+- **`support_tickets` exists from now on;** the support API comes in step 13. **`POST /tech/location` moved to
+  the jobs controller** (same path) so it can refresh the ETA.
+- **`Job.earning`** is the visit share plus 80% of approved labour plus approved materials, using the same rules
+  as the step 10 ledger.

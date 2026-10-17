@@ -171,3 +171,34 @@ The goal is none. Each entry links to the open question that will remove it.
   - `bookings` gains `matching_started_at` and `assigned_at`.
   - `job_offers.created_at` and `expires_at` come from the application clock.
   - CHECK constraints are added on offers and on `service_area_pincodes`.
+
+## Job actions and quotes (step 9)
+
+- **`POST /tech/jobs/{id}/quotes`** returns the `Job` with the quote already checked (`FAIR` or
+  `UNDER_REVIEW`), not `CHECKING`; the rule-based check is immediate.
+  - **Repair quote (MAIN):** needs a labour line and at least ₹100 (`VALIDATION` on `lines`).
+  - **Extra work (EXTRA):** may be materials only, with no minimum (the app's demo extras are a single material
+    line; QUESTIONS.md #39).
+  - **Refused (`CONFLICT`):** a second quote while one is under review, or an extra before the repair started
+    or after one was approved.
+- **`POST /bookings/{id}/quotes/{which}/answer`**
+  - `REVISION` on `EXTRA` is `VALIDATION`.
+  - `REVISION` keeps `QUOTE_SHARED` without a new timeline event. The revised quote adds a second
+    `QUOTE_SHARED` event when it is shared.
+  - An unknown `which` is `NOT_FOUND`.
+- **`Booking.quote` / `extraQuote`:** the latest version the customer may see. While a revised version is
+  under review, that is the previous version (`REVISION_REQUESTED`). `Job.quote` / `extraQuote` is the latest
+  version in any review state.
+- **`verify-start-code`:** `OTP_INVALID` (400) with `attemptsLeft`, then `OTP_LOCKED` (429) from the 5th
+  wrong code on, even for the right code. `Job.otpAttemptsLeft` follows. Limit: 10 per minute.
+- **`start-work`** only sets `workStarted` (no status change, no timeline event).
+- **`complete`** creates the `FINAL` payment (`DUE`), with the bill = approved quote + approved extra. It is
+  refused while extra work waits for the customer.
+- **`confirm-cash`** returns the `Job` (`COMPLETED`).
+- **`reports`** returns the `Job`.
+- **`Booking.etaMin`** is an estimate in minutes while `EN_ROUTE` (null without a location), and null otherwise.
+- **Schema differences from docs/schema.sql:**
+  - `quotes` gains `reviewed_at`; its timestamps come from the application clock.
+  - CHECK constraints on quotes: totals add up, at least ₹100 for MAIN, more than 0 for EXTRA.
+  - A partial unique index allows one waiting quote per kind.
+  - `support_tickets` uses enums for state and priority.
