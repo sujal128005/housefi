@@ -363,8 +363,8 @@ What the app does today (against the demo backend, `src/services/mock/MockBacken
 Screen-capture protection is on the device (`expo-screen-capture`): Android secure window (FLAG_SECURE: no
 screenshots or recordings, blank in recent apps; verified on the emulator). iOS 16.4+ (not yet tested on a device)
 can't refuse a screenshot, but the app's window is left out of it, so the saved image is blank where the app is, and
-the app tells the person afterwards; while the screen is recorded or mirrored the card is covered in black; the
-app-switcher preview is blurred. The iOS screenshot blocking uses an undocumented iOS behaviour; re-check it after
+the app tells the person afterwards; while the screen is recorded or mirrored the card is covered in black (no message for a recording); the
+app-switcher preview is blurred (or blank). The iOS screenshot blocking uses an undocumented iOS behaviour; re-check it after
 major iOS updates. No platform can stop a photo taken with another camera, which is why the card has a live watermark
 and the QR shows the current status.
 
