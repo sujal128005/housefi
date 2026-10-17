@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-6 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-7 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -17,8 +17,10 @@ Build steps 1-6 of 14 (`docs/STARTER-PROMPT.md`) are done:
    `/stream` (Server-Sent Events); timeline, slot holding, unpaid bookings cancelled after 30 minutes.
 6. Payments: `POST /v1/bookings/{id}/payments` (Razorpay order, or cash for the bill), `POST /v1/payments/{id}/verify`,
    `POST /v1/webhooks/razorpay`; refunds, reconciliation, cash confirmation (service; endpoint with step 9).
+7. Technicians: `GET /v1/tech/me`, `PUT /v1/tech/profile`, `POST /v1/tech/availability`, `POST /v1/tech/location`;
+   verification with `npm run tech` (audited).
 
-Next is **step 7**: technicians (profile, verification, availability, location).
+Next is **step 8**: dispatch (sequential offers, expiry, reassignment).
 
 ## Run it locally
 
@@ -56,6 +58,7 @@ minute); the per-phone OTP limits live in Postgres and always apply.
 | `npm run build` then `npm start` | Production build in `dist/` |
 | `npm run db:migrate` / `npm run db:deploy` | Create a migration (development) / apply migrations |
 | `npm run db:seed` | Load `catalog.data.json` into the database; idempotent, run it on every deploy after `db:deploy` |
+| `npm run tech -- pending` / `approve <id\|phone>` / `correct <id\|phone> "<note>" ["<te>"]` | Review technician profiles (every decision goes to `audit_log`) |
 | `npm run catalog:import` | Re-import the catalog from the app's `catalog.ts` (default `docs/app-contract/catalog.ts`) into `catalog.data.json` |
 
 ## Auth in short
@@ -106,8 +109,11 @@ src/
                           booking-view.ts (rows -> API shape), booking-updates.ts (live-update bus), SSE stream
     payments/             Razorpay client + signatures, start / verify / settle, webhooks (deduplicated, redacted),
                           refunds (claimed, retried), reconciliation and cash confirmation; worker every minute
+    technicians/          profile, availability, location; tech-verification.service.ts (approve / correct)
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
-  cli/seed.ts             npm run db:seed
+  common/audit/          append-only audit_log of privileged actions
+  cli/seed.ts            npm run db:seed
+  cli/technicians.ts     npm run tech (verification from the command line)
   common/money.ts         paise <-> whole rupees (refuses fractions)
 prisma/                   schema.prisma + committed migrations (models arrive feature by feature, from docs/schema.sql)
 scripts/                  setup.mjs (local secrets), test.mjs (test database + Jest), import-catalog.mjs,
@@ -251,3 +257,23 @@ configured"); everything else works.
 - **Cash:** the customer picks cash for the bill (`PENDING`, method `CASH`); `PaymentsService.confirmCash`
   completes the booking for the assigned technician. Its HTTP endpoint (`POST /tech/jobs/{id}/confirm-cash`)
   arrives with the technician job API (step 9), which defines the `Job` response.
+
+## Decisions taken in step 7
+
+- **Verification from the command line** (`npm run tech`), not an HTTP endpoint, until the admin portal exists.
+  It adds no network attack surface, needs database access to run, and records who ran it (`cli:<os user>`) in
+  `audit_log` with before and after. The portal will call the same `TechVerificationService` methods.
+- **Only a `PENDING` profile can be decided.** A late decision can't override a resubmission (`CONFLICT`).
+  Requesting a correction takes the technician offline.
+- **Editing an approved profile sends it back to review.** It becomes `PENDING` and the technician goes offline,
+  so skills or areas can't change unchecked. It is refused while on a job.
+- **Location privacy:**
+  - Only the latest point is stored, and only while online or on a job; anything else is accepted and dropped.
+  - Going offline clears it.
+  - The vehicle (with its registration number) is encrypted like other personal data.
+- **`audit_log` exists from now on.** It is written in the same transaction as the change, and holds ids,
+  statuses and decisions, but no personal data.
+- **Bookings now reference technicians** with a foreign key, and account deletion covers technicians (refused
+  while on a job; otherwise offline, with vehicle, areas and location wiped).
+- **`npm run db:local` accepts several processes** (API, `npm run tech`, seed), with one connection each. Its
+  query queue keeps transactions from interleaving.

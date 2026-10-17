@@ -114,3 +114,12 @@ Found while reading the handoff and building. Each one says what the backend doe
     used for the ₹49 visit fee? They cost a fee.
 30. **Failed refunds** (`refund.failed`) are flagged `REFUND_FAILED` and logged. Until support tickets exist
     (step 13), someone has to check for them. Who should be alerted?
+
+## Found in step 7 (technicians)
+
+31. **Who verifies technicians, and against what?** `npm run tech` lists the details a reviewer sees (name, phone,
+    skills, area, vehicle). What checks should they do before approving (a phone call, an ID photo later)?
+32. **Should editing an approved profile need re-approval?** The backend says yes: it goes back to `PENDING` and
+    offline. Would you rather allow some edits (vehicle, areas) without review?
+33. **Gender** is used for the women-rated badge and the "prefer technicians rated highly by women" option. The
+    contract only allows `M` and `F`. Should there be an "other" or "prefer not to say" choice?

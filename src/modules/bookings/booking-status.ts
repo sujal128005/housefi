@@ -40,5 +40,8 @@ export const REFUND_ON_CANCEL: readonly BookingStatus[] = ['MATCHING', 'MATCHING
 /** Rescheduling goes back to MATCHING from these ("Who may do what"). */
 export const RESCHEDULABLE: readonly BookingStatus[] = ['MATCHING_DELAYED', 'UNFULFILLED', 'ASSIGNED'];
 
+/** The assigned technician is busy with the job in these statuses (no new offers, no profile changes). */
+export const TECH_ACTIVE: readonly BookingStatus[] = ['ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'INSPECTING', 'QUOTE_SHARED', 'IN_PROGRESS', 'EXTRA_WORK', 'PAYMENT_DUE'];
+
 /** A scheduled booking in these statuses holds its time window (counts against slot capacity). */
 export const HOLDS_SLOT: readonly BookingStatus[] = ACTIVE_STATUSES.filter((s) => s !== 'UNFULFILLED');

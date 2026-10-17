@@ -122,3 +122,25 @@ The goal is none. Each entry links to the open question that will remove it.
   - `payments` gains `ordered_at`, `last_checked_at` and `refund_processed_at`.
   - `payment_webhook_events.payload` stores a redacted copy (ids, amounts, statuses).
   - New partial indexes for reconciliation and refunds still to send.
+
+## Technicians (step 7)
+
+- **`GET /tech/me`**, **`PUT /tech/profile`**, **`POST /tech/availability`** and **`POST /tech/location`** are
+  technicians only (customers get `NOT_FOUND`).
+- **`PUT /tech/profile`**
+  - The name is saved to the account (also seen in `GET /me`). Skills come back in catalog order.
+  - `phoneType` from the app is ignored (coordinators set it).
+  - Any submission makes the profile `PENDING` and the technician offline, even when it was `APPROVED`.
+  - Refused (`CONFLICT`) while the technician has a job in progress.
+- **`POST /tech/availability`** with `online: true` is `NOT_VERIFIED` (403) unless the profile is `APPROVED`.
+  Going offline always works and clears the stored location.
+- **`POST /tech/location`** returns 204. The point is stored only while online or on a job, and only the latest
+  one is kept. Limit: 10 per minute.
+- **Sign-in:** the `technician` in `AuthResult` is the real profile. `isNew` is true until the first
+  submission. Before that the profile is the placeholder described in QUESTIONS.md #17.
+- **Schema differences from docs/schema.sql:**
+  - `technicians.vehicle` is stored encrypted (`vehicle_enc`).
+  - `technicians` gains `last_accuracy_m`, `created_at` and CHECK constraints (online only when approved,
+    rating 1-5, experience 0-50).
+  - A GiST index on `last_location` is added.
+  - `audit_log` is as in the reference schema.

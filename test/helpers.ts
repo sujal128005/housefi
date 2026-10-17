@@ -13,6 +13,7 @@ import { MemoryRateLimitStore } from '../src/common/rate-limit/rate-limit.store'
 import { type Env, parseEnv } from '../src/config/env';
 import { configureApp, createAdapter } from '../src/http';
 import { SMS_SENDER, type SmsSender } from '../src/modules/auth/sms';
+import { TechVerificationService } from '../src/modules/technicians/tech-verification.service';
 import { RAZORPAY_CLIENT, RazorpayError, type RazorpayClient, type RzpOrder, type RzpPayment, type RzpPaymentStatus, type RzpRefund } from '../src/modules/payments/razorpay.client';
 
 const keys = generateKeyPairSync('ed25519', {
@@ -139,7 +140,7 @@ export class FakeRazorpay implements RazorpayClient {
 }
 
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
 }
 
 export interface TestApp {
@@ -188,6 +189,26 @@ export interface SignedIn {
   readonly isNew: boolean;
   readonly customer?: { readonly id: string; readonly phone: string; readonly name: string };
   readonly technician?: { readonly id: string; readonly phone: string; readonly name: string };
+}
+
+export const TECH_PROFILE = {
+  name: 'Swathi Naidu',
+  gender: 'F',
+  experienceYears: 5,
+  skills: ['PLUMBING', 'CLEANING'],
+  city: 'Hyderabad',
+  pincode: '500034',
+  areas: 'Banjara Hills, Jubilee Hills, Ameerpet',
+  vehicle: 'Scooter · TS 08 CD 4521',
+} as const;
+
+/** A technician who signed in and submitted a profile, approved by default (as an admin would with npm run tech). */
+export async function createTechnician(t: TestApp, phone = '9876500011', opts: { approve?: boolean } = {}): Promise<{ id: string; token: string }> {
+  const auth = await signIn(t, phone, 'TECHNICIAN');
+  const id = auth.technician!.id;
+  await request(t.app.getHttpServer()).put('/v1/tech/profile').set('Authorization', `Bearer ${auth.accessToken}`).send(TECH_PROFILE).expect(200);
+  if (opts.approve !== false) await t.app.get(TechVerificationService).approve(id, { type: 'ADMIN', id: null, via: 'test' });
+  return { id, token: auth.accessToken };
 }
 
 /** Requests a code, reads it from the fake SMS sender and verifies it. */

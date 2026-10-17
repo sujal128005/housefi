@@ -1,31 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type User, type UserRole } from '@prisma/client';
+import { Prisma, type User } from '@prisma/client';
 import { FieldCipher } from '../../common/crypto/field-cipher';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
+import { type TechProfileDto, TechniciansService } from '../technicians/technicians.service';
 import { type CustomerDto, UsersService } from '../users/users.service';
 import { OtpService, type VerifiedPhone } from './otp.service';
 import { type Session, SessionsService } from './sessions.service';
-
-/** openapi.yaml TechProfile. Until the profile is submitted (step 7) the fields are empty and verification is null. */
-export interface TechProfileDto {
-  readonly id: string;
-  readonly phone: string;
-  readonly name: string;
-  readonly gender: 'M' | 'F';
-  readonly experienceYears: number;
-  readonly skills: readonly string[];
-  readonly city: string;
-  readonly pincode: string;
-  readonly areas: string;
-  readonly vehicle: string;
-  readonly phoneType: 'SMARTPHONE' | 'KEYPAD' | 'NONE';
-  readonly verification: 'PENDING' | 'APPROVED' | 'NEEDS_CORRECTION' | null;
-  readonly correctionNote: { readonly en: string; readonly te: string } | null;
-  readonly online: boolean;
-  readonly rating: number | null;
-  readonly jobsDone: number;
-}
 
 /** openapi.yaml AuthResult: exactly one of customer / technician, matching the role. */
 export interface AuthResultDto {
@@ -45,6 +26,7 @@ export class AuthService {
     private readonly otp: OtpService,
     private readonly sessions: SessionsService,
     private readonly users: UsersService,
+    private readonly technicians: TechniciansService,
   ) {}
 
   /** Sign in or sign up with a verified code: one flow for both. */
@@ -86,20 +68,12 @@ export class AuthService {
 
   private async result(user: User, session: Session): Promise<AuthResultDto> {
     const base = { accessToken: session.accessToken, refreshToken: session.refreshToken, expiresIn: session.expiresIn };
-    const customer = await this.users.toCustomer(user);
-    if (isTechnician(user.role)) {
-      return { ...base, isNew: true, technician: emptyTechProfile(user.id, customer.phone, customer.name) };
+    if (user.role === 'TECHNICIAN') {
+      // New = no profile submitted yet.
+      const technician = await this.technicians.profileOf(user);
+      return { ...base, isNew: technician.verification === null, technician };
     }
+    const customer = await this.users.toCustomer(user);
     return { ...base, isNew: customer.name === '', customer };
   }
-}
-
-const isTechnician = (role: UserRole) => role === 'TECHNICIAN';
-
-/** A technician who has not submitted a profile yet. The profile itself arrives with step 7 (PUT /tech/profile). */
-function emptyTechProfile(id: string, phone: string, name: string): TechProfileDto {
-  return {
-    id, phone, name, gender: 'M', experienceYears: 0, skills: [], city: '', pincode: '', areas: '', vehicle: '',
-    phoneType: 'SMARTPHONE', verification: null, correctionNote: null, online: false, rating: null, jobsDone: 0,
-  };
 }

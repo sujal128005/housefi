@@ -7,7 +7,7 @@ import request from 'supertest';
 import { FieldCipher } from '../src/common/crypto/field-cipher';
 import { BookingsService } from '../src/modules/bookings/bookings.service';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
-import { buildTestApp, requireTestDatabase, resetDatabase, signIn, type TestApp } from './helpers';
+import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, type TestApp } from './helpers';
 
 const MIN = 60_000;
 const NOON_IST = Date.UTC(2026, 9, 16, 6, 30);
@@ -285,10 +285,11 @@ describe('bookings (e2e)', () => {
 
   describe('POST /v1/bookings/{id}/reschedule', () => {
     it('moves a delayed, unfulfilled or assigned booking back to matching at the new time', async () => {
+      const tech = await createTechnician(t);
       for (const status of ['MATCHING_DELAYED', 'UNFULFILLED', 'ASSIGNED'] as const) {
         const { body } = await book().expect(201);
         await force(body.id, status);
-        await t.prisma.booking.update({ where: { id: body.id }, data: { technicianId: status === 'ASSIGNED' ? randomUUID() : null } });
+        await t.prisma.booking.update({ where: { id: body.id }, data: { technicianId: status === 'ASSIGNED' ? tech.id : null } });
         const time = { mode: 'SCHEDULED', window: { date: '2026-10-18', startHour: 14, endHour: 16 } };
         const res = await auth(api().post(`/v1/bookings/${body.id}/reschedule`)).send({ time }).expect(200);
         expect(res.body).toMatchObject({ status: 'MATCHING', time });

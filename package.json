@@ -22,6 +22,7 @@
     "db:seed": "tsc -p tsconfig.build.json && node dist/cli/seed.js",
     "db:local": "node scripts/local-db.mjs",
     "catalog:import": "node scripts/import-catalog.mjs",
+    "tech": "tsc -p tsconfig.build.json && node dist/cli/technicians.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {

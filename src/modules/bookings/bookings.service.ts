@@ -158,7 +158,7 @@ export class BookingsService {
       if (!RESCHEDULABLE.includes(b.status)) throw new AppError('CONFLICT');
       await this.slots.hold(tx, { categoryId: b.categoryId, pincode: b.pincode }, time, b.id);
       // Step 8: the previously assigned technician is released and told.
-      await this.core.transition(tx, b, 'MATCHING', { ...windowFields(time), technicianId: null, etaMin: null }, { type: 'CUSTOMER', id: customerId }, { rescheduled: true });
+      await this.core.transition(tx, b, 'MATCHING', { ...windowFields(time), technician: { disconnect: true }, etaMin: null }, { type: 'CUSTOMER', id: customerId }, { rescheduled: true });
       return { changed: true, result: undefined };
     });
     return this.core.get(customerId, id);

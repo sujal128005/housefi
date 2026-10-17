@@ -7,6 +7,7 @@ import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { AddressesService } from '../addresses/addresses.service';
 import { BookingsService } from '../bookings/bookings.service';
+import { TechniciansService } from '../technicians/technicians.service';
 
 /** openapi.yaml Customer: the signed-in person's identity (used for both roles). */
 export interface CustomerDto {
@@ -30,6 +31,7 @@ export class UsersService {
     private readonly cipher: FieldCipher,
     private readonly addresses: AddressesService,
     private readonly bookings: BookingsService,
+    private readonly technicians: TechniciansService,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -58,14 +60,15 @@ export class UsersService {
    * DPDP right to erasure. The row stays (later steps' bookings and payments point to it) but is anonymised:
    * name removed, phone ciphertext wiped, phone hash replaced with random bytes so the number no longer finds this
    * account and can sign up again as a new one. All sessions end, pending sign-in codes are deleted, saved
-   * addresses are wiped and bookings anonymised. CONFLICT while a booking is in progress.
-   * (Technician accounts get their own rules with the technician profile, step 7.)
+   * addresses are wiped and bookings anonymised; a technician goes offline and their profile is wiped. CONFLICT while
+   * a booking (customer) or a job (technician) is in progress.
    */
   async delete(userId: string): Promise<void> {
     const user = await this.active(userId);
     const now = new Date(this.clock.now());
     await this.prisma.$transaction(async (tx) => {
       if (user.role === 'CUSTOMER') await this.bookings.anonymiseForDeletion(tx, userId);
+      if (user.role === 'TECHNICIAN') await this.technicians.anonymiseForDeletion(tx, userId);
       await tx.otpChallenge.deleteMany({ where: { phoneHash: user.phoneHash, role: user.role } });
       await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
       await this.addresses.wipeAll(tx, userId);

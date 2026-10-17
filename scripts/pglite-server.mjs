@@ -2,8 +2,9 @@
 // its wire-protocol socket server. Used by `npm test` when no DATABASE_URL_TEST is given, and by `npm run db:local`.
 //
 // Limits to know: PGlite is PostgreSQL 18 (production is 16) and has ONE session shared by every client. So:
-// - the server accepts a single connection and the URL carries connection_limit=1: Prisma sends one query at a
-//   time and transactions from different requests can never interleave;
+// - several processes may connect (API, `npm run tech`, seed), but the socket server's queue runs one query at a
+//   time and, while a transaction is open, only that connection's queries: transactions never interleave;
+// - each URL carries connection_limit=1, so one process never waits on its own second connection mid-transaction;
 // - the URL carries pgbouncer=true: Prisma then uses unnamed prepared statements, because named ones ("s0", ...)
 //   would outlive a client in the shared session and collide with the next client's.
 // Real concurrency is only exercised in CI (PostgreSQL 16).
@@ -30,7 +31,7 @@ class ReconnectingSocketServer extends PGLiteSocketServer {
 /** @param {{ port: number, dataDir?: string }} opts  dataDir omitted = in memory */
 export async function startPgliteServer({ port, dataDir }) {
   const db = await PGlite.create({ ...(dataDir ? { dataDir } : {}), extensions: { postgis } });
-  const server = new ReconnectingSocketServer({ db, port, host: '127.0.0.1', maxConnections: 1 });
+  const server = new ReconnectingSocketServer({ db, port, host: '127.0.0.1', maxConnections: 8 });
   await server.start();
   return {
     url: `postgresql://postgres:postgres@127.0.0.1:${port}/postgres?schema=public&connection_limit=1&pgbouncer=true&sslmode=disable`,

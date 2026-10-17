@@ -5,7 +5,7 @@ import { BookingsService } from '../src/modules/bookings/bookings.service';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
 import { PaymentsService } from '../src/modules/payments/payments.service';
 import type { RzpPayment } from '../src/modules/payments/razorpay.client';
-import { buildTestApp, requireTestDatabase, resetDatabase, signIn, TEST_SECRETS, type TestApp } from './helpers';
+import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, TEST_SECRETS, type TestApp } from './helpers';
 
 const MIN = 60_000;
 const HOME = { label: 'HOME', house: 'Flat 4B, Lake View', street: 'Road No. 12, Banjara Hills', landmark: '', city: 'Hyderabad', pincode: '500034' };
@@ -333,7 +333,11 @@ describe('payments (e2e)', () => {
   });
 
   describe('the final bill', () => {
-    const techId = randomUUID();
+    let techId: string;
+
+    beforeEach(async () => {
+      techId = (await createTechnician(t, '9876500055')).id;
+    });
 
     async function billDue(amountPaise = 32000n): Promise<string> {
       const id = await newBooking();

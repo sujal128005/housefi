@@ -59,6 +59,8 @@ model User {
   refreshTokens RefreshToken[]
   addresses     Address[]
   bookings      Booking[]
+  technician    Technician?    @relation("TechnicianUser")
+  coordinated   Technician[]   @relation("TechnicianCoordinator")
 
   @@unique([role, phoneHash])
   @@map("users")
@@ -313,7 +315,7 @@ model Booking {
   windowEndHour      Int?                                   @map("window_end_hour") @db.SmallInt
   preferWomenRated   Boolean                                @default(false) @map("prefer_women_rated")
   status             BookingStatus
-  /// The assigned technician (foreign key added with the technicians table, step 7).
+  /// The assigned technician.
   technicianId       String?                                @map("technician_id") @db.Uuid
   /// 4 digits the customer reads out at the door; encrypted because the customer must see it.
   arrivalCodeEnc     Bytes                                  @map("arrival_code_enc")
@@ -330,10 +332,11 @@ model Booking {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  service  Service        @relation(fields: [serviceId], references: [id])
-  customer User           @relation(fields: [customerId], references: [id])
-  events   BookingEvent[]
-  payments Payment[]
+  service    Service        @relation(fields: [serviceId], references: [id])
+  customer   User           @relation(fields: [customerId], references: [id])
+  technician Technician?    @relation(fields: [technicianId], references: [userId])
+  events     BookingEvent[]
+  payments   Payment[]
 
   @@unique([customerId, idempotencyKey])
   @@index([customerId, createdAt(sort: Desc)])
@@ -431,4 +434,102 @@ model PaymentWebhookEvent {
   processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
 
   @@map("payment_webhook_events")
+}
+
+// ---------- technicians ----------
+
+enum Gender {
+  M
+  F
+
+  @@map("gender")
+}
+
+enum Verification {
+  PENDING
+  APPROVED
+  NEEDS_CORRECTION
+
+  @@map("verification")
+}
+
+enum PhoneType {
+  SMARTPHONE
+  KEYPAD
+  NONE
+
+  @@map("phone_type")
+}
+
+/// A technician's work profile (the name lives on users, shared with /me). Created by the first PUT /tech/profile.
+model Technician {
+  userId            String                                 @id @map("user_id") @db.Uuid
+  gender            Gender
+  experienceYears   Int                                    @map("experience_years")
+  city              String
+  pincode           String                                 @db.Char(6)
+  /// Localities they cover, free text.
+  areas             String
+  /// Vehicle and registration number, encrypted (customers see it only for their assigned technician).
+  vehicleEnc        Bytes                                  @map("vehicle_enc")
+  phoneType         PhoneType                              @default(SMARTPHONE) @map("phone_type")
+  /// For technicians without a smartphone (coordinator-assisted jobs, step 13).
+  coordinatorId     String?                                @map("coordinator_id") @db.Uuid
+  verification      Verification
+  correctionNoteEn  String?                                @map("correction_note_en")
+  correctionNoteTe  String?                                @map("correction_note_te")
+  online            Boolean                                @default(false)
+  missedOffersInRow Int                                    @default(0) @map("missed_offers_in_row")
+  ratingAvg         Decimal?                               @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount       Int                                    @default(0) @map("rating_count")
+  womenRated        Boolean                                @default(false) @map("women_rated")
+  jobsDone          Int                                    @default(0) @map("jobs_done")
+  /// Only while online or on a job; cleared when going offline.
+  lastLocation      Unsupported("geography(Point, 4326)")? @map("last_location")
+  lastLocationAt    DateTime?                              @map("last_location_at") @db.Timestamptz(6)
+  lastAccuracyM     Int?                                   @map("last_accuracy_m")
+  submittedAt       DateTime                               @map("submitted_at") @db.Timestamptz(6)
+  verifiedAt        DateTime?                              @map("verified_at") @db.Timestamptz(6)
+  createdAt         DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user        User              @relation("TechnicianUser", fields: [userId], references: [id])
+  coordinator User?             @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
+  skills      TechnicianSkill[]
+  bookings    Booking[]
+
+  @@index([pincode, online, verification])
+  @@index([verification, submittedAt])
+  @@map("technicians")
+}
+
+model TechnicianSkill {
+  technicianId String     @map("technician_id") @db.Uuid
+  categoryId   CategoryId @map("category_id")
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+
+  @@id([technicianId, categoryId])
+  @@map("technician_skills")
+}
+
+// ---------- audit ----------
+
+/// Who did what, when, before and after: every verification decision now, every privileged action later.
+model AuditLog {
+  id        BigInt    @id @default(autoincrement())
+  actorType ActorType @map("actor_type")
+  actorId   String?   @map("actor_id") @db.Uuid
+  /// 'tech.approve', 'tech.request_correction', ...
+  action    String
+  entity    String
+  entityId  String    @map("entity_id")
+  before    Json?
+  after     Json?
+  ip        String?   @db.Inet
+  requestId String?   @map("request_id")
+  at        DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([entity, entityId, at])
+  @@map("audit_log")
 }
