@@ -6,7 +6,8 @@ import { StyleSheet, View } from 'react-native';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
-import { isApiError } from '../../services/api';
+import { VERIFY_TOKEN_RE } from '../../domain/identity';
+import { ApiError, isApiError } from '../../services/api';
 import { useBackend, useQuery } from '../../services/ServicesProvider';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, EmptyState, ErrorView, Header, Icon, Screen, Skeleton, Txt } from '../../ui';
@@ -17,7 +18,8 @@ export default function VerifyTechnician() {
   const { t, locale } = useI18n();
   const backend = useBackend();
   const { token } = useLocalSearchParams<{ token: string }>();
-  const q = useQuery(() => backend.verify.technician(token ?? ''), [backend, token]);
+  // Only a well-formed token goes to the server; anything else from a link is simply not found.
+  const q = useQuery(() => (VERIFY_TOKEN_RE.test(token ?? '') ? backend.verify.technician(token ?? '') : Promise.reject(new ApiError('NOT_FOUND'))), [backend, token]);
   const r = q.data;
   const done = () => (router.canGoBack() ? router.back() : resetTo('/'));
 

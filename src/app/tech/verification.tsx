@@ -21,7 +21,9 @@ export default function Verification() {
   const session = useTechSession();
   const { updateTech, setRole } = useAppState();
   const v = session.profile.verification;
-  const simulated = session.profile.identity?.simulated ?? true;
+  const simulated = session.profile.identity?.simulated;
+  // "You're verified" only for an explicit, real (not simulated) approval.
+  const genuine = simulated === false;
   const stopped = v === 'REJECTED' || v === 'SUSPENDED';
   const last = useRef(v);
 
@@ -77,12 +79,12 @@ export default function Verification() {
         )}
       </View>
       <Txt variant="title1" align="center" heading accessibilityLiveRegion="polite">
-        {v === 'APPROVED' ? (simulated ? t('tverify.approvedDemo') : t('tverify.approved')) : v === 'NEEDS_CORRECTION' ? t('tverify.correction')
+        {v === 'APPROVED' ? (genuine ? t('tverify.approved') : t('tverify.approvedDemo')) : v === 'NEEDS_CORRECTION' ? t('tverify.correction')
           : stopped ? t('tverify.stopped') : t('tverify.pending')}
       </Txt>
       <View style={styles.pill}><VerificationPill state={v} simulated={simulated} /></View>
       <Txt variant="body" color="inkMuted" align="center">
-        {v === 'APPROVED' ? (simulated ? t('tverify.approvedDemoBody') : t('tverify.approvedBody')) : v === 'NEEDS_CORRECTION' ? t('tverify.correctionBody')
+        {v === 'APPROVED' ? (genuine ? t('tverify.approvedBody') : t('tverify.approvedDemoBody')) : v === 'NEEDS_CORRECTION' ? t('tverify.correctionBody')
           : stopped ? t('tverify.stoppedBody') : t('tverify.pendingBody')}
       </Txt>
       {v === 'NEEDS_CORRECTION' && session.profile.correctionNote ? <Banner tone="warning" icon="alert-circle" text={l(session.profile.correctionNote)} /> : null}

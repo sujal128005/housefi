@@ -1,5 +1,9 @@
-// The booking being put together, step by step, before it is paid. Lives in memory only.
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+// The booking being put together, step by step, before it is paid. Lives in memory only, and belongs to one
+// customer: it is emptied when a different customer signs in on the phone (a shared phone must not carry one person's
+// problem notes, photos or address into another person's booking). The same customer signing back in after their
+// session ended keeps it.
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useAppState } from './AppState';
 import type { PaymentMethod, Photo, ProblemDescription, VisitTime, VoiceNote } from '../domain/types';
 
 export const MAX_PHOTOS = 4;
@@ -25,7 +29,10 @@ interface DraftActions {
   readonly setTime: (t: VisitTime | null) => void;
   readonly setPreferWomenRated: (v: boolean) => void;
   readonly setMethod: (m: PaymentMethod) => void;
+  /** After a booking is placed: keeps the address and payment method for the next one. */
   readonly clear: () => void;
+  /** Everything gone (sign-out, another customer). */
+  readonly reset: () => void;
 }
 
 interface DraftValue extends DraftActions {
@@ -43,6 +50,13 @@ export function hasProblem(p: ProblemDescription): boolean {
 
 export function BookingDraftProvider({ children }: { readonly children: ReactNode }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const customerId = useAppState().session?.customer.id ?? null;
+  const owner = useRef<string | null>(null);
+  useEffect(() => {
+    if (!customerId) return; // signed out or session ended: keep it for the same person signing back in
+    if (owner.current !== null && owner.current !== customerId) setDraft(EMPTY);
+    owner.current = customerId;
+  }, [customerId]);
 
   // Actions never change identity, so screens can use them in effect dependencies safely.
   const actions = useMemo<DraftActions>(() => {
@@ -66,6 +80,7 @@ export function BookingDraftProvider({ children }: { readonly children: ReactNod
       setPreferWomenRated: (preferWomenRated) => setDraft((d) => ({ ...d, preferWomenRated })),
       setMethod: (method) => setDraft((d) => ({ ...d, method })),
       clear: () => setDraft((d) => ({ ...EMPTY, addressId: d.addressId, method: d.method })),
+      reset: () => setDraft(EMPTY),
     };
   }, []);
 

@@ -11,6 +11,7 @@ import { AnekTelugu_500Medium } from '@expo-google-fonts/anek-telugu/500Medium';
 import { AnekTelugu_600SemiBold } from '@expo-google-fonts/anek-telugu/600SemiBold';
 import { AnekTelugu_700Bold } from '@expo-google-fonts/anek-telugu/700Bold';
 import { AnekTelugu_800ExtraBold } from '@expo-google-fonts/anek-telugu/800ExtraBold';
+import { Syncopate_700Bold } from '@expo-google-fonts/syncopate/700Bold';
 import type { Locale } from '../i18n/format';
 import type { FontWeight } from './tokens';
 
@@ -25,6 +26,8 @@ export const FONT_ASSETS = {
   AnekTelugu_600SemiBold,
   AnekTelugu_700Bold,
   AnekTelugu_800ExtraBold,
+  /** Nexara9's wordmark only (wide capitals). */
+  Syncopate_700Bold,
 };
 
 const LATIN: Record<FontWeight, keyof typeof FONT_ASSETS> = {

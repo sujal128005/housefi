@@ -71,7 +71,7 @@ export default function Account() {
       <ConfirmSheet visible={confirm} title={t('account.signOutTitle')} body={t('account.signOutBody')} icon="log-out-outline" confirmLabel={t('account.signOut')}
         confirmVariant="danger" onCancel={() => setConfirm(false)} onConfirm={() => {
           setConfirm(false);
-          draft.clear();
+          draft.reset();
           void signOut();
           resetTo('/auth/phone');
         }} />

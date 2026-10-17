@@ -56,9 +56,10 @@ export const VERIFY_TOKEN_RE = /^[A-Za-z0-9]{24}$/;
  */
 export type VerificationLook = 'VERIFIED' | 'DEMO' | 'PENDING' | 'NEEDS_CORRECTION' | 'REJECTED' | 'SUSPENDED' | 'UNKNOWN';
 
-export function verificationLook(state: Verification | null | undefined, simulated: boolean): VerificationLook {
+export function verificationLook(state: Verification | null | undefined, simulated: boolean | null | undefined): VerificationLook {
   switch (state) {
-    case 'APPROVED': return simulated ? 'DEMO' : 'VERIFIED';
+    // The tick needs an explicit "not simulated"; an approval whose origin is unknown is not shown as verified.
+    case 'APPROVED': return simulated === false ? 'VERIFIED' : simulated === true ? 'DEMO' : 'UNKNOWN';
     case 'PENDING': return 'PENDING';
     case 'NEEDS_CORRECTION': return 'NEEDS_CORRECTION';
     case 'REJECTED': return 'REJECTED';
@@ -68,7 +69,7 @@ export function verificationLook(state: Verification | null | undefined, simulat
 }
 
 /** Only a real, approved verification counts as verified. */
-export function isGenuinelyVerified(state: Verification | null | undefined, simulated: boolean): boolean {
+export function isGenuinelyVerified(state: Verification | null | undefined, simulated: boolean | null | undefined): boolean {
   return verificationLook(state, simulated) === 'VERIFIED';
 }
 
@@ -87,4 +88,14 @@ export function isValidPhoto(photo: string | undefined | null): photo is string 
   if (!photo) return false;
   if ((DEMO_PHOTOS as readonly string[]).includes(photo)) return true;
   return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(photo) && photo.length <= 600_000;
+}
+
+/**
+ * A photo URI the app may display: an inline JPEG/PNG/WebP image or an https link (the live backend's signed URL).
+ * Anything else (file:, content:, http:, javascript:, other data: types) is not shown.
+ */
+export function isDisplayablePhoto(uri: string | null | undefined): boolean {
+  if (!uri) return false;
+  if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(uri)) return true;
+  return /^https:\/\/[^\s/]+\/\S*$/i.test(uri);
 }

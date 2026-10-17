@@ -1,7 +1,7 @@
 // Technician identity: permanent Technician ID, locked identity fields, verification states, the ID card for the
 // technician and for the customer of an assigned booking, the QR verification page, and who may see what.
 import {
-  displayName, isGenuinelyVerified, isValidPhoto, newTechCode, newVerifyToken, TECH_CODE_RE, verificationLook, VERIFY_TOKEN_RE,
+  displayName, isDisplayablePhoto, isGenuinelyVerified, isValidPhoto, newTechCode, newVerifyToken, TECH_CODE_RE, verificationLook, VERIFY_TOKEN_RE,
 } from '../domain/identity';
 import type { VisitTime } from '../domain/types';
 import type { Backend } from '../services/api';
@@ -153,6 +153,17 @@ describe('identity fields', () => {
   });
 });
 
+describe('photo URIs', () => {
+  it('only shows inline images or https links', () => {
+    expect(isDisplayablePhoto('data:image/jpeg;base64,/9j/4AAQ')).toBe(true);
+    expect(isDisplayablePhoto('https://photos.housefi.example/t/abc.jpg?sig=1')).toBe(true);
+    for (const bad of ['http://x.example/a.jpg', 'file:///data/user/0/a.jpg', 'content://media/1', 'javascript:alert(1)',
+      'data:text/html;base64,PGgxPg==', 'data:image/svg+xml;base64,PHN2Zz4=', 'demo:tech_man', '', null, undefined]) {
+      expect(isDisplayablePhoto(bad)).toBe(false);
+    }
+  });
+});
+
 describe('verification states', () => {
   it('only a genuine approval is shown as verified', () => {
     expect(isGenuinelyVerified('APPROVED', false)).toBe(true);
@@ -163,6 +174,10 @@ describe('verification states', () => {
       expect(verificationLook(v, false)).not.toBe('VERIFIED');
     }
     expect(verificationLook(null, false)).toBe('UNKNOWN');
+    // An approval without an explicit "not simulated" (missing field, odd value) is never shown as verified.
+    expect(verificationLook('APPROVED', undefined)).toBe('UNKNOWN');
+    expect(verificationLook('APPROVED', null)).toBe('UNKNOWN');
+    expect(verificationLook('EXPIRED' as never, false)).toBe('UNKNOWN');
   });
 
   it('the demo backend marks every verification as simulated', async () => {

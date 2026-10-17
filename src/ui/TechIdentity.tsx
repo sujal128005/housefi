@@ -14,7 +14,7 @@ import { AppState, Image, Platform, StyleSheet, View, type StyleProp, type ViewS
 import QRCode from 'react-native-qrcode-svg';
 import Svg, { Path } from 'react-native-svg';
 import { categoryById } from '../data/catalog';
-import { verificationLook, type VerificationLook } from '../domain/identity';
+import { isDisplayablePhoto, verificationLook, type VerificationLook } from '../domain/identity';
 import type { Gender, TechIdCard, Verification } from '../domain/types';
 import { Art3D } from '../illustrations/Art3D';
 import { useI18n } from '../i18n/I18n';
@@ -24,7 +24,7 @@ import { type IconName } from './Icon';
 import { Header, Screen } from './Layout';
 import { useToast } from './Overlays';
 import { ErrorView } from './States';
-import { LogoMark } from './Logo';
+import { ByNexara, LogoMark } from './Logo';
 import { Pill, Skeleton, type PillTone } from './Surfaces';
 import { Txt } from './Txt';
 
@@ -41,14 +41,15 @@ export function TechPhoto({ photo, gender, size, style }: {
   readonly style?: StyleProp<ViewStyle>;
 }) {
   const r = size * 0.28;
-  if (photo && !photo.startsWith('demo:')) {
+  if (photo && isDisplayablePhoto(photo)) {
     return (
       <View style={[styles.photoBox, { width: size, height: size, borderRadius: r }, style]}>
         <Image source={{ uri: photo }} style={{ width: size, height: size, borderRadius: r }} resizeMode="cover" accessibilityIgnoresInvertColors />
       </View>
     );
   }
-  const art = photo === 'demo:tech_woman' || (!photo && gender === 'F') ? 'tech_woman' : 'tech_man';
+  // The demo's sample, or no usable photo: an illustration (never a stranger's picture, never an unsafe URI).
+  const art = photo === 'demo:tech_woman' || (photo !== 'demo:tech_man' && gender === 'F') ? 'tech_woman' : 'tech_man';
   return <Art3D name={art} size={Math.round(size / 0.9)} style={[{ margin: -size * 0.055 }, style]} />;
 }
 
@@ -65,7 +66,7 @@ const LOOK: Record<VerificationLook, { tone: PillTone; icon: IconName }> = {
 };
 
 /** Verification as a pill. The tick appears only for a genuine approval. */
-export function VerificationPill({ state, simulated }: { readonly state: Verification | null | undefined; readonly simulated: boolean }) {
+export function VerificationPill({ state, simulated }: { readonly state: Verification | null | undefined; readonly simulated: boolean | null | undefined }) {
   const { t } = useI18n();
   const look = verificationLook(state, simulated);
   return <Pill label={t(`id.v.${look}`)} tone={LOOK[look].tone} icon={LOOK[look].icon} />;
@@ -101,7 +102,7 @@ export function TechIdCardView({ card, viewer, onOpenVerification }: {
           <View style={styles.markBox}><LogoMark size={30} /></View>
           <View>
             <Txt variant="title3" color="onNavy" lang="en">Housefi</Txt>
-            <Txt variant="caption" color="onNavyMuted" lang="en">by Nexara<Txt variant="caption" color="amber" lang="en">9</Txt></Txt>
+            <ByNexara size="caption" tone="onDark" />
           </View>
         </View>
         <Txt variant="caption" color="onNavyMuted" style={styles.caption}>{t('id.cardCaption')}</Txt>

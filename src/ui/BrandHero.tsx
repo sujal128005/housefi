@@ -18,7 +18,7 @@ export function BrandLockup({ compact = false }: { readonly compact?: boolean })
   const layout = useLayout();
   const mark = compact ? 96 : layout.tablet ? 176 : layout.compact ? 120 : 148;
   return (
-    <View style={styles.lockup} accessible accessibilityLabel={`Housefi by Nexara9. ${TAGLINE}`} testID="brand-lockup">
+    <View style={styles.lockup} collapsable={false} testID="brand-lockup">
       <Pop><View style={styles.markShadow}><LogoMark size={mark} /></View></Pop>
       <Appear delay={120} style={styles.center}>
         <Txt variant="hero" weight="extrabold" lang="en" style={[styles.word, { fontSize: mark * 0.36, lineHeight: mark * 0.42 }]}>Housefi</Txt>

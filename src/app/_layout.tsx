@@ -7,13 +7,14 @@ import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, LogBox, Pressable, Text, View } from 'react-native';
+import { Image, Linking, LogBox, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Locale } from '../i18n/format';
 import { I18nProvider } from '../i18n/I18n';
 import { createMockBackend } from '../services/mock/MockBackend';
+import { withTimeouts } from '../services/timeouts';
 import { BackendProvider } from '../services/ServicesProvider';
-import { deviceStore } from '../services/storage';
+import { deviceStore, secretStore } from '../services/storage';
 import { AppStateProvider, useAppState } from '../state/AppState';
 import { BookingDraftProvider } from '../state/BookingDraft';
 import { FONT_ASSETS } from '../theme/fonts';
@@ -40,7 +41,11 @@ export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
     <View style={{ flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 }} testID="root-error">
       <Image source={require('../../assets/brand/housefi-logo.png')} style={{ width: 120, height: 120 }} />
       <Text style={{ fontSize: 34, fontWeight: '800', color: colors.ink }}>Housefi</Text>
-      <Text style={{ fontSize: 15, color: colors.inkMuted }}>by Nexara<Text style={{ color: colors.gold, fontWeight: '800' }}>9</Text></Text>
+      <Text style={{ fontSize: 15, color: colors.inkMuted }}>
+        by{' '}
+        <Text onPress={() => void Linking.openURL('https://nexara9.me/').catch(() => undefined)} accessibilityRole="link"
+          style={{ color: '#A27A26', fontWeight: '800', letterSpacing: 4 }}>NEXARA9</Text>
+      </Text>
       <Text style={{ fontSize: 17, color: colors.inkMuted }}>Home Help, Made Easy.</Text>
       <Text style={{ fontSize: 16, color: colors.ink, textAlign: 'center', marginTop: 12 }}>Something went wrong. Your bookings and details are safe.</Text>
       <Text style={{ fontSize: 15, color: colors.inkMuted, textAlign: 'center' }}>ఏదో పొరపాటు జరిగింది. మీ బుకింగ్‌లు, వివరాలు సురక్షితం.</Text>
@@ -57,11 +62,12 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({ ...FONT_ASSETS, ...Ionicons.font, ...MaterialCommunityIcons.font });
   // DEMO backend: the only backend in this phase. A LIVE backend implements the same interface (services/api.ts).
   // Technician IDs and verification tokens come from the system's cryptographic random source.
-  const backend = useMemo(() => createMockBackend({ store: deviceStore, randomBytes: getRandomBytes }), []);
+  // Every call has a time limit (services/timeouts.ts), so no screen can wait for ever.
+  const backend = useMemo(() => withTimeouts(createMockBackend({ store: deviceStore, randomBytes: getRandomBytes })), []);
   useEffect(() => installGlobalErrorHandler(), []);
   return (
     <SafeAreaProvider>
-      <AppStateProvider store={deviceStore} backend={backend} deviceLocale={phoneLocale()}>
+      <AppStateProvider store={deviceStore} secrets={secretStore} backend={backend} deviceLocale={phoneLocale()}>
         <BackendProvider backend={backend}>
           <Shell fontsReady={fontsLoaded || !!fontError} />
         </BackendProvider>

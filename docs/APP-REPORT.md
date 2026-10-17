@@ -16,7 +16,7 @@ The frontend of both apps is complete for this phase, against the demo backend:
 - **Shared:** brand and theme from your logo, 81 soft-3D illustrations, design system (`docs/DESIGN-SYSTEM.md`),
   phones to tablets, sounds and vibration, branded error / offline / session handling, screen-capture protection on
   the ID card.
-- **Tested:** 86 unit tests; full journeys on the Android emulator in English and Telugu, the error / offline check,
+- **Tested:** 106 unit tests; full journeys on the Android emulator in English and Telugu, the error / offline check,
   and the ID card's capture protection (asserted from the window manager and the pixels); GitHub Actions CI on every
   push (Android journeys + iOS build).
 
@@ -36,12 +36,43 @@ customer's booking is offered to a technician who is online in the technician ap
 the customer after an AI price check. When no technician is online, a simulated technician runs the visit, so the
 customer app can always be tried on its own.
 
+## Security and reliability hardening (final round)
+
+| Area | Fixed in the app |
+|---|---|
+| Session tokens | Kept only in the phone's secure storage (iOS Keychain / Android Keystore, this device only, never synced); never in the plain preferences file. Tokens an older version left there are moved once and removed |
+| Device backups | Android app-data backup turned off (`allowBackup: false`), so app data can't be copied off the phone through backups |
+| Shared phones | The booking draft (problem notes, photos, chosen address) belongs to one customer: emptied on sign-out and when a different customer signs in; kept when the same customer signs back in after their session ended |
+| Links from other apps | `housefi://pay?...&auto=1` can no longer start a payment: only the app's own Confirm & pay can (a one-time, one-minute, in-memory intent). Payment methods from a link are checked against the app's list. Demo settings can't be opened by link on a live backend. Verification links with a malformed token never reach the server. Oversized or heavily encoded links open Home (the router's URL decoder has a known slow-decoding bug with no compatible fix yet) |
+| Verification display | The green "Verified" tick needs an explicit `simulated: false` from the server; an approval with a missing or odd flag shows "Status unavailable", and the technician's screen no longer says "You're verified" in that case |
+| Photos | Only inline JPEG / PNG / WebP images or `https` links are displayed; any other address (file, content, http, other data types) falls back to the illustration |
+| Double submits | Buttons ignore a second press within 0.8 s (before the loading state shows), so booking, paying, quoting, approving and rating can't be sent twice from a double tap |
+| Stuck screens | Every backend call has a 25 s limit and then shows "Couldn't connect / Retry"; a request that fails before it starts is handled the same way |
+| Permissions | "Draw over other apps" (`SYSTEM_ALERT_WINDOW`) removed from the release app, alongside the earlier photo-library and microphone removals |
+| Quotes | At most 20 lines per quote (plus the existing limits on quantity and price) |
+| Maps | Apple Maps opened over https |
+
+Checked and already in order: no secrets in the code, no logging outside development builds, error screens never
+show technical text, shared texts carry only the booking code, technician name and time.
+
+**Needs the backend (the app can't enforce these on its own):** ownership checks on every booking, job, quote and
+payment request (the demo backend does this; tests cover it); `Idempotency-Key` on booking and payment creation;
+server-side payment confirmation (the app never trusts its own "paid"); short-lived access tokens with refresh and
+revocation on sign-out; rate limits on sign-in codes and the public verification page; issuing Technician IDs and
+verification tokens; approving photos and identities; serving photos only as short-lived signed `https` URLs; sending
+`simulated: false` only for real verifications.
+
+**Dependencies:** `npm audit` reports issues in build tools only (Metro, Jest, Expo CLI: `braces`, `micromatch`,
+`node-forge`, `sprintf-js`, `uuid`, `js-yaml`), not in the app bundle, plus `decode-uri-component` in the router
+(guarded by the link check above). No patched releases exist yet for most of them, and npm's suggested "fix"
+would downgrade Expo by thirteen versions, so none were forced; re-check when Expo SDK 58 is out.
+
 ## Redesign (this round)
 
 | Request | Done |
 |---|---|
 | Finalized logo as the single source of the brand | Your PNG is kept as-is in `assets/brand/` (proportions untouched; only the white outside the rounded tile is made transparent). Every app icon is generated from it: iOS icon, Android adaptive icon (foreground at 70% so circle, squircle and square masks never clip the house, background in the logo's own blue), monochrome icon, splash, favicon, and the logo in headers |
-| Entry screen | Logo → **Housefi** (large, bold) → "by Nexara**9**" (9 in golden yellow) → "Home Help, Made Easy." with a soft gradient wave rising from the bottom-left in the logo's blues and a thin amber line |
+| Entry screen | Logo → **Housefi** (large, bold) → "by **NEXARA9**" in Nexara9's own style (wide spaced capitals, gold gradient; tapping it opens https://nexara9.me/, also on the ID card and the error screens) → "Home Help, Made Easy." with a soft gradient wave rising from the bottom-left in the logo's blues and a thin amber line |
 | Theme from the logo | Cobalt blue primary, cyan secondary, amber/orange highlights, ivory and white surfaces, deep navy text. Gradients only where they matter (Home header, main buttons, hero cards) |
 | Eye-catching icons instead of "3D keyboard" emoji | Your generated soft-3D illustrations: the 6 categories; each of the 21 services (tap, leak, drain, tank, fan, switch, wiring, light, AC service and repair, washer, fridge, RO, geyser, bathroom, kitchen, sofa, door, furniture, fittings) in booking cards, Confirm & pay, Home's top problems and the technician's jobs; every booking step (finding, assigned, on the way, arrived, inspecting, quote, repair, extra materials, payment, done); payment states (secure, success, pending, failed, cash, receipt); technician verification (pending, approved, needs correction), job offer, start code, earnings, trophy; technician and customer characters; language, OTP, photo, AI scan, voice, map, schedule; empty and no-results states. Each is cut into a rounded tile by `tools/illustrations/cut_tiles.py` |
 | Fonts | Anek Latin and Anek Telugu: one modern family for both scripts |
@@ -182,12 +213,12 @@ files. The app's demo backend implements the same contract and is their working 
 
 | Check | Result |
 | --- | --- |
-| Unit tests | 86 / 86 passed (17 for technician identity, 1 for women's ratings) |
+| Unit tests | 106 / 106 passed (identity, privacy of responses, token storage, link guard, pay intent, double-press guard, request time limit, rules, i18n, demo backend) |
 | Typecheck, lint | clean |
 | expo-doctor | 21 / 21 |
 | Android release build (x86_64) | built |
 | Emulator journey, English | **passed**, 54 screenshots in `docs/screens/app/en/`: profile photo, Technician ID format, both ID cards (FLAG_SECURE asserted, screenshot decoded as blank, control after leaving), verification page, "I'm a woman" on the rating |
-| Emulator journey, Telugu | **passed**, 53 screenshots in `docs/screens/app/te/`, same checks |
+| Emulator journey, Telugu | **passed**, 54 screenshots in `docs/screens/app/te/`, same checks |
 | Error handling on the emulator (`tools/recovery-check.mjs`) | **passed**: Wi-Fi and data off → offline strip over the current screen, back on → "Back online"; branded error screen with no technical text; Try again re-opens the same screen; Go to home goes home. Screenshots in `docs/screens/app/recovery/` |
 | GitHub Actions CI | **all green** on `c870b48` (run 38984534001): typecheck, 85 tests, expo-doctor; Android release build with both journeys (English, Telugu) and the error check on an Android 14 emulator; iOS simulator build. The earlier Android failures were the test driver (a number pad that stays open after ESCAPE on Android 14), not the app |
 

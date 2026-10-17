@@ -15,6 +15,7 @@ import { Banner, Button, Card, ErrorBanner, ErrorView, Header, Icon, RadioDot, S
 import { Appear, Pop, Pulse } from '../ui/motion';
 import { PAY_METHODS } from '../ui/payMethods';
 import { feedback } from '../services/feedback';
+import { takePayIntent } from '../state/payIntent';
 
 type Phase = 'CHOOSE' | 'PROCESSING' | 'PAID' | 'PENDING' | 'CASH' | 'FAILED';
 
@@ -29,7 +30,8 @@ export default function Pay() {
   const backend = useBackend();
   const session = useSession();
   const q = useQuery(() => backend.bookings.get(session.token, params.id), [backend, session.token, params.id]);
-  const [method, setMethod] = useState<PaymentMethod>((params.method as PaymentMethod | undefined) ?? 'UPI');
+  // A method from the link is used only if it is one the app offers.
+  const [method, setMethod] = useState<PaymentMethod>(PAY_METHODS.find((m) => m.method === params.method)?.method ?? 'UPI');
   const [phase, setPhase] = useState<Phase>('CHOOSE');
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -71,13 +73,15 @@ export default function Pay() {
   // Arriving from "Confirm & pay" with a method already chosen: pay at once instead of asking again.
   const autoStarted = useRef(false);
   const ready = !!b;
+  // Only Confirm & pay inside the app may start the payment by itself (a link with auto=1 cannot).
+  const [autoAllowed] = useState(() => params.auto === '1' && takePayIntent(params.id));
   useEffect(() => {
-    if (params.auto !== '1' || autoStarted.current || !ready) return;
+    if (!autoAllowed || autoStarted.current || !ready) return;
     autoStarted.current = true;
     void pay();
     // pay() only reads state that is fixed by the time the booking has loaded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.auto, ready]);
+  }, [autoAllowed, ready]);
 
   const done = () => {
     if (kind === 'VISIT') {

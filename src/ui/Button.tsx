@@ -1,7 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRef } from 'react';
 import { ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, radius, shadow, space } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
+import { createPressGuard } from './pressGuard';
 import { Tap } from './Tap';
 import { Txt, type TextColor } from './Txt';
 
@@ -44,10 +46,12 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', icon,
   const inactive = disabled || loading;
   const height = size === 'lg' ? 56 : size === 'md' ? 48 : 40;
   const gradient = GRADIENT[variant];
+  // Ignores a second press in quick succession (double tap before the loading state shows).
+  const guard = useRef(createPressGuard()).current;
   return (
     <Tap
       testID={testID}
-      onPress={onPress}
+      onPress={() => guard(onPress)}
       disabled={inactive}
       haptic
       accessibilityLabel={label}

@@ -18,6 +18,7 @@ import { CategoryBadge } from '../../ui/CategoryTile';
 import { addressLine, visitTimeText } from '../../ui/present';
 import { VISIT_METHODS } from '../../ui/payMethods';
 import { StepHeader } from '../../ui/StepHeader';
+import { markPayIntent } from '../../state/payIntent';
 
 export default function ConfirmStep() {
   const { t, l, locale } = useI18n();
@@ -63,6 +64,7 @@ export default function ConfirmStep() {
         bookingId = b.id;
         created.current = b.id;
       }
+      markPayIntent(bookingId);
       router.push({ pathname: '/pay', params: { id: bookingId, kind: 'VISIT', method: draft.method, auto: '1' } });
     } catch (e) {
       setError(e);

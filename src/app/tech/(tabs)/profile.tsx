@@ -34,7 +34,7 @@ export default function TechProfile() {
   const [fixError, setFixError] = useState<unknown>(null);
   const p = session.profile;
   const idn = p.identity;
-  const simulated = idn?.simulated ?? true;
+  const simulated = idn?.simulated;
 
   const sendFix = async () => {
     setFixBusy(true);

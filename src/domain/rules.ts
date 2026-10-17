@@ -122,6 +122,8 @@ export function quoteTotal(lines: readonly QuoteLine[]): number {
 
 /** Smallest repair quote (labour + materials). */
 export const QUOTE_MIN = 100;
+/** A quote has at most this many lines. */
+export const MAX_QUOTE_LINES = 20;
 /** A single quote line above this goes to a reviewer. */
 export const QUOTE_LINE_REVIEW = 5000;
 /** Wrong start codes allowed before the visit is locked. */
@@ -152,6 +154,7 @@ export type QuoteProblem = 'NO_LINES' | 'NO_LABOUR' | 'BAD_LINE' | 'BELOW_MIN' |
 /** Checks a technician's quote before it is sent. */
 export function quoteProblem(diagnosis: string, lines: readonly QuoteLineDraft[]): QuoteProblem | null {
   if (lines.length === 0) return 'NO_LINES';
+  if (lines.length > MAX_QUOTE_LINES) return 'BAD_LINE';
   if (lines.some((l) => l.name.trim() === '' || !Number.isInteger(l.qty) || l.qty < 1 || l.qty > 99 || !Number.isInteger(l.unitPrice) || l.unitPrice < 1 || l.unitPrice > 100_000)) return 'BAD_LINE';
   if (!lines.some((l) => l.kind === 'LABOUR')) return 'NO_LABOUR';
   if (lines.reduce((s, l) => s + l.qty * l.unitPrice, 0) < QUOTE_MIN) return 'BELOW_MIN';

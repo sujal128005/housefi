@@ -1,4 +1,5 @@
 // Demo settings: choose what the simulated backend does (matching outcome, a one-off failure) and reset demo data.
+import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
@@ -16,7 +17,14 @@ const PAYMENTS: readonly PaymentOutcome[] = ['SUCCESS', 'PENDING', 'FAILED'];
 const PRACTICE: readonly DemoSettings['practiceCustomer'][] = ['APPROVE', 'REVISION', 'DECLINE'];
 const REVIEWS: readonly DemoSettings['verification'][] = ['APPROVE', 'CORRECTION'];
 
-export default function DemoSettingsScreen() {
+/** Demo settings exist only with the demo backend; a link to this screen in a live build goes home. */
+export default function DemoSettingsRoute() {
+  const backend = useBackend();
+  if (!backend.demo) return <Redirect href="/" />;
+  return <DemoSettingsScreen />;
+}
+
+function DemoSettingsScreen() {
   const { t } = useI18n();
   const backend = useBackend();
   const toast = useToast();
@@ -152,7 +160,7 @@ export default function DemoSettingsScreen() {
           setConfirm(false);
           void (async () => {
             await backend.demo?.reset();
-            draft.clear();
+            draft.reset();
             await signOut();
             await techSignOut();
             toast.show(t('demo.resetDone'), 'checkmark-circle');

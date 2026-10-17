@@ -53,7 +53,7 @@ export function TechStepper({ status }: { readonly status: BookingStatus }) {
 export async function openDirections(a: Address): Promise<boolean> {
   const dest = a.lat !== undefined && a.lng !== undefined ? `${a.lat},${a.lng}` : `${a.house}, ${a.street}, ${a.city} ${a.pincode}`;
   const url = Platform.OS === 'ios'
-    ? `http://maps.apple.com/?daddr=${encodeURIComponent(dest)}`
+    ? `https://maps.apple.com/?daddr=${encodeURIComponent(dest)}`
     : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
   try {
     await Linking.openURL(url);

@@ -1,11 +1,13 @@
 // App-level state: the chosen language and interface, whether the welcome was seen, sounds & vibration, and the
-// signed-in sessions (customer and technician are separate accounts, each with its own token). Preferences persist on
-// the device; session tokens are re-checked with the backend at start.
+// signed-in sessions (customer and technician are separate accounts, each with its own token). Preferences persist in
+// the plain device store; session tokens only in the secret store (Keychain / Keystore), and are re-checked with the
+// backend at start.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Customer, Session, TechProfile, TechSession } from '../domain/types';
 import type { Locale } from '../i18n/format';
 import type { Backend, KeyValueStore } from '../services/api';
 import { setFeedbackEnabled } from '../services/feedback';
+import { readTokens, withoutTokens, writeToken } from './sessionTokens';
 
 export type Role = 'CUSTOMER' | 'TECHNICIAN';
 
@@ -47,8 +49,10 @@ interface AppStateValue {
 
 const Ctx = createContext<AppStateValue | null>(null);
 
-export function AppStateProvider({ store, backend, deviceLocale, children }: {
+export function AppStateProvider({ store, secrets, backend, deviceLocale, children }: {
   readonly store: KeyValueStore;
+  /** Where session tokens are kept (never in `store`). */
+  readonly secrets: KeyValueStore;
   readonly backend: Backend;
   readonly deviceLocale: Locale;
   readonly children: ReactNode;
@@ -65,14 +69,24 @@ export function AppStateProvider({ store, backend, deviceLocale, children }: {
     setFailed(false);
     void (async () => {
       try {
-        let p = EMPTY;
+        let parsed: Record<string, unknown> = {};
         try {
           const raw = await store.get(PREFS_KEY);
-          if (raw) p = { ...EMPTY, ...(JSON.parse(raw) as Partial<Prefs>) };
+          const value: unknown = raw ? JSON.parse(raw) : {};
+          if (value && typeof value === 'object' && !Array.isArray(value)) parsed = value as Record<string, unknown>;
         } catch {
           // Unreadable preferences: start from defaults rather than failing.
-          p = EMPTY;
+          parsed = {};
         }
+        let tokens: { token: string | null; techToken: string | null } = { token: null, techToken: null };
+        try {
+          const read = await readTokens(parsed, secrets);
+          tokens = read;
+          if (read.migrated) await store.set(PREFS_KEY, JSON.stringify({ ...EMPTY, ...withoutTokens(parsed) }));
+        } catch {
+          // The secret store could not be read: start signed out rather than failing; the person signs in again.
+        }
+        const p: Prefs = { ...EMPTY, ...(withoutTokens(parsed) as Partial<Prefs>), ...tokens };
         // restore() answers null for a session that has ended (sign in again). If the check itself fails (no network),
         // the saved sign-in is kept and startup shows Retry instead of signing the person out.
         const [s, ts] = await Promise.all([
@@ -80,6 +94,9 @@ export function AppStateProvider({ store, backend, deviceLocale, children }: {
           p.techToken ? backend.tech.auth.restore(p.techToken) : Promise.resolve(null),
         ]);
         if (!alive) return;
+        // A session the backend says has ended is forgotten on the device too.
+        if (p.token && !s) void writeToken(secrets, 'token', null).catch(() => undefined);
+        if (p.techToken && !ts) void writeToken(secrets, 'techToken', null).catch(() => undefined);
         setPrefs({ ...p, token: s ? p.token : null, techToken: ts ? p.techToken : null });
         setSession(s);
         setTechSession(ts);
@@ -91,7 +108,7 @@ export function AppStateProvider({ store, backend, deviceLocale, children }: {
     return () => {
       alive = false;
     };
-  }, [store, backend, attempt]);
+  }, [store, secrets, backend, attempt]);
 
   useEffect(() => {
     setFeedbackEnabled(prefs.feedback);
@@ -100,10 +117,13 @@ export function AppStateProvider({ store, backend, deviceLocale, children }: {
   const update = useCallback((patch: Partial<Prefs>) => {
     setPrefs((prev) => {
       const next = { ...prev, ...patch };
-      void store.set(PREFS_KEY, JSON.stringify(next));
+      // Tokens never go into the plain preferences file.
+      void store.set(PREFS_KEY, JSON.stringify(withoutTokens(next))).catch(() => undefined);
       return next;
     });
-  }, [store]);
+    if ('token' in patch) void writeToken(secrets, 'token', patch.token ?? null).catch(() => undefined);
+    if ('techToken' in patch) void writeToken(secrets, 'techToken', patch.techToken ?? null).catch(() => undefined);
+  }, [store, secrets]);
 
   const value = useMemo<AppStateValue>(() => ({
     ready,

@@ -34,7 +34,8 @@ export function useQuery<T>(fn: () => Promise<T>, deps: DependencyList): QuerySt
     let alive = true;
     setLoading(true);
     setError(null);
-    fnRef.current().then(
+    // A request that throws before returning a promise is handled like a failed one (no stuck loading state).
+    Promise.resolve().then(() => fnRef.current()).then(
       (d) => {
         if (!alive) return;
         setData(d);
