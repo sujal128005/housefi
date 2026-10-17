@@ -14,7 +14,7 @@ state machine, starter prompt).
 |---|---|---|
 | App framework | Expo SDK 57 / React Native 0.86 (TypeScript) | Real native Android and iOS apps (no WebView, no PWA); Expo generates the native projects (`android/`, `ios/` are not committed) |
 | Navigation | Expo Router (native stack + tabs) | File-based routes in `src/app` |
-| Brand and illustrations | Finalized Housefi logo (`assets/brand`, source of every app icon and the splash); Housefi's own soft-3D illustrations (`assets/illustrations`, 79 rounded-square WebP tiles cut from the generated sheets by `tools/illustrations/cut_tiles.py`); a few code-drawn tiles (Material Design Icons, Apache 2.0) where an illustration is still to come | One look across both apps; 1.4 MB in total |
+| Brand and illustrations | Finalized Housefi logo (`assets/brand`, source of every app icon and the splash); Housefi's own soft-3D illustrations (`assets/illustrations`, 81 rounded-square WebP tiles cut from the generated sheets by `tools/illustrations/cut_tiles.py`); a few code-drawn tiles (Material Design Icons, Apache 2.0) where an illustration is still to come | One look across both apps; about 1.2 MB in total |
 | Sound & vibration | expo-audio with Kenney "Interface Sounds" (CC0) in `assets/sounds`, expo-haptics | Felt and heard at key moments; one switch turns both off |
 | Device | expo-location (address and language from location), expo-image-picker (problem photos) | |
 | Fonts | Anek Latin (English) and Anek Telugu (Telugu), one family for both scripts | OFL, bundled |

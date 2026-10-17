@@ -269,6 +269,11 @@ export function isBlankScreenshot(png) {
 }
 
 export function launch({ clear = false } = {}) {
+  // A sleeping screen ignores taps (the layout is still readable, so the failure looks like taps "not working").
+  adb(['shell', 'svc', 'power', 'stayon', 'true'], { stdio: 'pipe' });
+  adb(['shell', 'settings', 'put', 'system', 'screen_off_timeout', '2147483647'], { stdio: 'pipe' });
+  adb(['shell', 'input', 'keyevent', 'KEYCODE_WAKEUP'], { stdio: 'pipe' });
+  adb(['shell', 'wm', 'dismiss-keyguard'], { stdio: 'pipe' });
   adb(['shell', 'am', 'force-stop', PKG]);
   if (clear) adb(['shell', 'pm', 'clear', PKG]);
   adb(['shell', 'monkey', '-p', PKG, '-c', 'android.intent.category.LAUNCHER', '1'], { stdio: 'pipe' });

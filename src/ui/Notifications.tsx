@@ -23,7 +23,7 @@ import { Txt } from './Txt';
 
 const ART: Record<NotificationKind, ArtName> = {
   TECH_ASSIGNED: 'tech_man', TECH_ON_THE_WAY: 'scooter', TECH_ARRIVED: 'handshake', QUOTE_READY: 'clipboard', EXTRA_QUOTE: 'memo',
-  PAYMENT_DUE: 'money', BOOKING_COMPLETED: 'party', BOOKING_CANCELLED: 'package', NO_TECHNICIAN: 'alarm', JOB_OFFER: 'job_offer',
+  PAYMENT_DUE: 'money', BOOKING_COMPLETED: 'party', BOOKING_CANCELLED: 'package', NO_TECHNICIAN: 'no_results', JOB_OFFER: 'job_offer',
   QUOTE_APPROVED: 'check', QUOTE_REVISION: 'memo', QUOTE_DECLINED: 'package', EXTRA_APPROVED: 'check', EXTRA_DECLINED: 'package',
   PAYMENT_RECEIVED: 'pay_success', JOB_CANCELLED: 'package', PROFILE_APPROVED: 'verify_ok', PROFILE_NEEDS_CORRECTION: 'verify_fix',
 };

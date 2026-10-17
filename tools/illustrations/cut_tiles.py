@@ -37,6 +37,8 @@ MAP = {
   'customer': ('L', 4, 0), 'tech_hero': ('D', 8, -0.1), 'pay_success': ('B', 1, 0), 'pay_pending': ('B', 2, 0), 'card_failed': ('B', 3, 0),
   'cash': ('B', 4, 0), 'earnings': ('B', 7, 0), 'pay_due': ('G', 8, 0), 'trophy': ('B', 9, 0), 'refund': ('M', 9, 0),
   'verify_pending': ('K', 0, -0.2), 'verify_ok': ('K', 1, -0.2), 'verify_fix': ('K', 2, -0.2), 'start_code': ('K', 6, 0),
+  # stopgaps from tiles already generated, until dedicated art arrives: AI assistant = chat bubbles, SOS = warning
+  'robot': ('A', 4, 0), 'sos': ('M', 8, 0),
   'job_offer': ('K', 4, -0.2), 'finding': ('G', 0, 0), 'inspecting': ('G', 4, 0), 'no_results': ('I', 6, 0), 'tech_done': ('I', 9, 0),
 }
 SIZE = 360

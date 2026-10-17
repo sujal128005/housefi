@@ -16,7 +16,7 @@ import { MAX_CONTENT, useLayout } from '../ui/responsive';
 const SLIDES: readonly { title: StringKey; body: StringKey; art: ArtName; badge?: ArtName }[] = [
   { title: 'welcome.s1.title', body: 'welcome.s1.body', art: 'house_garden' },
   { title: 'welcome.s2.title', body: 'welcome.s2.body', art: 'tech_hero' },
-  { title: 'welcome.s3.title', body: 'welcome.s3.body', art: 'clipboard', badge: 'check' },
+  { title: 'welcome.s3.title', body: 'welcome.s3.body', art: 'clipboard' },
 ];
 
 /** Pages: 0 = brand, 1..3 = slides. */
@@ -38,13 +38,21 @@ export default function Welcome() {
     markWelcomeSeen();
     router.push('/language');
   };
+  // The page Next is heading to. Quick taps chain from it, so an earlier slide animation that ends half-way (its
+  // end event reports an in-between position) cannot send the pager back a page.
+  const target = useRef(0);
   const next = () => {
-    if (last) return finish();
-    scroller.current?.scrollTo({ x: (page + 1) * width, animated: true });
-    setPage(page + 1);
+    if (target.current >= PAGES - 1) return finish();
+    target.current += 1;
+    scroller.current?.scrollTo({ x: target.current * width, animated: true });
+    setPage(target.current);
   };
+  // A swipe settles on a page boundary; only then does the page follow the scroll position.
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const p = Math.round(e.nativeEvent.contentOffset.x / width);
+    const x = e.nativeEvent.contentOffset.x;
+    const p = Math.round(x / width);
+    if (Math.abs(x - p * width) > 2) return;
+    target.current = p;
     if (p !== page) setPage(p);
   };
 

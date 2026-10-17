@@ -42,8 +42,22 @@ async function main() {
   await snap('offline');
   if (!(await exists({ id: 'tech-earnings' }))) throw new Error('the screen under the offline strip was replaced');
   network(true);
-  await waitFor({ id: 'online-banner' }, 30000);
-  await snap('back-online');
+  // "Back online" shows for 2.5 s, which a slow screen read can miss; the offline strip going away is the real signal.
+  const end = Date.now() + 30000;
+  let sawBack = false;
+  for (;;) {
+    const ids = dump().map((x) => x.id);
+    if (ids.includes('online-banner')) {
+      sawBack = true;
+      await snap('back-online');
+      break;
+    }
+    if (!ids.includes('offline-banner')) break;
+    if (Date.now() > end) throw new Error('still offline 30 s after turning the network back on');
+    await sleep(300);
+  }
+  if (!(await exists({ id: 'tech-earnings' }))) throw new Error('the screen changed when the network came back');
+  console.log(`  back online${sawBack ? ' ("Back online" shown)' : ' (offline strip gone; "Back online" already faded)'}`);
 
   step('unexpected error: branded fallback, Try again recovers in place');
   await open('demo');

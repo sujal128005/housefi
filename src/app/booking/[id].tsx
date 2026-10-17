@@ -31,7 +31,7 @@ const HERO: Partial<Record<Booking['status'], { art: ArtName; title: StringKey; 
   AWAITING_PAYMENT: { art: 'card', title: 'hub.awaiting.title', body: 'hub.awaiting.body' },
   PAYMENT_PENDING: { art: 'pay_pending', title: 'hub.payPending.title', body: 'hub.payPending.body' },
   MATCHING_DELAYED: { art: 'alarm', title: 'track.delayed.title', body: 'track.delayed.body' },
-  UNFULFILLED: { art: 'alarm', title: 'track.unfulfilled.title', body: 'track.unfulfilled.body' },
+  UNFULFILLED: { art: 'no_results', title: 'track.unfulfilled.title', body: 'track.unfulfilled.body' },
   ARRIVED: { art: 'handshake', title: 'hub.arrived.title', body: 'hub.arrived.body' },
   INSPECTING: { art: 'inspecting', title: 'hub.inspecting.title', body: 'hub.inspecting.body' },
   QUOTE_SHARED: { art: 'clipboard', title: 'hub.quote.title', body: 'hub.quote.body' },
@@ -133,7 +133,9 @@ export default function BookingHub() {
 
   const changeTime = () => router.push({ pathname: '/book/when', params: { reschedule: b.id } });
   const revising = b.status === 'QUOTE_SHARED' && b.quote?.decision === 'REVISION_REQUESTED';
-  const hero = revising ? { art: 'hourglass' as ArtName, title: 'hub.revision.title' as StringKey, body: 'hub.revision.body' as StringKey } : HERO[b.status];
+  const base = revising ? { art: 'hourglass' as ArtName, title: 'hub.revision.title' as StringKey, body: 'hub.revision.body' as StringKey } : HERO[b.status];
+  // A cancelled booking whose visit fee came back shows the refund picture.
+  const hero = base && b.status === 'CANCELLED' && b.visitPayment.state === 'REFUNDED' ? { ...base, art: 'refund' as ArtName } : base;
 
   return (
     <Screen testID="booking-status" header={<Header title={`${t('track.title')} · ${b.code}`} />}>

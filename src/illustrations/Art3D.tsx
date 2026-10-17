@@ -1,8 +1,9 @@
 // Housefi illustrations: Housefi's own soft-3D illustration tiles (assets/illustrations, one rounded-square WebP each,
 // cut from the generated sheets) for categories, services, steps, states and people, with an optional gentle float.
-// A few pictures have no illustration yet (AI assistant, SOS, time of day, rating thumbs); they use the earlier
-// code-drawn glossy tile (Material Design Icons, Apache 2.0) until their illustrations arrive. Adding one later is a
-// single line in IMG below; screens do not change.
+// The AI assistant (chat bubbles) and SOS (warning) use existing tiles as stopgaps. Two pictures have no
+// illustration yet (technician offline, rating thumbs); they use the earlier code-drawn glossy tile (Material Design
+// Icons, Apache 2.0) until their illustrations arrive. Adding one later is a single line in IMG below; screens do not
+// change.
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, type ComponentProps } from 'react';
@@ -143,10 +144,12 @@ const IMG = {
   pin: require('../../assets/illustrations/pin.webp'),
   receipt: require('../../assets/illustrations/receipt.webp'),
   refund: require('../../assets/illustrations/refund.webp'),
+  robot: require('../../assets/illustrations/robot.webp'),
   rocket: require('../../assets/illustrations/rocket.webp'),
   saw: require('../../assets/illustrations/saw.webp'),
   scooter: require('../../assets/illustrations/scooter.webp'),
   shield: require('../../assets/illustrations/shield.webp'),
+  sos: require('../../assets/illustrations/sos.webp'),
   snowflake: require('../../assets/illustrations/snowflake.webp'),
   spiral_calendar: require('../../assets/illustrations/spiral_calendar.webp'),
   sponge: require('../../assets/illustrations/sponge.webp'),

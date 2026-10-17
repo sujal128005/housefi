@@ -1,10 +1,35 @@
 # Customer app (final) and Technician app: report
 
+## FRONT END: DONE
+
+The frontend of both apps is complete for this phase, against the demo backend:
+
+- **Customer app:** language (English / Telugu, detect-from-location "soon"), sign-in with demo OTP, Home with
+  AI-ranked local problems and "Snap the problem", booking (problem, photos, voice note, address, time, ₹49 visit
+  fee), live tracking, arrival code, technician card and **Technician ID card**, AI-checked quote with approve / lower
+  price / decline, extra work, payment (online or cash), receipt, rating with "Satisfied?" and the optional
+  "I'm a woman", help and AI chat, notifications, account.
+- **Technician app:** sign-in, registration with **mandatory photo and legal name**, verification (pending, approved,
+  needs correction, rejected, suspended), online / offline, job offers, the job from trip to start code, quote
+  builder, repair, extra materials, cash, earnings and payouts, profile with the read-only **identity**, **My Housefi
+  ID** and correction requests.
+- **Shared:** brand and theme from your logo, 81 soft-3D illustrations, design system (`docs/DESIGN-SYSTEM.md`),
+  phones to tablets, sounds and vibration, branded error / offline / session handling, screen-capture protection on
+  the ID card.
+- **Tested:** 86 unit tests; full journeys on the Android emulator in English and Telugu, the error / offline check,
+  and the ID card's capture protection (asserted from the window manager and the pixels); GitHub Actions CI on every
+  push (Android journeys + iOS build).
+
+**Waiting on others (not frontend work):** the real backend and database (the backend team's package is in
+`docs/backend`), real SMS / payments / maps / push / AI / ID verification, the admin portal, three illustrations
+from your designer (technician offline, thumbs up, thumbs down), and an iPhone check of the ID card protection
+(checklist below; the app has not been run on an iPhone yet).
+
 Status: **customer and technician apps built, redesigned on the finalized Housefi logo, with branded error and
 offline handling, the technician identity feature (photo, permanent ID, digital ID card, QR verification) and one
 written design system (`docs/DESIGN-SYSTEM.md`); tested with unit tests and on the Android emulator (English and
-Telugu).** Admin portal: not started (as agreed). Your soft-3D illustrations are in the app (79 of them); the few
-still to generate are listed under "Illustrations still to generate".
+Telugu).** Admin portal: not started (as agreed). Your soft-3D illustrations are in the app; the few still to
+generate are listed under "Illustrations still to generate".
 
 Both interfaces live in one app and share one demo backend, the same way they will share the real backend: a
 customer's booking is offered to a technician who is online in the technician app; the technician's quote reaches
@@ -157,16 +182,22 @@ files. The app's demo backend implements the same contract and is their working 
 
 | Check | Result |
 | --- | --- |
-| Unit tests | 85 / 85 passed (16 new for technician identity, 1 for women's ratings) |
+| Unit tests | 86 / 86 passed (17 for technician identity, 1 for women's ratings) |
 | Typecheck, lint | clean |
 | expo-doctor | 21 / 21 |
 | Android release build (x86_64) | built |
-| Emulator journey, English | **passed**, 54 screenshots in `docs/screens/app/en/`, now including the profile photo, the Technician ID format check, both ID cards (screenshots blank: blocked by Android's secure window, asserted), the verification page and "I'm a woman" on the rating |
-| Emulator journey, Telugu | **passed**, 54 screenshots in `docs/screens/app/te/` (same checks as English) |
+| Emulator journey, English | **passed**, 54 screenshots in `docs/screens/app/en/`: profile photo, Technician ID format, both ID cards (FLAG_SECURE asserted, screenshot decoded as blank, control after leaving), verification page, "I'm a woman" on the rating |
+| Emulator journey, Telugu | **passed**, 53 screenshots in `docs/screens/app/te/`, same checks |
 | Error handling on the emulator (`tools/recovery-check.mjs`) | **passed**: Wi-Fi and data off → offline strip over the current screen, back on → "Back online"; branded error screen with no technical text; Try again re-opens the same screen; Go to home goes home. Screenshots in `docs/screens/app/recovery/` |
 | GitHub Actions CI | **all green** on `c870b48` (run 38984534001): typecheck, 85 tests, expo-doctor; Android release build with both journeys (English, Telugu) and the error check on an Android 14 emulator; iOS simulator build. The earlier Android failures were the test driver (a number pad that stays open after ESCAPE on Android 14), not the app |
 
 Problems found and fixed while testing:
+
+- Final round: on the welcome slides, tapping Next quickly could send the pager back a page (an unfinished slide
+  animation reported an in-between position). Next now chains from the page it is heading to.
+- Final round (test setup, not the app): a freshly booted emulator turned its screen off, and a sleeping screen
+  ignores taps; the test driver now keeps the screen awake. "Back online" (shown for 2.5 s) could be missed between
+  two screen reads; the check now also accepts the offline strip going away.
 
 - This round: blocking Android's `DETECT_SCREEN_CAPTURE` permission made the app crash at start (the screen-capture
   module registers its callback on Android 14+). It is an install-time permission with no privacy cost, so it stays;
@@ -200,22 +231,19 @@ Problems found and fixed while testing:
 ## Illustrations still to generate
 
 Reviewed against every place the app draws a picture (anything under 32 pt is drawn as a simple symbol, so it
-needs no illustration). Four spots still show the earlier code-drawn tile:
+needs no illustration). The AI assistant now uses your chat-bubbles tile and SOS your warning-triangle tile as
+stopgaps. Two spots still show the earlier code-drawn tile:
 
-| Name | Where it appears (size) | What to generate, or an existing tile that would do |
+| Name | Where it appears (size) | What to generate |
 |---|---|---|
-| AI assistant | Help tab header (104 pt), support chat header (72), booking screen "Need help?" row (40), technician job while the AI checks a quote (104, two states) | A friendly AI helper (chat bubble with a sparkle, cobalt and cyan). Stopgap: the chat-bubbles tile already generated ("3D Home Services App Icon Grid", tile 5 counting from 1) |
-| SOS / safety | Safety button on the booking screen (34) and its SOS sheet (56); technician job "report a problem" row (36) | A calm red-and-white beacon or shield marked "SOS". Stopgap: the orange warning triangle ("Pastel 3D UI Illustration Tile Set", tile 9) |
-| Technician offline | Technician Home while offline (90) | The technician resting with a moon, or a phone with a pause badge. No existing tile fits |
-| Satisfied? Yes / No | Rating screen: both buttons (64); "No" is currently the same thumbs-up turned upside down | A **thumbs up** and a separate **thumbs down** in the same style. Stopgap for Yes: the technician thumbs-up with a medal ("Friendly Home Services Character Set", tile 6) |
+| Technician offline | Technician Home while offline (90 pt) | The technician resting with a moon, or a phone with a pause badge |
+| Satisfied? Yes / No | Rating screen: both buttons (64); "No" is the thumbs-up turned upside down | A **thumbs up** and a separate **thumbs down** in the same style |
 
-Not needed after all: morning / afternoon / evening (shown at 22 pt as simple symbols). Optional polish: the language
-globe already uses your illustration, but its letters are A, अ and 文; a version with **A** and **తె** (Telugu)
-would fit the app better.
+Nice to have: a dedicated AI-assistant picture (chat bubble with a sparkle) and a calm red "SOS" beacon to replace
+the stopgaps, and the language globe with **A** and **తె** (Telugu) instead of A, अ and 文.
 
-Also found in the review: the small "badge" pictures (e.g. a toolbox next to the technician) are not drawn on top of
-illustrations, so three of them never appear; "no technician found" uses the same hourglass picture as "waiting"; and
-one cut tile (`refund`, 14 KB) is not used yet.
+Fixed after the review: badges that could never show were removed; "no technician found" now has its own picture;
+refunded cancellations use the refund illustration.
 
 ## Not real yet (by design in this phase)
 
