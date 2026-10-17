@@ -145,7 +145,7 @@ files. The app's demo backend implements the same contract and is their working 
 | Emulator journey, English | **passed**, 54 screenshots in `docs/screens/app/en/`, now including the profile photo, the Technician ID format check, both ID cards (screenshots blank: blocked by Android's secure window, asserted), the verification page and "I'm a woman" on the rating |
 | Emulator journey, Telugu | **passed**, 54 screenshots in `docs/screens/app/te/` (same checks as English) |
 | Error handling on the emulator (`tools/recovery-check.mjs`) | **passed**: Wi-Fi and data off → offline strip over the current screen, back on → "Back online"; branded error screen with no technical text; Try again re-opens the same screen; Go to home goes home. Screenshots in `docs/screens/app/recovery/` |
-| GitHub Actions CI | previous commit (`988fddf`): checks and iOS build passed; the Android job failed in the technician form ("could not scroll": the test driver's swipes bounced past a narrow visible area). Fixed in the driver (closes the keyboard, smaller swipes after overshooting). This commit: see its run |
+| GitHub Actions CI | **all green** on `c870b48` (run 38984534001): typecheck, 85 tests, expo-doctor; Android release build with both journeys (English, Telugu) and the error check on an Android 14 emulator; iOS simulator build. The earlier Android failures were the test driver (a number pad that stays open after ESCAPE on Android 14), not the app |
 
 Problems found and fixed while testing:
 
