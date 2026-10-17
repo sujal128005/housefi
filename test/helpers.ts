@@ -5,6 +5,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
+import http from 'node:http';
 import { AppModule } from '../src/app.module';
 import { CLOCK, type Clock } from '../src/common/clock';
 import { PrismaService } from '../src/common/prisma/prisma.module';
@@ -140,7 +141,7 @@ export class FakeRazorpay implements RazorpayClient {
 }
 
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
 }
 
 export interface TestApp {
@@ -203,10 +204,18 @@ export const TECH_PROFILE = {
 } as const;
 
 /** A technician who signed in and submitted a profile, approved by default (as an admin would with npm run tech). */
-export async function createTechnician(t: TestApp, phone = '9876500011', opts: { approve?: boolean } = {}): Promise<{ id: string; token: string }> {
+export async function createTechnician(
+  t: TestApp,
+  phone = '9876500011',
+  opts: { approve?: boolean; profile?: Partial<Record<keyof typeof TECH_PROFILE, unknown>> } = {},
+): Promise<{ id: string; token: string }> {
   const auth = await signIn(t, phone, 'TECHNICIAN');
   const id = auth.technician!.id;
-  await request(t.app.getHttpServer()).put('/v1/tech/profile').set('Authorization', `Bearer ${auth.accessToken}`).send(TECH_PROFILE).expect(200);
+  await request(t.app.getHttpServer())
+    .put('/v1/tech/profile')
+    .set('Authorization', `Bearer ${auth.accessToken}`)
+    .send({ ...TECH_PROFILE, ...opts.profile })
+    .expect(200);
   if (opts.approve !== false) await t.app.get(TechVerificationService).approve(id, { type: 'ADMIN', id: null, via: 'test' });
   return { id, token: auth.accessToken };
 }
@@ -220,4 +229,36 @@ export async function signIn(t: TestApp, phone = '9876543210', role: 'CUSTOMER' 
     .send({ challengeId: challenge.body.challengeId, code: t.sms.lastCode(phone) })
     .expect(200);
   return res.body as SignedIn;
+}
+
+/** Minimal Server-Sent Events client for tests: collects the events with the given name. */
+export function openSse(port: number, path: string, token: string, event: string) {
+  const events: Record<string, unknown>[] = [];
+  const waiters: (() => void)[] = [];
+  let status = 0;
+  let buffer = '';
+  const req = http.get({ host: '127.0.0.1', port, path, headers: { Authorization: `Bearer ${token}` } }, (res) => {
+    status = res.statusCode ?? 0;
+    res.setEncoding('utf8');
+    res.on('data', (chunk: string) => {
+      buffer += chunk;
+      let at: number;
+      while ((at = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0, at);
+        buffer = buffer.slice(at + 2);
+        const data = block.split('\n').find((l) => l.startsWith('data: '));
+        if (block.includes(`event: ${event}`) && data) {
+          events.push(JSON.parse(data.slice(6)) as Record<string, unknown>);
+          waiters.splice(0).forEach((w) => w());
+        }
+      }
+    });
+  });
+  const waitFor = (n: number) =>
+    new Promise<void>((resolve, reject) => {
+      const check = () => (events.length >= n ? resolve() : waiters.push(check));
+      setTimeout(() => reject(new Error(`timed out waiting for ${event} event ${n}`)), 5000);
+      check();
+    });
+  return { events, waitFor, status: () => status, close: () => req.destroy() };
 }

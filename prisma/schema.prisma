@@ -321,6 +321,10 @@ model Booking {
   arrivalCodeEnc     Bytes                                  @map("arrival_code_enc")
   startCodeAttempts  Int                                    @default(0) @map("start_code_attempts")
   etaMin             Int?                                   @map("eta_min")
+  /// When the current search for a technician started (MATCHING_DELAYED after 10 min, UNFULFILLED after 30).
+  matchingStartedAt  DateTime?                              @map("matching_started_at") @db.Timestamptz(6)
+  /// When the current technician accepted (instant visits are reassigned if the trip has not started 10 min later).
+  assignedAt         DateTime?                              @map("assigned_at") @db.Timestamptz(6)
   workStarted        Boolean                                @default(false) @map("work_started")
   cancelReason       CancelReason?                          @map("cancel_reason")
   closeReason        CloseReason?                           @map("close_reason")
@@ -337,6 +341,7 @@ model Booking {
   technician Technician?    @relation(fields: [technicianId], references: [userId])
   events     BookingEvent[]
   payments   Payment[]
+  offers     JobOffer[]
 
   @@unique([customerId, idempotencyKey])
   @@index([customerId, createdAt(sort: Desc)])
@@ -497,6 +502,7 @@ model Technician {
   coordinator User?             @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
   skills      TechnicianSkill[]
   bookings    Booking[]
+  offers      JobOffer[]
 
   @@index([pincode, online, verification])
   @@index([verification, submittedAt])
@@ -532,4 +538,67 @@ model AuditLog {
 
   @@index([entity, entityId, at])
   @@map("audit_log")
+}
+
+// ---------- dispatch ----------
+
+enum OfferState {
+  OPEN
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  WITHDRAWN
+
+  @@map("offer_state")
+}
+
+enum OfferChannel {
+  APP
+  SMS
+  IVR
+  COORDINATOR
+
+  @@map("offer_channel")
+}
+
+enum OfferRejectReason {
+  TOO_FAR
+  BUSY
+  NOT_MY_SKILL
+  OTHER
+
+  @@map("offer_reject")
+}
+
+/// A job offered to one technician at a time. At most one OPEN offer per booking and per technician (partial
+/// unique indexes in the migration).
+model JobOffer {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId    String             @map("booking_id") @db.Uuid
+  technicianId String             @map("technician_id") @db.Uuid
+  state        OfferState         @default(OPEN)
+  channel      OfferChannel       @default(APP)
+  rejectReason OfferRejectReason? @map("reject_reason")
+  /// Straight-line distance from the technician's last location, when both points are known.
+  distanceM    Int?               @map("distance_m")
+  createdAt    DateTime           @map("created_at") @db.Timestamptz(6)
+  expiresAt    DateTime           @map("expires_at") @db.Timestamptz(6)
+  respondedAt  DateTime?          @map("responded_at") @db.Timestamptz(6)
+
+  booking    Booking    @relation(fields: [bookingId], references: [id])
+  technician Technician @relation(fields: [technicianId], references: [userId])
+
+  @@index([bookingId, technicianId])
+  @@index([technicianId, state, respondedAt])
+  @@index([state, expiresAt])
+  @@map("job_offers")
+}
+
+/// Which PIN codes neighbour which (dispatch v1 matches the booking's PIN and its neighbours). Store both directions.
+model ServiceAreaPincode {
+  pincode     String @db.Char(6)
+  nearPincode String @map("near_pincode") @db.Char(6)
+
+  @@id([pincode, nearPincode])
+  @@map("service_area_pincodes")
 }

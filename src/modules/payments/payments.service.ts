@@ -9,6 +9,7 @@ import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { BookingCore, SYSTEM, UUID } from '../bookings/booking-core';
 import type { BookingDto } from '../bookings/booking-view';
+import { DispatchService } from '../dispatch/dispatch.service';
 import { RAZORPAY_CLIENT, type RazorpayClient, type RzpPayment } from './razorpay.client';
 import { verifyCheckoutSignature, verifyWebhookSignature } from './razorpay.signatures';
 
@@ -18,6 +19,8 @@ const ORDER_REUSE_MIN = 15;
 const RECHECK_EVERY_MIN = 10;
 /** A PROCESSING order with no payment after this long is abandoned (FAILED). */
 const ABANDON_AFTER_MIN = 24 * 60;
+/** An UNFULFILLED booking is cancelled and refunded this long after the search gave up. */
+const UNFULFILLED_EXPIRY_MS = 24 * 60 * 60_000;
 
 /** openapi.yaml PaymentOrder: what the app passes to the Razorpay checkout sheet. */
 export interface PaymentOrderDto {
@@ -62,6 +65,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly core: BookingCore,
     @Inject(RAZORPAY_CLIENT) private readonly razorpay: RazorpayClient | null,
+    private readonly dispatch: DispatchService,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -256,12 +260,12 @@ export class PaymentsService {
         this.log.warn(`capture failed for payment ${paymentId} (${(err as Error).message}); will retry`);
       }
     }
-    const { outcome, refund, bookingId } = await this.prisma.$transaction(async (tx) => {
+    const { outcome, refund, bookingId, startedMatching } = await this.prisma.$transaction(async (tx) => {
       const first = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
       const b = await this.core.lock(tx, first.bookingId);
       const p = await tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
       if (!b) throw new Error(`payment ${p.id} has no booking`);
-      const done = { bookingId: b.id, refund: false };
+      const done = { bookingId: b.id, refund: false, startedMatching: false };
       if (p.state === 'PAID' || p.state === 'REFUNDED') return { ...done, outcome: 'PAID' as Outcome, changed: false };
 
       const outcome = this.outcomeOf(p, rp);
@@ -273,14 +277,18 @@ export class PaymentsService {
         const paidBefore = await tx.payment.count({ where: { bookingId: b.id, kind: p.kind, state: { in: ['PAID', 'REFUNDED'] }, id: { not: p.id } } });
         const waiting = p.kind === 'VISIT' ? b.status === 'AWAITING_PAYMENT' || b.status === 'PAYMENT_PENDING' : b.status === 'PAYMENT_DUE';
         if (waiting && paidBefore === 0) {
-          // VISIT: the booking is confirmed (dispatch starts here in step 8). FINAL: completed (earnings in step 10).
-          await this.core.transition(tx, b, p.kind === 'VISIT' ? 'MATCHING' : 'COMPLETED', {}, SYSTEM, { paymentId: p.id });
+          // VISIT: the booking is confirmed and the search starts. FINAL: completed (earnings in step 10).
+          if (p.kind === 'VISIT') {
+            await this.core.transition(tx, b, 'MATCHING', { matchingStartedAt: now }, SYSTEM, { paymentId: p.id });
+            return { ...done, outcome, changed: true, startedMatching: true };
+          }
+          await this.core.transition(tx, b, 'COMPLETED', {}, SYSTEM, { paymentId: p.id });
           return { ...done, outcome, changed: true };
         }
         // Paid for a booking that no longer needs it (cancelled or expired meanwhile, or paid twice): refund in full.
         await tx.payment.update({ where: { id: p.id }, data: { state: 'REFUNDED', refundRequestedAt: now } });
         this.log.warn(`payment ${p.id} arrived for booking ${b.code} in ${b.status}; refunding`);
-        return { bookingId: b.id, refund: true, outcome, changed: true };
+        return { ...done, refund: true, outcome, changed: true };
       }
       if (outcome === 'PENDING') {
         await tx.payment.update({ where: { id: p.id }, data: { state: 'PENDING', providerPaymentId: rp.id, method, lastCheckedAt: now } });
@@ -299,6 +307,8 @@ export class PaymentsService {
     });
     this.core.updates.publish(bookingId);
     if (refund) this.sendRefundsSoon(bookingId);
+    // The visit is confirmed: offer it to the first technician right away.
+    if (startedMatching) await this.dispatch.offerNext(bookingId);
     return outcome;
   }
 
@@ -344,6 +354,31 @@ export class PaymentsService {
       }
     }
     return sent;
+  }
+
+  // ---------- unfulfilled bookings ----------
+
+  /**
+   * STATE-MACHINE.md: an UNFULFILLED booking the customer neither rescheduled nor cancelled is cancelled after 24 h
+   * with a full refund of the visit fee.
+   */
+  async expireUnfulfilled(): Promise<number> {
+    const cutoff = new Date(this.clock.now() - (this.config.MATCHING_GIVE_UP_AFTER_MIN * 60_000 + UNFULFILLED_EXPIRY_MS));
+    const due = await this.prisma.booking.findMany({ where: { status: 'UNFULFILLED', matchingStartedAt: { lte: cutoff } }, select: { id: true }, take: 100 });
+    let n = 0;
+    for (const { id } of due) {
+      const refunded = await this.prisma.$transaction(async (tx) => {
+        const b = await this.core.lock(tx, id);
+        if (!b || b.status !== 'UNFULFILLED' || !b.matchingStartedAt || b.matchingStartedAt > cutoff) return null;
+        await this.core.transition(tx, b, 'CANCELLED', { cancelReason: 'UNFULFILLED_EXPIRED' }, SYSTEM, { reason: 'unfulfilled 24 h' });
+        return this.refundVisitFee(tx, id, this.core.now());
+      });
+      if (refunded === null) continue;
+      n++;
+      this.core.updates.publish(id);
+      if (refunded) this.sendRefundsSoon(id);
+    }
+    return n;
   }
 
   // ---------- reconciliation ----------

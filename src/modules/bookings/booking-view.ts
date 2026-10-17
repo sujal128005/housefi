@@ -1,15 +1,33 @@
 // Booking rows -> openapi.yaml Booking, as the customer sees it.
-import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma } from '@prisma/client';
+import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Technician, User } from '@prisma/client';
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import { paiseToRupees } from '../../common/money';
 import type { AddressDto } from '../addresses/addresses.service';
 
-export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[] };
+export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User }) | null };
 
 export const BOOKING_INCLUDE = {
   events: { orderBy: [{ at: 'asc' }, { id: 'asc' }] },
   payments: { orderBy: { createdAt: 'asc' } },
+  technician: { include: { user: true } },
 } satisfies Prisma.BookingInclude;
+
+/** openapi.yaml Technician: the assigned technician as the customer sees them. */
+export interface TechnicianDto {
+  readonly id: string;
+  /** Technician-typed text: the same in both languages. */
+  readonly name: { readonly en: string; readonly te: string };
+  readonly gender: 'M' | 'F';
+  /** 0 until the first rating (the contract has no "not rated yet"; docs/QUESTIONS.md #34). */
+  readonly rating: number;
+  readonly jobs: number;
+  readonly years: number;
+  readonly womenRated: boolean;
+  readonly vehicle: string;
+  /** Masked calling arrives with Exotel (later); empty until then. */
+  readonly maskedPhone: string;
+  readonly demo: false;
+}
 
 export interface PaymentDto {
   readonly kind: 'VISIT' | 'FINAL';
@@ -35,8 +53,8 @@ export interface BookingDto {
   readonly time: { readonly mode: 'INSTANT'; readonly window: null } | { readonly mode: 'SCHEDULED'; readonly window: { date: string; startHour: number; endHour: number } };
   readonly preferWomenRated: boolean;
   readonly status: BookingStatus;
-  /** The assigned technician arrives with dispatch (step 8). */
-  readonly technician: null;
+  /** The assigned technician (only while assigned or after: never before acceptance). */
+  readonly technician: TechnicianDto | null;
   /** 4 digits once the visit fee is paid; "" before. */
   readonly arrivalOtp: string;
   readonly etaMin: number | null;
@@ -56,7 +74,7 @@ export interface BookingDto {
 
 const API_CANCEL_REASONS = new Set<CancelReason>(['PLANS_CHANGED', 'FIXED', 'TOO_LONG', 'MISTAKE', 'OTHER']);
 
-function payment(p: Payment): PaymentDto {
+export function payment(p: Payment): PaymentDto {
   return {
     kind: p.kind,
     amount: paiseToRupees(p.amountPaise),
@@ -68,11 +86,27 @@ function payment(p: Payment): PaymentDto {
 }
 
 /** The most recent payment of a kind (step 6 may add retries). */
-function latest(payments: Payment[], kind: Payment['kind']): Payment | undefined {
+export function latest(payments: Payment[], kind: Payment['kind']): Payment | undefined {
   return payments.filter((p) => p.kind === kind).at(-1);
 }
 
-const EMPTY_ADDRESS: AddressDto = { id: '', label: 'OTHER', house: '', street: '', landmark: '', city: '', pincode: '' };
+export async function technicianDto(t: Technician & { user: User }, cipher: FieldCipher): Promise<TechnicianDto> {
+  const name = t.user.nameEnc ? await cipher.decrypt('users.name', t.user.nameEnc) : '';
+  return {
+    id: t.userId,
+    name: { en: name, te: name },
+    gender: t.gender,
+    rating: t.ratingAvg !== null ? Number(t.ratingAvg) : 0,
+    jobs: t.jobsDone,
+    years: t.experienceYears,
+    womenRated: t.womenRated,
+    vehicle: t.vehicleEnc.length > 0 ? await cipher.decrypt('technicians.vehicle', t.vehicleEnc) : '',
+    maskedPhone: '',
+    demo: false,
+  };
+}
+
+export const EMPTY_ADDRESS: AddressDto = { id: '', label: 'OTHER', house: '', street: '', landmark: '', city: '', pincode: '' };
 
 export async function toBookingDto(b: BookingRow, cipher: FieldCipher): Promise<BookingDto> {
   const visit = latest(b.payments, 'VISIT');
@@ -100,7 +134,7 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher): Promise<
         : { mode: 'INSTANT', window: null },
     preferWomenRated: b.preferWomenRated,
     status: b.status,
-    technician: null,
+    technician: b.technician ? await technicianDto(b.technician, cipher) : null,
     arrivalOtp,
     etaMin: b.etaMin,
     visitPayment: payment(visit),

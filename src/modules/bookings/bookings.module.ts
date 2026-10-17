@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AddressesModule } from '../addresses/addresses.module';
+import { DispatchModule } from '../dispatch/dispatch.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { SlotsModule } from '../slots/slots.module';
 import { BookingExpiryWorker } from './booking-expiry.worker';
@@ -8,7 +9,7 @@ import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 
 @Module({
-  imports: [BookingCoreModule, AddressesModule, SlotsModule, PaymentsModule],
+  imports: [BookingCoreModule, AddressesModule, SlotsModule, PaymentsModule, DispatchModule],
   controllers: [BookingsController],
   providers: [BookingsService, BookingExpiryWorker],
   exports: [BookingsService],

@@ -45,6 +45,11 @@ export function windowStartMs(date: string, hour: number): number {
   return Date.UTC(y, m - 1, d, hour) - IST_OFFSET_MS;
 }
 
+/** Midnight IST of the day containing `epochMs`, as an instant. */
+export function istDayStart(epochMs: number): number {
+  return windowStartMs(istDate(epochMs), 0);
+}
+
 /** Today and the next six days, in IST. */
 export function bookableDates(nowMs: number): string[] {
   const today = Date.parse(`${istDate(nowMs)}T00:00:00Z`);

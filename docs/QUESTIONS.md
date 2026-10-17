@@ -123,3 +123,17 @@ Found while reading the handoff and building. Each one says what the backend doe
     offline. Would you rather allow some edits (vehicle, areas) without review?
 33. **Gender** is used for the women-rated badge and the "prefer technicians rated highly by women" option. The
     contract only allows `M` and `F`. Should there be an "other" or "prefer not to say" choice?
+
+## Found in step 8 (dispatch)
+
+34. **New technicians have no rating**, but `Technician.rating` must be a number. The backend sends 0. Could the
+    app show "New" for 0, or should the field allow `null`?
+35. **Distance when a location is unknown:** `JobOffer.distanceKm` is sent as 0. Should it allow `null`, so the
+    app can hide it?
+36. **Scheduled bookings are searched as soon as they are paid**, and give up after 30 minutes like instant ones,
+    even when the visit is days away. Should scheduled bookings be searched later (e.g. the evening before), or
+    get a longer search?
+37. **"No active job" includes a scheduled job tomorrow**, so a technician with an accepted future visit gets no
+    new offers until it is done. Should only jobs happening now count?
+38. **Neighbouring PIN codes:** dispatch matches the booking's PIN plus neighbours from `service_area_pincodes`,
+    which is empty. Who can provide the neighbour list for Hyderabad?

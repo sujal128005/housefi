@@ -110,6 +110,7 @@ export class TechniciansService {
       await tx.technicianSkill.createMany({ data: input.skills.map((categoryId) => ({ technicianId: userId, categoryId })) });
       await tx.user.update({ where: { id: userId }, data: { nameEnc } });
       await this.clearLocation(tx, userId);
+      await this.withdrawOffers(tx, userId);
       await this.audit.record(
         { actorType: 'TECHNICIAN', actorId: userId, action: 'tech.profile_submitted', entity: 'technician', entityId: userId, before: { verification: before?.verification ?? null }, after: { verification: 'PENDING', skills: input.skills } },
         tx,
@@ -128,6 +129,7 @@ export class TechniciansService {
     } else if (tech) {
       await this.prisma.$transaction(async (tx) => {
         await tx.technician.update({ where: { userId }, data: { online: false } });
+        await this.withdrawOffers(tx, userId);
         // Nobody is tracked while offline (a technician on a job keeps sending location regardless).
         if (!(await this.hasActiveJob(tx, userId))) await this.clearLocation(tx, userId);
       });
@@ -167,6 +169,11 @@ export class TechniciansService {
 
   find(db: Db, userId: string): Promise<TechnicianRow | null> {
     return db.technician.findUnique({ where: { userId }, include: { skills: true } });
+  }
+
+  /** An unavailable technician's open offer is withdrawn (not a miss); dispatch offers the job to someone else. */
+  private async withdrawOffers(db: Db, userId: string): Promise<void> {
+    await db.jobOffer.updateMany({ where: { technicianId: userId, state: 'OPEN' }, data: { state: 'WITHDRAWN', respondedAt: new Date(this.clock.now()) } });
   }
 
   private async clearLocation(db: Db, userId: string): Promise<void> {

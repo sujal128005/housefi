@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-7 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-8 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -19,8 +19,10 @@ Build steps 1-7 of 14 (`docs/STARTER-PROMPT.md`) are done:
    `POST /v1/webhooks/razorpay`; refunds, reconciliation, cash confirmation (service; endpoint with step 9).
 7. Technicians: `GET /v1/tech/me`, `PUT /v1/tech/profile`, `POST /v1/tech/availability`, `POST /v1/tech/location`;
    verification with `npm run tech` (audited).
+8. Dispatch: `GET /v1/tech/offers/current`, `POST /v1/tech/offers/{id}/accept|reject`, `GET /v1/tech/jobs[/{id}][/stream]`;
+   sequential 45 s offers, ranking, still searching / none found, reassignment, offline after 3 misses.
 
-Next is **step 8**: dispatch (sequential offers, expiry, reassignment).
+Next is **step 9**: job actions (trip, arrival, start code, quotes and price check, work, cash, reports).
 
 ## Run it locally
 
@@ -104,14 +106,17 @@ src/
     users/                GET/PATCH/DELETE /me (delete = anonymise); maps a user to the API's Customer shape
     addresses/            saved addresses: encrypted house/street/landmark, PostGIS point, soft delete that wipes
     slots/                slot-rules.ts (IST windows, cutoff, 7 days) + per-area capacity and window holds
-    bookings/             booking-status.ts (the state machine), booking-core.ts (locks, transitions, reads, expiry;
+    bookings/             booking-status.ts (the state machine), job-view.ts (the technician's Job),
+                          booking-core.ts (locks, transitions, reads, expiry;
                           shared with payments and later steps), service (create, cancel, reschedule),
                           booking-view.ts (rows -> API shape), booking-updates.ts (live-update bus), SSE stream
     payments/             Razorpay client + signatures, start / verify / settle, webhooks (deduplicated, redacted),
                           refunds (claimed, retried), reconciliation and cash confirmation; worker every minute
     technicians/          profile, availability, location; tech-verification.service.ts (approve / correct)
+    dispatch/             ranking + offers, accept / reject, timers (DispatchWorker every 5 s), offers and jobs API
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
   common/audit/          append-only audit_log of privileged actions
+  common/http/sse.ts     Server-Sent Events helper (booking and job streams)
   cli/seed.ts            npm run db:seed
   cli/technicians.ts     npm run tech (verification from the command line)
   common/money.ts         paise <-> whole rupees (refuses fractions)
@@ -277,3 +282,32 @@ configured"); everything else works.
   while on a job; otherwise offline, with vehicle, areas and location wiped).
 - **`npm run db:local` accepts several processes** (API, `npm run tech`, seed), with one connection each. Its
   query queue keeps transactions from interleaving.
+
+## Decisions taken in step 8
+
+- **Ranking is one SQL query** following README §4.
+  - Who qualifies: approved, online, has the skill, same PIN code or a neighbouring one, no job in progress, no
+    open offer, not offered this booking before (which also excludes a technician the job was taken from).
+  - Order: women-rated first when the customer asked, then distance (PostGIS), rating, then fewest jobs accepted
+    today, with the technician id as the final tie-break so the result is deterministic.
+- **No double offers.** The chosen technician's row is locked with `FOR UPDATE ... SKIP LOCKED`, so two bookings
+  being dispatched at once never pick the same person. Partial unique indexes enforce one open offer per booking
+  and per technician as a backstop.
+- **No double assignment.** Accept runs in one transaction with the booking, offer and technician rows locked: the
+  offer must be open and within its 45 s, the booking still searching, the technician approved and free.
+  Otherwise `OFFER_EXPIRED`. Two accepts sent at once give one 200 and one 410.
+- **Timers are a 5-second sweep, not BullMQ** (`DispatchWorker`): expired offers, 10 and 30 minute escalation,
+  late starts and bookings waiting for a free technician.
+  - Answers check the exact 45 s themselves, so a late accept is refused even before the sweep runs.
+  - The sweep needs no Redis, loses nothing on restart and is safe on every instance.
+- **Reassignment:**
+  - Instant: no trip within 10 minutes of accepting. Scheduled: no trip by 30 minutes before the window.
+  - The booking goes back to `MATCHING` with a fresh 30-minute search, and the previous technician loses access
+    to the job.
+- **Missed offers:** an unanswered offer counts as a miss; a decline is an answer. Three misses in a row take the
+  technician offline. Going offline, or being sent back for correction, hands the open offer back without counting
+  a miss.
+- **Unfulfilled bookings** that nobody reschedules are cancelled after 24 hours with a refund (the payments worker
+  does this, because it involves the refund).
+- **Neighbouring PIN codes** live in `service_area_pincodes` (store both directions). It starts empty, so only
+  the same PIN matches; see QUESTIONS.md #38.

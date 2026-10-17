@@ -144,3 +144,30 @@ The goal is none. Each entry links to the open question that will remove it.
     rating 1-5, experience 0-50).
   - A GiST index on `last_location` is added.
   - `audit_log` is as in the reference schema.
+
+## Dispatch, offers and jobs (step 8)
+
+- **`GET /tech/offers/current`** returns the open offer or `null`. An offer past its 45 s is never returned.
+  - `area` is "locality, city" (city alone when there is no locality).
+  - `distanceKm` is straight-line distance, and `0` when either location is unknown (QUESTIONS.md #35).
+  - `photoCount` is 0 until uploads exist.
+- **Accept and reject:**
+  - `POST /tech/offers/{id}/accept` returns the `Job` (200), or `OFFER_EXPIRED` (410) when the offer is no
+    longer open, is past 45 s, the booking stopped searching, or the technician is busy or no longer approved.
+  - `POST /tech/offers/{id}/reject` returns 204, also for an offer that is no longer open.
+  - Someone else's offer is `NOT_FOUND` for both.
+- **`GET /tech/jobs`**, **`/tech/jobs/{id}`** and **`/tech/jobs/{id}/stream`** cover jobs assigned to the
+  caller only. A job reassigned to someone else is `NOT_FOUND` for the previous technician. Lists hold at most 50.
+- **`Job` fields:**
+  - `customerName` is the first name.
+  - `maskedPhone` is `""` until masked calls exist.
+  - `earning` is the ₹30 visit share, or 0 when cancelled before the trip; labour and materials come with steps
+    9-10.
+  - `address`: the full address while active, reduced to street/locality, city and PIN 24 hours after the job
+    closes.
+- **`Booking.technician`** is filled once assigned. `rating` is 0 until the first rating (QUESTIONS.md #34), and
+  `maskedPhone` is `""`.
+- **Schema differences from docs/schema.sql:**
+  - `bookings` gains `matching_started_at` and `assigned_at`.
+  - `job_offers.created_at` and `expires_at` come from the application clock.
+  - CHECK constraints are added on offers and on `service_area_pincodes`.

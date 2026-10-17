@@ -12,6 +12,7 @@ import type { Env } from '../../config/env';
 import { ACTIVE_STATUSES, canTransition } from './booking-status';
 import { BookingUpdates } from './booking-updates';
 import { BOOKING_INCLUDE, type BookingDto, toBookingDto } from './booking-view';
+import { JOB_INCLUDE, type JobDto, type JobViewOptions, toJobDto } from './job-view';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Lists return the newest bookings first, at most this many. */
@@ -113,6 +114,32 @@ export class BookingCore {
       include: BOOKING_INCLUDE,
     });
     return Promise.all(rows.map((r) => toBookingDto(r, this.cipher)));
+  }
+
+  // ---------- technician reads ----------
+
+  /** A job as its assigned technician sees it; NOT_FOUND for anyone else (including a technician it was taken from). */
+  async getJob(technicianId: string, id: string): Promise<JobDto> {
+    if (!UUID.test(id)) throw new AppError('NOT_FOUND');
+    const row = await this.prisma.booking.findFirst({ where: { id, technicianId }, include: JOB_INCLUDE });
+    if (!row) throw new AppError('NOT_FOUND');
+    return toJobDto(row, this.cipher, this.jobViewOptions());
+  }
+
+  async listJobs(technicianId: string, scope: 'active' | 'past' | 'all'): Promise<JobDto[]> {
+    const status = scope === 'active' ? { in: [...ACTIVE_STATUSES] } : scope === 'past' ? { notIn: [...ACTIVE_STATUSES] } : undefined;
+    const rows = await this.prisma.booking.findMany({
+      where: { technicianId, ...(status ? { status } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: LIST_LIMIT,
+      include: JOB_INCLUDE,
+    });
+    const opts = this.jobViewOptions();
+    return Promise.all(rows.map((r) => toJobDto(r, this.cipher, opts)));
+  }
+
+  private jobViewOptions(): JobViewOptions {
+    return { now: this.clock.now(), visitShareRupees: this.config.TECH_VISIT_SHARE_RUPEES, startCodeMaxAttempts: this.config.START_CODE_MAX_ATTEMPTS };
   }
 
   // ---------- unpaid expiry ----------

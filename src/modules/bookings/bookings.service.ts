@@ -7,6 +7,7 @@ import { digestsEqual } from '../../common/crypto/hashing';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { type AddressDto, AddressesService } from '../addresses/addresses.service';
+import { DispatchService } from '../dispatch/dispatch.service';
 import { PaymentsService } from '../payments/payments.service';
 import { SlotsService } from '../slots/slots.service';
 import { type Actor, BookingCore } from './booking-core';
@@ -44,6 +45,7 @@ export class BookingsService {
     private readonly slots: SlotsService,
     private readonly payments: PaymentsService,
     private readonly core: BookingCore,
+    private readonly dispatch: DispatchService,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -145,7 +147,8 @@ export class BookingsService {
       const refund = REFUND_ON_CANCEL.includes(b.status);
       await this.core.transition(tx, b, 'CANCELLED', { cancelReason: reason, etaMin: null }, { type: 'CUSTOMER', id: customerId }, { refund });
       const marked = refund ? await this.payments.refundVisitFee(tx, b.id, this.core.now()) : false;
-      // Step 8: withdraw open offers / free the assigned technician (JOB_CANCELLED).
+      // An assigned technician is freed by the status change itself; step 11 tells them (JOB_CANCELLED).
+      await this.dispatch.withdrawOpen(tx, b.id);
       return { changed: true, result: marked };
     });
     if (refunded) this.payments.sendRefundsSoon(id);
@@ -157,10 +160,19 @@ export class BookingsService {
     await this.core.mutateOwned(customerId, id, async (tx, b) => {
       if (!RESCHEDULABLE.includes(b.status)) throw new AppError('CONFLICT');
       await this.slots.hold(tx, { categoryId: b.categoryId, pincode: b.pincode }, time, b.id);
-      // Step 8: the previously assigned technician is released and told.
-      await this.core.transition(tx, b, 'MATCHING', { ...windowFields(time), technician: { disconnect: true }, etaMin: null }, { type: 'CUSTOMER', id: customerId }, { rescheduled: true });
+      await this.dispatch.withdrawOpen(tx, b.id);
+      // A fresh search; a previously assigned technician is released (step 11 tells them).
+      await this.core.transition(
+        tx,
+        b,
+        'MATCHING',
+        { ...windowFields(time), technician: { disconnect: true }, assignedAt: null, matchingStartedAt: this.core.now(), etaMin: null },
+        { type: 'CUSTOMER', id: customerId },
+        { rescheduled: true },
+      );
       return { changed: true, result: undefined };
     });
+    await this.dispatch.offerNext(id);
     return this.core.get(customerId, id);
   }
 

@@ -37,7 +37,8 @@ export class PaymentsWorker implements OnApplicationBootstrap, OnModuleDestroy {
     try {
       const refunds = await this.payments.sendPendingRefunds();
       const settled = await this.payments.reconcile();
-      if (refunds + settled > 0) this.log.log(`sent ${refunds} refund(s), settled ${settled} payment(s)`);
+      const unfulfilled = await this.payments.expireUnfulfilled();
+      if (refunds + settled + unfulfilled > 0) this.log.log(`sent ${refunds} refund(s), settled ${settled} payment(s), closed ${unfulfilled} unfulfilled booking(s)`);
     } catch (err) {
       this.log.warn(`payments tick failed (${(err as Error).message}); retrying in a minute`);
     } finally {

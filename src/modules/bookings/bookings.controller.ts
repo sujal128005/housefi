@@ -2,15 +2,13 @@ import { Body, Controller, Get, Headers, HttpCode, Param, Post, Query, Req, Res 
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import { AppError } from '../../common/errors/app-error';
+import { streamSse } from '../../common/http/sse';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { type AuthUser, CurrentUser, Roles } from '../auth/auth.guard';
 import { BookingUpdates } from './booking-updates';
 import type { BookingDto } from './booking-view';
 import { CancelBody, IdempotencyKey, ListQuery, NewBooking, RescheduleBody } from './bookings.schemas';
 import { BookingsService } from './bookings.service';
-
-/** Comment lines keep proxies and load balancers from closing an idle stream. */
-export const STREAM_HEARTBEAT_MS = 25_000;
 
 @Controller('bookings')
 @Roles('CUSTOMER')
@@ -61,44 +59,11 @@ export class BookingsController {
   @Get(':bookingId/stream')
   async stream(@CurrentUser() user: AuthUser, @Param('bookingId') id: string, @Req() req: FastifyRequest, @Res() reply: FastifyReply): Promise<void> {
     const first = await this.bookings.get(user.id, id);
-    reply.hijack();
-    const raw = reply.raw;
-    raw.writeHead(200, {
-      ...(reply.getHeaders() as Record<string, string>),
-      'content-type': 'text/event-stream; charset=utf-8',
-      'cache-control': 'no-store',
-      connection: 'keep-alive',
-      'x-accel-buffering': 'no',
+    streamSse(req, reply, {
+      event: 'booking',
+      first,
+      reload: () => this.bookings.get(user.id, id),
+      subscribe: (onChange) => this.updates.subscribe(id, onChange),
     });
-    let open = true;
-    const send = (b: BookingDto) => {
-      if (open) raw.write(`event: booking\ndata: ${JSON.stringify(b)}\n\n`);
-    };
-    raw.write('retry: 3000\n\n');
-    send(first);
-
-    let last = JSON.stringify(first);
-    const unsubscribe = this.updates.subscribe(id, () => {
-      this.bookings
-        .get(user.id, id)
-        .then((b) => {
-          const json = JSON.stringify(b);
-          if (json !== last) {
-            last = json;
-            send(b);
-          }
-        })
-        .catch((err: Error) => {
-          req.log.warn({ err }, 'booking stream reload failed');
-        });
-    });
-    const heartbeat = setInterval(() => open && raw.write(': ping\n\n'), STREAM_HEARTBEAT_MS);
-    const close = () => {
-      open = false;
-      clearInterval(heartbeat);
-      unsubscribe();
-    };
-    raw.on('close', close);
-    req.raw.on('close', close);
   }
 }

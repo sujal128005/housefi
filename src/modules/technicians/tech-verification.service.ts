@@ -115,6 +115,9 @@ export class TechVerificationService {
       // Only a submitted, not yet decided profile can be decided: a stale decision must not override a resubmission.
       if (before.verification !== 'PENDING') throw new AppError('CONFLICT', {}, `profile is ${before.verification}, not PENDING`);
       await tx.technician.update({ where: { userId: technicianId }, data });
+      if (data.online === false) {
+        await tx.jobOffer.updateMany({ where: { technicianId, state: 'OPEN' }, data: { state: 'WITHDRAWN', respondedAt: new Date(this.clock.now()) } });
+      }
       await this.audit.record(
         {
           actorType: actor.type,
