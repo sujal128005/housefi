@@ -237,7 +237,7 @@ paths:
       tags: [bookings, identity]
       summary: Digital ID card of the technician assigned to this booking
       description: >-
-        Only for the customer who owns the booking, and only once a technician is assigned. Anything else is 404
+        Only for the customer who owns the booking, once a technician is assigned and while the booking is not cancelled or unfulfilled. Anything else is 404
         (never reveal that another person's booking exists). Shows the approved photo only. No caching (Cache-Control: no-store).
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechIdCard' } } } }

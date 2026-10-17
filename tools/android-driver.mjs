@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { inflateSync } from 'node:zlib';
 
 const SDK = process.env.ANDROID_HOME ?? `${process.env.LOCALAPPDATA}/Android/Sdk`;
 const ADB = `${SDK}/platform-tools/adb`;
@@ -207,7 +208,64 @@ export async function hideKeyboard() {
 
 export function shot(path) {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, adb(['exec-out', 'screencap', '-p']));
+  const png = adb(['exec-out', 'screencap', '-p']);
+  writeFileSync(path, png);
+  return png;
+}
+
+/** The app's window has FLAG_SECURE set (no screenshots or recordings), as reported by the window manager. */
+export function windowIsSecure() {
+  const all = adb(['shell', 'dumpsys', 'window', 'windows']).toString();
+  const ours = all.split('Window #').filter((w) => w.includes(`${PKG}/`) && /mAttrs=/.test(w));
+  if (ours.length === 0) throw new Error('app window not found in dumpsys window');
+  return ours.some((w) => /\bfl=[^\n]*\bSECURE\b/.test(w));
+}
+
+/**
+ * True when a screenshot shows nothing: the system returned no image, or every pixel has the same colour (a secure
+ * window is captured as a flat black frame). Decodes the PNG (8-bit RGB / RGBA, not interlaced) with no dependencies.
+ */
+export function isBlankScreenshot(png) {
+  if (png.length === 0) return true;
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+  const depth = png[24];
+  const type = png[25];
+  if (depth !== 8 || (type !== 2 && type !== 6) || png[28] !== 0) throw new Error(`unexpected PNG format (depth ${depth}, type ${type})`);
+  const bpp = type === 6 ? 4 : 3;
+  const chunks = [];
+  for (let at = 8; at < png.length;) {
+    const len = png.readUInt32BE(at);
+    const kind = png.toString('ascii', at + 4, at + 8);
+    if (kind === 'IDAT') chunks.push(png.subarray(at + 8, at + 8 + len));
+    at += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(chunks));
+  const stride = width * bpp;
+  let prev = Buffer.alloc(stride);
+  let first = null;
+  for (let y = 0; y < height; y++) {
+    const f = raw[y * (stride + 1)];
+    const line = Buffer.from(raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1)));
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? line[x - bpp] : 0;
+      const b = prev[x];
+      const c = x >= bpp ? prev[x - bpp] : 0;
+      const p = a + b - c;
+      const pa = Math.abs(p - a);
+      const pb = Math.abs(p - b);
+      const pc = Math.abs(p - c);
+      const pred = f === 1 ? a : f === 2 ? b : f === 3 ? (a + b) >> 1 : f === 4 ? (pa <= pb && pa <= pc ? a : pb <= pc ? b : c) : 0;
+      line[x] = (line[x] + pred) & 0xff;
+    }
+    for (let x = 0; x < stride; x += bpp) {
+      const px = line.readUIntBE(x, 3);
+      if (first === null) first = px;
+      else if (px !== first) return false;
+    }
+    prev = line;
+  }
+  return true;
 }
 
 export function launch({ clear = false } = {}) {

@@ -221,9 +221,22 @@ describe('ID card access', () => {
     await expect(t.backend.bookings.technicianCard('not-a-token', bookingId)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
 
     // A withdrawn approval reaches the customer's booking too.
+
     await t.backend.demo?.setSuspended(tech.token, true);
     expect((await t.backend.bookings.get(owner, bookingId)).technician?.verification).toBe('SUSPENDED');
     expect((await t.backend.bookings.technicianCard(owner, bookingId)).verification).toBe('SUSPENDED');
+  });
+
+  it('a cancelled booking no longer opens the technician card', async () => {
+    const t = setup();
+    const owner = await customer(t.backend);
+    const bookingId = await paidBooking(t.backend, owner);
+    t.advance(10);
+    expect((await t.backend.bookings.get(owner, bookingId)).status).toBe('ASSIGNED');
+    await t.backend.bookings.technicianCard(owner, bookingId);
+    await t.backend.bookings.cancel(owner, bookingId, 'PLANS_CHANGED');
+    expect((await t.backend.bookings.get(owner, bookingId)).status).toBe('CANCELLED');
+    await expect(t.backend.bookings.technicianCard(owner, bookingId)).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('a simulated technician gets a demo card with a permanent ID', async () => {

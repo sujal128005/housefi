@@ -45,7 +45,7 @@ export default function VerifyTechnician() {
           {r.fictional ? <Txt variant="caption" color="demo" align="center">{t('id.fictional')}</Txt> : null}
         </View>
       ) : null}
-      <Banner tone="demo" text={t('verify.demo')} />
+      {backend.demo ? <Banner tone="demo" text={t('verify.demo')} /> : null}
     </Screen>
   );
 }

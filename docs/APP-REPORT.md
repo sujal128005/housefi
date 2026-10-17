@@ -56,8 +56,11 @@ customer app can always be tried on its own.
 
 **Checked on the Android emulator:** the journey registers with a photo, reads the Technician ID from Profile and checks
 its format, opens My Housefi ID (same ID, demo status), opens the verification page from the card (Active), and opens
-the technician's card from the customer's booking. The screenshots of both card screens come back **blank**: Android's
-secure window blocked them, which the journey asserts.
+the technician's card from the customer's booking. On both card screens the journey asserts that the window manager
+reports **FLAG_SECURE** for the app's window and that a screenshot is empty or one flat colour (decoded pixel by
+pixel). After leaving the card it checks the opposite as a control: FLAG_SECURE is off and a screenshot shows real
+content, so the blank result can't come from a device that always captures black. The checks themselves were tested
+both ways (real screens are detected as content; the flag reads off on other screens).
 
 **Depends on the real backend and an admin tool (not built in this phase):** genuine identity checks (document upload
 is still "Soon"), photo approval by a reviewer, deciding correction requests, rejecting / suspending, the public

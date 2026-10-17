@@ -7,9 +7,9 @@
 //   trip -> start code -> quote (120 labour + 200 material) -> simulated customer approves -> repair -> complete ->
 //   simulated customer pays -> summary -> earnings.
 // Screenshots go to <outDir> (default docs/screens/app/<locale>). Usage: node tools/app-journey.mjs [en|te] [outDir]
-import { statSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import {
-  back, dump, exists, hideKeyboard, launch, scrollTo, shot, sleep, swipe, tap, tapUntil, tapXY, typeInto, waitFor,
+  back, dump, exists, hideKeyboard, isBlankScreenshot, launch, scrollTo, shot, sleep, swipe, tap, tapUntil, tapXY, typeInto, waitFor, windowIsSecure,
 } from './android-driver.mjs';
 import { printDeviceErrors } from './android-driver.mjs';
 
@@ -26,17 +26,31 @@ const snap = async (name) => {
 const step = (s) => console.log(`- ${s}`);
 
 /**
- * Screenshot of a screen that shows an ID card. Android's secure window (FLAG_SECURE) must blank it: a blank
- * 1080x2400 PNG is a few kilobytes, a real screen well over 100 KB.
+ * A screen that shows an ID card must be capture-protected: the window manager reports FLAG_SECURE for the app's
+ * window, and a screenshot comes back empty or as one flat colour (decoded pixel by pixel).
  */
 const snapProtected = async (name) => {
   await sleep(700);
   n += 1;
   const file = `${out}/${String(n).padStart(2, '0')}-${name}-capture-blocked.png`;
-  shot(file);
-  const size = statSync(file).size;
-  if (size > 60_000) throw new Error(`${name}: the screenshot was not blocked (${size} bytes); the ID card screen must be capture-protected`);
-  console.log(`  shot ${file} (${size === 0 ? 'empty: the system refused the capture' : 'blank'}: blocked by the secure window, ${size} bytes)`);
+  if (!windowIsSecure()) throw new Error(`${name}: the window is not marked secure (FLAG_SECURE missing)`);
+  const png = shot(file);
+  if (!isBlankScreenshot(png)) throw new Error(`${name}: the screenshot shows content; the ID card screen must be capture-protected`);
+  console.log(`  shot ${file} (FLAG_SECURE set; ${png.length === 0 ? 'the system returned no image' : 'the image is one flat colour'})`);
+};
+
+/**
+ * Control after leaving an ID card: protection is switched off again (no FLAG_SECURE) and the same capture method
+ * shows real content, so a blank card screenshot cannot come from a device that always captures black.
+ */
+const expectCaptureRestored = async (where) => {
+  await sleep(700);
+  if (windowIsSecure()) throw new Error(`${where}: still FLAG_SECURE after leaving the ID card`);
+  const control = `${out}/.control.png`;
+  const blank = isBlankScreenshot(shot(control));
+  rmSync(control, { force: true });
+  if (blank) throw new Error(`${where}: screenshots are blank even without protection; the capture check would prove nothing`);
+  console.log(`  control (${where}): FLAG_SECURE off, screenshot shows content`);
 };
 
 /** First element whose test id starts with `prefix`. */
@@ -251,6 +265,7 @@ async function customer() {
   await snapProtected('tech-id-card-customer');
   back();
   await waitFor({ id: 'tech-card' }, 15000);
+  await expectCaptureRestored('booking after the technician card');
   await simulateNext(1);
   if ((await waitStatus('EN_ROUTE')) === 'EN_ROUTE') await snap('on-the-way');
   if (ORDER.indexOf(await waitStatus('EN_ROUTE')) < ORDER.indexOf('QUOTE_SHARED')) await simulateNext(1);
@@ -429,8 +444,10 @@ async function technician() {
   await tap({ id: 'id-open-verify' });
   await waitFor({ id: 'verify-active' }, 20000);
   await snap('verify-page');
+  await expectCaptureRestored('verification page opened from the card');
   await tap({ id: 'verify-done' });
   await waitFor({ id: 'id-card' }, 15000);
+  if (!windowIsSecure()) throw new Error('back on the ID card, but FLAG_SECURE was not switched on again');
   back();
   await waitFor({ id: 'tech-profile' }, 15000);
 }

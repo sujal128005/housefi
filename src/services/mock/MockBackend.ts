@@ -264,6 +264,11 @@ export function createMockBackend(opts: MockOptions): Backend {
     return isWomenRated(stars, 1);
   }
 
+  /** The customer may identify the assigned technician only while the assignment stands (not cancelled / unfulfilled). */
+  function assignmentStands(status: BookingStatus): boolean {
+    return status !== 'CANCELLED' && status !== 'UNFULFILLED';
+  }
+
   /** The identity part a customer may see: approved photo only, current verification state. */
   function identityView(tech: StoredTech): Pick<AssignedTechnician, 'techCode' | 'photo' | 'verification' | 'verificationSimulated' | 'skills' | 'fictional'> {
     const idn = tech.identity;
@@ -627,7 +632,9 @@ export function createMockBackend(opts: MockOptions): Backend {
     // A technician-app account's photo and verification are read fresh (an approval can be withdrawn after assignment).
     const stored = b.techId ? techById(b.techId) : undefined;
     const tech = stored ? advanceTech(stored) : undefined;
-    const technician = rest.technician && tech ? { ...rest.technician, ...identityView(tech), womenRated: womenRatedFor(tech.id) } : rest.technician;
+    const fresh = rest.technician && tech ? { ...rest.technician, ...identityView(tech), womenRated: womenRatedFor(tech.id) } : rest.technician;
+    // Once the assignment no longer stands, the customer keeps the name on the booking but not the photo.
+    const technician = fresh && !assignmentStands(b.status) ? { ...fresh, photo: null } : fresh;
     return { ...rest, technician, etaMin, quote: quoteVisible(b.quote) ? b.quote : null, extraQuote: quoteVisible(b.extraQuote) ? b.extraQuote : null };
   }
 
@@ -946,11 +953,16 @@ export function createMockBackend(opts: MockOptions): Backend {
 
       async technicianCard(token, bookingId) {
         await request('READ');
-        // touch() only finds the customer's own bookings: anyone else's is NOT_FOUND.
+        // touch() only finds the customer's own bookings: anyone else's is NOT_FOUND. A cancelled or unfulfilled
+        // booking no longer has a technician the customer needs to identify.
         const { b } = await touch(token, bookingId);
-        if (!b.technician) throw new ApiError('NOT_FOUND');
+        if (!b.technician || !assignmentStands(b.status)) throw new ApiError('NOT_FOUND');
         const stored = b.techId ? techById(b.techId) : undefined;
-        if (stored) return cardForTech(advanceTech(stored), true);
+        if (stored) {
+          const card = cardForTech(advanceTech(stored), true);
+          if (dirty) await save();
+          return card;
+        }
         const fictional = fictionalById(b.technician.id);
         if (!fictional) throw new ApiError('NOT_FOUND');
         const card = cardForFictional(fictional);

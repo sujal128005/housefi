@@ -302,7 +302,7 @@ Every app action that talks to the backend, mapped from `src/services/api.ts` to
 | Earnings | `GET /tech/earnings` | | `Earnings` |
 | My Housefi ID | `GET /tech/id-card` | | `TechIdCard` (404 before the first submission) |
 | Ask for an identity correction | `POST /tech/identity-corrections` | `{ kind: NAME\|PHOTO, note }` | `TechProfile` |
-| Customer: assigned technician's ID card | `GET /bookings/{id}/technician-card` | | `TechIdCard`; 404 unless it is the customer's own booking with a technician assigned |
+| Customer: assigned technician's ID card | `GET /bookings/{id}/technician-card` | | `TechIdCard`; 404 unless it is the customer's own booking with a technician assigned and not cancelled / unfulfilled |
 | QR verification page (public, no sign-in) | `GET /verify/technicians/{token}` | | `TechVerifyResult`; 404 for unknown / revoked tokens |
 
 ### Errors
@@ -355,8 +355,9 @@ What the app does today (against the demo backend, `src/services/mock/MockBacken
   no personal data in the URL. The page shows photo (approved only), first name + last initial, Technician ID,
   current status and "checked at". Rate-limit it, `noindex`, no analytics on the token. In the demo the QR opens
   `housefi://verify/{token}`, a page inside the app, and the card says so.
-- **Who sees a card:** the technician (their own) and the customer of a booking with that technician assigned. Any
-  other request is 404. Responses `Cache-Control: no-store`; do not log card bodies or tokens.
+- **Who sees a card:** the technician (their own) and the customer of a booking with that technician assigned, while
+  the assignment stands (not cancelled / unfulfilled; then the booking also stops carrying the photo). Any other
+  request is 404. Responses `Cache-Control: no-store`; do not log card bodies or tokens.
 - **The card never carries** identity-document images or numbers, date of birth, home address or phone number.
 
 Screen-capture protection is on the device (`expo-screen-capture`): Android secure window (FLAG_SECURE: no
