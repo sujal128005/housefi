@@ -36,7 +36,7 @@ const snapProtected = async (name) => {
   shot(file);
   const size = statSync(file).size;
   if (size > 60_000) throw new Error(`${name}: the screenshot was not blocked (${size} bytes); the ID card screen must be capture-protected`);
-  console.log(`  shot ${file} (blank: capture blocked by the secure window, ${size} bytes)`);
+  console.log(`  shot ${file} (${size === 0 ? 'empty: the system refused the capture' : 'blank'}: blocked by the secure window, ${size} bytes)`);
 };
 
 /** First element whose test id starts with `prefix`. */

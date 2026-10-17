@@ -124,7 +124,8 @@ export async function scrollTo(sel, { maxSwipes = 10, bottomLimit = 0.86 } = {})
     else swipe(0.72, 0.72 - stride);
     await sleep(500);
   }
-  throw new Error(`Could not scroll to ${JSON.stringify(sel)}`);
+  const last = find(dump(), sel);
+  throw new Error(`Could not scroll to ${JSON.stringify(sel)} (screen ${h}px high, element ${last ? `${last.y1}-${last.y2}` : 'not on screen'}, keyboard ${keyboardShown() ? 'open' : 'closed'})`);
 }
 
 let size = null;
@@ -189,15 +190,18 @@ export function key(code) {
 }
 
 export async function hideKeyboard() {
-  const shown = adb(['shell', 'dumpsys', 'input_method']).toString().includes('mInputShown=true');
-  if (shown) {
-    key(111); // ESCAPE closes the keyboard without navigating back
-    await sleep(300);
-    // ESCAPE puts Android into keyboard-navigation mode (focus highlights); one touch on the empty header centre
-    // returns it to touch mode.
-    const { w, h } = screen();
-    tapXY(w / 2, h * 0.075);
-    await sleep(300);
+  if (!keyboardShown()) return;
+  key(111); // ESCAPE closes the keyboard without navigating back
+  await sleep(300);
+  // ESCAPE puts Android into keyboard-navigation mode (focus highlights); one touch on the empty header centre
+  // returns it to touch mode.
+  const { w, h } = screen();
+  tapXY(w / 2, h * 0.075);
+  await sleep(300);
+  // Some Android versions keep the number pad open after ESCAPE; BACK closes an open keyboard without navigating.
+  if (keyboardShown()) {
+    key(4);
+    await sleep(400);
   }
 }
 
