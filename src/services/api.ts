@@ -23,20 +23,34 @@ export type ApiErrorCode =
   | 'NOT_VERIFIED'
   /** Identity fields (legal name, photo, Technician ID) cannot be changed by the technician. */
   | 'IDENTITY_LOCKED'
-  | 'CONFLICT';
+  | 'CONFLICT'
+  /** Signed in, but not allowed to do this (HTTP 403). */
+  | 'FORBIDDEN'
+  /** Too many requests; `retryAfterSec` says when to try again (HTTP 429). */
+  | 'RATE_LIMITED'
+  /** The server failed (HTTP 5xx). */
+  | 'SERVER_ERROR'
+  /** The request took too long (no answer within the app's time limit). */
+  | 'TIMEOUT'
+  /** The server answered with something the app cannot read (not JSON, wrong shape). */
+  | 'BAD_RESPONSE';
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode;
   /** True when demo settings forced this error, so the UI can say so. */
   readonly simulated: boolean;
   readonly attemptsLeft: number | undefined;
+  /** RATE_LIMITED: seconds until a retry may succeed. */
+  readonly retryAfterSec: number | undefined;
 
-  constructor(code: ApiErrorCode, opts: { simulated?: boolean; attemptsLeft?: number; message?: string } = {}) {
+  constructor(code: ApiErrorCode, opts: { simulated?: boolean; attemptsLeft?: number; retryAfterSec?: number; message?: string } = {}) {
+    // The message is for developers only; screens never show it (see services/errorText.ts).
     super(opts.message ?? code);
     this.name = 'ApiError';
     this.code = code;
     this.simulated = opts.simulated ?? false;
     this.attemptsLeft = opts.attemptsLeft;
+    this.retryAfterSec = opts.retryAfterSec;
   }
 }
 

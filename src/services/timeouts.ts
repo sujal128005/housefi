@@ -1,5 +1,5 @@
 // Every backend call gets an upper time limit, so no screen can stay on its loading state for ever when a request
-// never answers (dead connection, stuck server). A call that runs out of time fails as NETWORK ("Couldn't connect",
+// never answers (dead connection, stuck server). A call that runs out of time fails as TIMEOUT ("Taking too long",
 // Retry). Works for any Backend implementation, the demo one today and the HTTP client later. Functions that do not
 // return a promise (watch(), which returns an unsubscribe function) are passed through unchanged.
 import { ApiError, type Backend } from './api';
@@ -16,7 +16,7 @@ function wrap<T extends object>(target: T, ms: number): T {
           if (!(out instanceof Promise)) return out;
           let timer: ReturnType<typeof setTimeout> | undefined;
           const limit = new Promise<never>((_, reject) => {
-            timer = setTimeout(() => reject(new ApiError('NETWORK', { message: 'timeout' })), ms);
+            timer = setTimeout(() => reject(new ApiError('TIMEOUT')), ms);
           });
           return Promise.race([out, limit]).finally(() => clearTimeout(timer));
         };

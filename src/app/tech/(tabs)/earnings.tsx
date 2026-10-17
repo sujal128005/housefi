@@ -10,7 +10,7 @@ import type { Earnings } from '../../../domain/types';
 import { Art3D } from '../../../illustrations/Art3D';
 import { formatRupees } from '../../../i18n/format';
 import { useI18n } from '../../../i18n/I18n';
-import { useBackend } from '../../../services/ServicesProvider';
+import { useBackend, useIsDemo } from '../../../services/ServicesProvider';
 import { useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, shadow, space } from '../../../theme/tokens';
 import { Banner, Card, DemoPill, Divider, ErrorView, Pill, Screen, Skeleton, Txt } from '../../../ui';
@@ -18,6 +18,8 @@ import { Banner, Card, DemoPill, Divider, ErrorView, Pill, Screen, Skeleton, Txt
 export default function TechEarnings() {
   const { t, l, locale } = useI18n();
   const backend = useBackend();
+  /** Labels about simulated backend outcomes show only with the demo backend. */
+  const isDemo = useIsDemo();
   const session = useTechSession();
   const insets = useSafeAreaInsets();
   const [e, setE] = useState<Earnings | null>(null);
@@ -104,7 +106,7 @@ export default function TechEarnings() {
               })}
             </Card>
           )}
-          <Banner tone="demo" text={t('tearn.demo')} />
+          {isDemo ? <Banner tone="demo" text={t('tearn.demo')} /> : null}
         </>
       ) : null}
     </Screen>

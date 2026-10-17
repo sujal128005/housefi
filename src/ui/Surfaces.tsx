@@ -6,6 +6,7 @@ import { colors, radius, shadow, space } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
 import { Tap } from './Tap';
 import { Txt, type TextColor } from './Txt';
+import { useIsDemo } from '../services/ServicesProvider';
 
 export function Card({ children, style, onPress, testID, accessibilityLabel, selected }: {
   readonly children: ReactNode;
@@ -115,6 +116,7 @@ export function Pill({ label, tone = 'neutral', icon }: { readonly label: string
 
 export function DemoPill() {
   const { t } = useI18n();
+  if (!useIsDemo()) return null;
   return <View accessibilityLabel="Demo mode"><Pill label={t('common.demo')} tone="demo" icon="flask" /></View>;
 }
 

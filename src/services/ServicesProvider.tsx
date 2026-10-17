@@ -14,6 +14,15 @@ export function useBackend(): Backend {
   return b;
 }
 
+/**
+ * True with the demo backend. Use it for labels about simulated backend outcomes (payments, codes, prices,
+ * earnings, reviews), which must disappear with the live backend. Features the app itself still simulates (voice,
+ * the rule-based AI) keep their labels regardless.
+ */
+export function useIsDemo(): boolean {
+  return useBackend().mode === 'DEMO';
+}
+
 export interface QueryState<T> {
   readonly data: T | undefined;
   readonly error: unknown;

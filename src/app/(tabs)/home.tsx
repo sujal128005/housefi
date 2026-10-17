@@ -12,7 +12,7 @@ import type { Address, Booking } from '../../domain/types';
 import { Art3D, serviceArt } from '../../illustrations/Art3D';
 import { useI18n, type StringKey } from '../../i18n/I18n';
 import type { AppNotification } from '../../services/api';
-import { useBackend, useQuery } from '../../services/ServicesProvider';
+import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
 import { BRAND_GRADIENT, colors, radius, shadow, space } from '../../theme/tokens';
@@ -30,6 +30,7 @@ function greetingKey(h: number): StringKey {
 export default function Home() {
   const { t, l } = useI18n();
   const backend = useBackend();
+  const isDemo = useIsDemo();
   const session = useSession();
   const draft = useDraft();
   const insets = useSafeAreaInsets();
@@ -98,7 +99,7 @@ export default function Home() {
                 <Txt variant="footnote" color="onNavyMuted">{t(greetingKey(new Date().getHours()))},</Txt>
                 <Txt variant="title2" color="onNavy" numberOfLines={1} testID="home-name">{first}</Txt>
               </View>
-              <View style={styles.demoChip} accessibilityLabel="Demo mode"><Icon name="flask" size={12} color="onNavy" /><Txt variant="caption" color="onNavy">{t('common.demo')}</Txt></View>
+              {isDemo ? <View style={styles.demoChip} accessibilityLabel="Demo mode"><Icon name="flask" size={12} color="onNavy" /><Txt variant="caption" color="onNavy">{t('common.demo')}</Txt></View> : null}
               <Tap onPress={openBell} style={styles.glassBtn} accessibilityLabel={unread > 0 ? `${t('home.notifications')}, ${unread}` : t('home.notifications')} testID="home-bell">
                 <Icon name="notifications-outline" size={22} color="onNavy" />
                 {unread > 0 ? <View style={styles.badge} testID="home-bell-badge"><Txt variant="caption" color="onNavy">{unread > 9 ? '9+' : String(unread)}</Txt></View> : null}

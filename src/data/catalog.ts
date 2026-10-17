@@ -252,16 +252,44 @@ export const SAMPLE_PHOTO_SERVICE: Readonly<Record<number, string>> = { 1: 'plum
 
 export const POPULAR_SEARCHES: readonly string[] = ['plumb-tap', 'ac-service', 'elec-fan', 'app-washer', 'plumb-block'];
 
+// ---------- the catalogue the screens look up ----------
+// Screens look services and categories up synchronously (serviceById, categoryById). The answers come from the
+// backend's catalogue, loaded at start (hydrateCatalog); the bundled list above is only the fallback until then or
+// when the catalogue cannot be loaded (offline first start).
+let current: { readonly categories: readonly Category[]; readonly services: readonly Service[] } = { categories: CATEGORIES, services: SERVICES };
+
+const isLocalized = (v: unknown): boolean => !!v && typeof v === 'object' && typeof (v as { en?: unknown }).en === 'string' && typeof (v as { te?: unknown }).te === 'string';
+
+/**
+ * Uses the backend's catalogue for lookups. Returns false (and keeps the current one) when the answer is empty or
+ * not shaped like a catalogue, so a bad response can never empty the app's service list.
+ */
+export function hydrateCatalog(categories: readonly Category[], services: readonly Service[]): boolean {
+  const okCats = Array.isArray(categories) && categories.length > 0
+    && categories.every((c) => typeof c?.id === 'string' && isLocalized(c.name));
+  const okSvcs = Array.isArray(services) && services.length > 0
+    && services.every((x) => typeof x?.id === 'string' && typeof x.categoryId === 'string' && isLocalized(x.name)
+      && typeof x.visitFee === 'number' && Array.isArray(x.issues));
+  if (!okCats || !okSvcs) return false;
+  current = { categories, services };
+  return true;
+}
+
+/** The catalogue currently used for lookups (for tests and diagnostics). */
+export function currentCatalog(): { readonly categories: readonly Category[]; readonly services: readonly Service[] } {
+  return current;
+}
+
 export function categoryById(id: string): Category | undefined {
-  return CATEGORIES.find((c) => c.id === id);
+  return current.categories.find((c) => c.id === id);
 }
 
 export function serviceById(id: string): Service | undefined {
-  return SERVICES.find((s) => s.id === id);
+  return current.services.find((s) => s.id === id);
 }
 
 export function servicesIn(categoryId: string): readonly Service[] {
-  return SERVICES.filter((s) => s.categoryId === categoryId);
+  return current.services.filter((s) => s.categoryId === categoryId);
 }
 
 /** Lowest visit fee in a category, shown on category cards. */

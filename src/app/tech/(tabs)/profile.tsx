@@ -11,7 +11,7 @@ import { Art3D } from '../../../illustrations/Art3D';
 import { formatPhone } from '../../../i18n/format';
 import { useI18n } from '../../../i18n/I18n';
 import { resetTo } from '../../../navigation';
-import { useBackend } from '../../../services/ServicesProvider';
+import { useBackend, useIsDemo } from '../../../services/ServicesProvider';
 import { feedback } from '../../../services/feedback';
 import { useAppState, useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, space } from '../../../theme/tokens';
@@ -24,6 +24,8 @@ export default function TechProfile() {
   const session = useTechSession();
   const { techSignOut, setRole, prefs, setFeedback, updateTech } = useAppState();
   const backend = useBackend();
+  /** Labels about simulated backend outcomes show only with the demo backend. */
+  const isDemo = useIsDemo();
   const toast = useToast();
   const [confirm, setConfirm] = useState(false);
   const [support, setSupport] = useState(false);
@@ -114,7 +116,7 @@ export default function TechProfile() {
           <Txt variant="footnote" color="inkMuted" style={styles.flex}>{t('id.locked')}</Txt>
         </View>
         {idn?.correctionRequest ? (
-          <Banner tone="info" icon="time" text={`${t('id.correctionSent')} ${t('id.correctionDemo')}`} testID="tprofile-correction-sent" />
+          <Banner tone="info" icon="time" text={isDemo ? `${t('id.correctionSent')} ${t('id.correctionDemo')}` : t('id.correctionSent')} testID="tprofile-correction-sent" />
         ) : null}
       </Card>
 
@@ -163,7 +165,7 @@ export default function TechProfile() {
             <Chip label={t('id.correctionPhoto')} selected={fixKind === 'PHOTO'} onPress={() => setFixKind('PHOTO')} testID="correction-PHOTO" />
           </View>
           <Field label={t('id.correctionNote')} value={fixNote} onChangeText={setFixNote} maxLength={300} multiline testID="correction-note" />
-          <Banner tone="demo" text={t('id.correctionDemo')} />
+          {isDemo ? <Banner tone="demo" text={t('id.correctionDemo')} /> : null}
           <ErrorBanner error={fixError} />
           <Button label={t('id.correctionSend')} icon="send" onPress={() => void sendFix()} loading={fixBusy} disabled={fixNote.trim().length < 3} testID="correction-send" />
         </View>

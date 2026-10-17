@@ -9,7 +9,7 @@ import { Art3D, type ArtName } from '../../illustrations/Art3D';
 import { formatRupees } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { isApiError } from '../../services/api';
-import { useBackend, useQuery } from '../../services/ServicesProvider';
+import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
 import { colors, radius, space } from '../../theme/tokens';
@@ -23,6 +23,8 @@ import { markPayIntent } from '../../state/payIntent';
 export default function ConfirmStep() {
   const { t, l, locale } = useI18n();
   const backend = useBackend();
+  /** Labels about simulated backend outcomes show only with the demo backend. */
+  const isDemo = useIsDemo();
   const session = useSession();
   const { draft, setPreferWomenRated, setMethod } = useDraft();
   const [busy, setBusy] = useState(false);
@@ -136,7 +138,7 @@ export default function ConfirmStep() {
       <Card style={styles.card}>
         <View style={styles.priceHead}>
           <Txt variant="title3" heading style={styles.flex}>{t('review.price')}</Txt>
-          <Pill label={t('review.demoPrices')} tone="demo" icon="flask" />
+          {isDemo ? <Pill label={t('review.demoPrices')} tone="demo" icon="flask" /> : null}
         </View>
         <PriceLine label={t('confirm.visitFee')} value={formatRupees(svc.visitFee)} strong />
         <PriceLine label={t('confirm.repair')} value={t('confirm.repairValue', { min: formatRupees(QUOTE_MIN) })} muted />
@@ -162,7 +164,7 @@ export default function ConfirmStep() {
         ))}
       </Card>
 
-      <Banner tone="demo" text={t('pay.demo')} />
+      {isDemo ? <Banner tone="demo" text={t('pay.demo')} /> : null}
     </Screen>
   );
 }

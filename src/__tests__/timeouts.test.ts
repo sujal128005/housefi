@@ -5,12 +5,12 @@ import { withTimeouts } from '../services/timeouts';
 describe('request time limit', () => {
   afterEach(() => jest.useRealTimers());
 
-  it('fails a call that never answers as NETWORK', async () => {
+  it('fails a call that never answers as TIMEOUT', async () => {
     jest.useFakeTimers();
     const stuck = { catalog: { categories: () => new Promise(() => undefined) } } as unknown as Backend;
     const p = withTimeouts(stuck, 1000).catalog.categories();
     jest.advanceTimersByTime(1001);
-    await p.catch((e: unknown) => expect(isApiError(e, 'NETWORK')).toBe(true));
+    await p.catch((e: unknown) => expect(isApiError(e, 'TIMEOUT')).toBe(true));
   });
 
   it('passes answers, errors and non-promise results through unchanged', async () => {

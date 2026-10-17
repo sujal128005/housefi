@@ -7,7 +7,7 @@ import type { Payment } from '../../domain/types';
 import { Art3D } from '../../illustrations/Art3D';
 import { formatDate, formatRupees } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
-import { useBackend, useQuery } from '../../services/ServicesProvider';
+import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Card, Divider, ErrorView, Header, Screen, Skeleton, Txt, useToast } from '../../ui';
@@ -19,6 +19,8 @@ export default function Receipt() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, l, locale } = useI18n();
   const backend = useBackend();
+  /** Labels about simulated backend outcomes show only with the demo backend. */
+  const isDemo = useIsDemo();
   const session = useSession();
   const toast = useToast();
   const q = useQuery(() => backend.bookings.get(session.token, id), [backend, session.token, id]);
@@ -83,7 +85,7 @@ export default function Receipt() {
               <Txt variant="title2">{formatRupees(paidTotal)}</Txt>
             </View>
           </Card>
-          <Banner tone="demo" text={t('receipt.demo')} />
+          {isDemo ? <Banner tone="demo" text={t('receipt.demo')} /> : null}
         </>
       ) : null}
     </Screen>

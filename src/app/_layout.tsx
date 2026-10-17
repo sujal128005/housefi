@@ -11,8 +11,7 @@ import { Image, Linking, LogBox, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Locale } from '../i18n/format';
 import { I18nProvider } from '../i18n/I18n';
-import { createMockBackend } from '../services/mock/MockBackend';
-import { withTimeouts } from '../services/timeouts';
+import { backendChoiceFromEnv, createBackend } from '../services/createBackend';
 import { BackendProvider } from '../services/ServicesProvider';
 import { deviceStore, secretStore } from '../services/storage';
 import { AppStateProvider, useAppState } from '../state/AppState';
@@ -23,6 +22,7 @@ import { ToastProvider } from '../ui';
 import { CustomerAlerts } from '../ui/Notifications';
 import { AppErrorBoundary, installGlobalErrorHandler, OfflineBanner, ScreenErrorBoundary, StartupRecovery } from '../ui/Recovery';
 import { TechAlerts } from '../ui/TechAlerts';
+import { hydrateCatalog } from '../data/catalog';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 // Dev-only noise from the emulator's dev-tools socket; it is not an app problem and its toast covers the footer.
@@ -60,11 +60,21 @@ export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
 export default function RootLayout() {
   // App fonts and the two icon fonts load before the splash screen hides, so no icon pops in late.
   const [fontsLoaded, fontError] = useFonts({ ...FONT_ASSETS, ...Ionicons.font, ...MaterialCommunityIcons.font });
-  // DEMO backend: the only backend in this phase. A LIVE backend implements the same interface (services/api.ts).
   // Technician IDs and verification tokens come from the system's cryptographic random source.
-  // Every call has a time limit (services/timeouts.ts), so no screen can wait for ever.
-  const backend = useMemo(() => withTimeouts(createMockBackend({ store: deviceStore, randomBytes: getRandomBytes })), []);
+  // Demo backend unless the build explicitly selects the live one (services/createBackend.ts); every call has a time
+  // limit (services/timeouts.ts), so no screen can wait for ever.
+  const backend = useMemo(() => createBackend(backendChoiceFromEnv({
+    // Written out: Expo inlines EXPO_PUBLIC_* variables only where they are named literally.
+    EXPO_PUBLIC_HOUSEFI_BACKEND: process.env.EXPO_PUBLIC_HOUSEFI_BACKEND,
+    EXPO_PUBLIC_HOUSEFI_API_URL: process.env.EXPO_PUBLIC_HOUSEFI_API_URL,
+  }), { store: deviceStore, randomBytes: getRandomBytes }), []);
   useEffect(() => installGlobalErrorHandler(), []);
+  // The service catalogue comes from the backend; the bundled list stays as the fallback if this fails.
+  useEffect(() => {
+    void Promise.all([backend.catalog.categories(), backend.catalog.services()])
+      .then(([categories, services]) => hydrateCatalog(categories, services))
+      .catch(() => undefined);
+  }, [backend]);
   return (
     <SafeAreaProvider>
       <AppStateProvider store={deviceStore} secrets={secretStore} backend={backend} deviceLocale={phoneLocale()}>

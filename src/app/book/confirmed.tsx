@@ -1,13 +1,13 @@
 // Visit fee paid: the booking is confirmed and the search for a technician has started. Shows the booking ID and the
 // arrival code to share at the door.
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { serviceById } from '../../data/catalog';
 import { Art3D } from '../../illustrations/Art3D';
 import { formatRupees } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
-import { useBackend, useQuery } from '../../services/ServicesProvider';
+import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
 import { radius, space } from '../../theme/tokens';
@@ -21,15 +21,27 @@ export default function Confirmed() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, l, locale } = useI18n();
   const backend = useBackend();
+  /** Labels about simulated backend outcomes show only with the demo backend. */
+  const isDemo = useIsDemo();
   const session = useSession();
   const { clear } = useDraft();
   const art = Math.round(Math.min(150, useWindowDimensions().height * 0.15));
   const q = useQuery(() => backend.bookings.get(session.token, id), [backend, session.token, id]);
+  const b = q.data;
+  // "Confirmed" only once the backend says the visit fee is paid; anything else goes to the booking's live status.
+  const paid = b?.visitPayment.state === 'PAID';
+  const celebrated = useRef(false);
   useEffect(() => {
+    if (!b) return;
+    if (!paid) {
+      router.replace(`/booking/${b.id}`);
+      return;
+    }
+    if (celebrated.current) return;
+    celebrated.current = true;
     clear();
     feedback('success');
-  }, [clear]);
-  const b = q.data;
+  }, [b, paid, clear]);
   const svc = b ? serviceById(b.serviceId) : undefined;
 
   return (
@@ -44,16 +56,20 @@ export default function Confirmed() {
         </>
       }
     >
-      <View style={styles.art}>
-        <Pop><Art3D name="check" size={art} shadow /></Pop>
-      </View>
-      <Appear>
-        <Txt variant="title1" align="center" heading>{t('confirmed.title')}</Txt>
-        <Txt variant="body" color="inkMuted" align="center">{t('confirmed.body')}</Txt>
-      </Appear>
+      {paid ? (
+        <>
+          <View style={styles.art}>
+            <Pop><Art3D name="check" size={art} shadow /></Pop>
+          </View>
+          <Appear>
+            <Txt variant="title1" align="center" heading>{t('confirmed.title')}</Txt>
+            <Txt variant="body" color="inkMuted" align="center">{t('confirmed.body')}</Txt>
+          </Appear>
+        </>
+      ) : null}
       {q.loading ? <Skeleton style={styles.skel} /> : null}
       {q.error ? <ErrorView error={q.error} onRetry={q.reload} /> : null}
-      {b ? (
+      {b && paid ? (
         <Appear delay={150} style={styles.stack}>
           <Card style={styles.card}>
             <View style={styles.idRow}>
@@ -68,7 +84,7 @@ export default function Confirmed() {
             <Txt variant="footnote" color="success">{t('confirmed.paid', { amount: formatRupees(b.visitPayment.amount) })}</Txt>
           </Card>
           <ArrivalOtpCard code={b.arrivalOtp} />
-          <Banner tone="demo" text={t('confirmed.demo')} />
+          {isDemo ? <Banner tone="demo" text={t('confirmed.demo')} /> : null}
         </Appear>
       ) : null}
     </Screen>

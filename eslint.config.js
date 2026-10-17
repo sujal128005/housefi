@@ -5,7 +5,7 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*', 'android/*', 'ios/*', 'tools/*'],
+    ignores: ['dist/*', 'android/*', 'ios/*', 'tools/*', '.claude/*'],
   },
   {
     // These rules exist for the React Compiler, which this app does not use. They flag the documented React Native

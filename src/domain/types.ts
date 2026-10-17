@@ -158,8 +158,8 @@ export interface Technician {
   readonly vehicle: string;
   /** Number shown for masked calls (demo). */
   readonly maskedPhone: string;
-  /** Always true in this build: every technician shown is fictional. */
-  readonly demo: true;
+  /** True when the record comes from the demo backend (fictional technicians); false from the live backend. */
+  readonly demo: boolean;
 }
 
 /** A technician as the customer of an assigned booking sees them (the booking's snapshot plus their identity). */
@@ -274,7 +274,8 @@ export interface Booking {
   readonly workStarted: boolean;
   /** Handled by a technician using the technician app (on this device in the demo) rather than the simulator. */
   readonly viaTechApp: boolean;
-  readonly demo: true;
+  /** True when the record comes from the demo backend; false from the live backend. */
+  readonly demo: boolean;
 }
 
 export interface Customer {
@@ -444,7 +445,8 @@ export interface Job {
   readonly acceptedAt: number;
   /** A practice job with a simulated customer (Demo settings), not a real customer's booking. */
   readonly practice: boolean;
-  readonly demo: true;
+  /** True when the record comes from the demo backend; false from the live backend. */
+  readonly demo: boolean;
 }
 
 export type PayoutState = 'PENDING' | 'PAID';

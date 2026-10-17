@@ -5,7 +5,7 @@ import { categoryById } from '../../data/catalog';
 import { Art3D, serviceArt } from '../../illustrations/Art3D';
 import { formatRupees } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
-import { useBackend, useQuery } from '../../services/ServicesProvider';
+import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider';
 import { useDraft } from '../../state/BookingDraft';
 import { colors, radius, space } from '../../theme/tokens';
 import { Button, Card, Chip, ErrorView, Header, Icon, Pill, Screen, Skeleton, Txt, Wash } from '../../ui';
@@ -15,6 +15,8 @@ export default function ServiceDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, l } = useI18n();
   const backend = useBackend();
+  /** Labels about simulated backend outcomes show only with the demo backend. */
+  const isDemo = useIsDemo();
   const draft = useDraft();
   const q = useQuery(() => backend.catalog.service(id), [backend, id]);
   const s = q.data;
@@ -77,7 +79,7 @@ export default function ServiceDetails() {
               <Txt variant="callout" style={styles.flex}>{t('confirm.repair')}</Txt>
               <Txt variant="bodyStrong" color="blue">{t('confirm.repairShort')}</Txt>
             </View>
-            <Pill label={t('review.demoPrices')} tone="demo" icon="flask" />
+            {isDemo ? <Pill label={t('review.demoPrices')} tone="demo" icon="flask" /> : null}
           </Card>
 
           <Card style={styles.block}>

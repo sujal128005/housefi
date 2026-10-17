@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { normalizePhone } from '../../domain/rules';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
-import { useBackend } from '../../services/ServicesProvider';
+import { useBackend, useIsDemo } from '../../services/ServicesProvider';
 import { useAppState } from '../../state/AppState';
 import { authFlow } from '../../state/authFlow';
 import { colors, space } from '../../theme/tokens';
@@ -20,6 +20,8 @@ function formatTyping(raw: string): string {
 export default function PhoneSignIn() {
   const { t } = useI18n();
   const backend = useBackend();
+  /** Labels about simulated backend outcomes show only with the demo backend. */
+  const isDemo = useIsDemo();
   const { prefs } = useAppState();
   const asTech = prefs.role === 'TECHNICIAN';
   const [value, setValue] = useState('');
@@ -76,7 +78,7 @@ export default function PhoneSignIn() {
         error={showInvalid ? t('auth.phone.invalid') : null}
         hint={t('auth.phone.hint')}
       />
-      <Banner tone="demo" text={t('auth.phone.demo')} />
+      {isDemo ? <Banner tone="demo" text={t('auth.phone.demo')} /> : null}
       <ErrorBanner error={error} />
       <View style={styles.orRow}>
         <View style={styles.rule} />

@@ -1001,6 +1001,17 @@ export const en = {
   // Rating: women's ratings.
   'rate.byWoman': 'I\'m a woman',
   'rate.byWomanSub': 'Helps other women find technicians rated highly by women. Kept private: never shown, never linked to your name.',
+
+  // Errors by kind (services/errorText.ts).
+  'error.timeout.title': 'This is taking too long',
+  'error.timeout.body': 'The connection may be slow. Try again in a moment.',
+  'error.forbidden': 'You don\'t have access to this.',
+  'error.notFound': 'This isn\'t available any more.',
+  'error.validation': 'Some details don\'t look right. Please check and try again.',
+  'error.conflict': 'This changed in the meantime. Refresh to see the latest.',
+  'error.rateLimited': 'Too many tries. Please wait {sec} seconds and try again.',
+  'error.rateLimitedSoon': 'Too many tries. Please wait a moment and try again.',
+  'error.server': 'Housefi is having a problem right now. Please try again shortly.',
 } as const;
 
 export type StringKey = keyof typeof en;

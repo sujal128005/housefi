@@ -200,6 +200,8 @@ export async function hideKeyboard() {
   tapXY(w / 2, h * 0.075);
   await sleep(300);
   // Some Android versions keep the number pad open after ESCAPE; BACK closes an open keyboard without navigating.
+  // The reported state lags, so wait for it to settle first: BACK with no keyboard open would leave the screen.
+  for (let i = 0; i < 6 && keyboardShown(); i++) await sleep(250);
   if (keyboardShown()) {
     key(4);
     await sleep(400);

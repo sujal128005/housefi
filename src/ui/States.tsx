@@ -9,6 +9,7 @@ import { Button } from './Button';
 import { Icon } from './Icon';
 import { Banner } from './Surfaces';
 import { Txt } from './Txt';
+import { presentError } from '../services/errorText';
 
 export function EmptyState({ art, title, body, action, onAction, testID }: {
   readonly art: ReactNode;
@@ -48,20 +49,23 @@ function SessionEnded({ inline }: { readonly inline?: boolean }) {
   );
 }
 
-/** Inline error with a retry. Says when the error was simulated from Demo settings. */
+/**
+ * Inline error. The words come from the kind of failure (services/errorText.ts), never from the error itself;
+ * Retry only when trying again can help. Says when the error was simulated from Demo settings.
+ */
 export function ErrorView({ error, onRetry, title }: { readonly error: unknown; readonly onRetry: () => void; readonly title?: string }) {
   const { t } = useI18n();
-  const network = isApiError(error, 'NETWORK');
-  if (isApiError(error, 'UNAUTHENTICATED')) return <SessionEnded />;
+  const shown = presentError(error);
+  if (shown.sessionEnded) return <SessionEnded />;
   return (
     <View style={styles.error} testID="error-view" accessibilityRole="alert">
       <View style={styles.errorIcon}>
-        <Icon name={network ? 'cloud-offline' : 'alert-circle'} size={30} color="danger" />
+        <Icon name={shown.icon} size={30} color="danger" />
       </View>
-      <Txt variant="title3" align="center">{title ?? (network ? t('error.network.title') : t('error.generic'))}</Txt>
-      {network ? <Txt variant="callout" color="inkMuted" align="center">{t('error.network.body')}</Txt> : null}
+      <Txt variant="title3" align="center">{title ?? t(shown.title, shown.params)}</Txt>
+      {shown.body ? <Txt variant="callout" color="inkMuted" align="center">{t(shown.body, shown.params)}</Txt> : null}
       {isApiError(error) && error.simulated ? <Banner tone="demo" text={t('error.simulated')} /> : null}
-      <Button label={t('common.retry')} icon="refresh" onPress={onRetry} variant="outline" size="md" testID="retry" />
+      {shown.retryable ? <Button label={t('common.retry')} icon="refresh" onPress={onRetry} variant="outline" size="md" testID="retry" /> : null}
     </View>
   );
 }
@@ -70,10 +74,9 @@ export function ErrorView({ error, onRetry, title }: { readonly error: unknown; 
 export function ErrorBanner({ error }: { readonly error: unknown }) {
   const { t } = useI18n();
   if (!error) return null;
-  if (isApiError(error, 'UNAUTHENTICATED')) return <SessionEnded inline />;
-  const network = isApiError(error, 'NETWORK');
-  const text = network ? `${t('error.network.title')}. ${t('error.network.body')}`
-    : isApiError(error, 'IDENTITY_LOCKED') ? t('error.identityLocked') : t('error.generic');
+  const shown = presentError(error);
+  if (shown.sessionEnded) return <SessionEnded inline />;
+  const text = shown.body ? `${t(shown.title, shown.params)}. ${t(shown.body, shown.params)}` : t(shown.title, shown.params);
   return (
     <View style={styles.banners}>
       <Banner tone="danger" text={text} testID="error-banner" />

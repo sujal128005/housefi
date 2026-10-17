@@ -8,7 +8,7 @@ import type { Booking, PaymentMethod } from '../domain/types';
 import { Art3D } from '../illustrations/Art3D';
 import { formatRupees } from '../i18n/format';
 import { useI18n } from '../i18n/I18n';
-import { useBackend, useQuery } from '../services/ServicesProvider';
+import { useBackend, useIsDemo, useQuery } from '../services/ServicesProvider';
 import { useSession } from '../state/AppState';
 import { colors, radius, space } from '../theme/tokens';
 import { Banner, Button, Card, ErrorBanner, ErrorView, Header, Icon, RadioDot, Screen, Skeleton, Tap, Txt } from '../ui';
@@ -28,6 +28,8 @@ export default function Pay() {
   const kind: 'VISIT' | 'FINAL' = params.kind === 'FINAL' ? 'FINAL' : 'VISIT';
   const { t, l } = useI18n();
   const backend = useBackend();
+  /** Labels about simulated backend outcomes show only with the demo backend. */
+  const isDemo = useIsDemo();
   const session = useSession();
   const q = useQuery(() => backend.bookings.get(session.token, params.id), [backend, session.token, params.id]);
   // A method from the link is used only if it is one the app offers.
@@ -141,7 +143,7 @@ export default function Pay() {
               ))}
               {payment?.state === 'FAILED' ? <Banner tone="danger" text={t('pay.lastFailed')} /> : null}
               <ErrorBanner error={error} />
-              <Banner tone="demo" text={t('pay.demo')} />
+              {isDemo ? <Banner tone="demo" text={t('pay.demo')} /> : null}
               <View style={styles.secure}><Icon name="shield-checkmark" size={16} color="success" /><Txt variant="footnote" color="inkMuted">{t('pay.secure')}</Txt></View>
             </Appear>
           ) : null}
@@ -168,7 +170,7 @@ export default function Pay() {
                 <Line label={t('pay.method')} value={t(`pay.m.${payment?.method ?? method}`)} />
                 {payment?.txnId ? <Line label={t('pay.txn')} value={payment.txnId} /> : null}
               </Card>
-              <Banner tone="demo" text={t('pay.demoDone')} />
+              {isDemo ? <Banner tone="demo" text={t('pay.demoDone')} /> : null}
             </View>
           ) : null}
 
@@ -178,7 +180,7 @@ export default function Pay() {
               <Txt variant="title2" align="center" heading>{t('pay.pending')}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{t('pay.pendingBody')}</Txt>
               <ActivityIndicator color={colors.warning} />
-              <Banner tone="demo" text={t('pay.demoPending')} />
+              {isDemo ? <Banner tone="demo" text={t('pay.demoPending')} /> : null}
             </View>
           ) : null}
 
@@ -196,7 +198,7 @@ export default function Pay() {
               <Art3D name="card_failed" size={110} />
               <Txt variant="title2" align="center" heading>{t('pay.failed')}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{t('pay.failedBody')}</Txt>
-              <Banner tone="demo" text={t('pay.demoFailed')} />
+              {isDemo ? <Banner tone="demo" text={t('pay.demoFailed')} /> : null}
             </View>
           ) : null}
         </>
