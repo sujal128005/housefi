@@ -30,6 +30,10 @@ export interface QueryState<T> {
   readonly reload: () => void;
 }
 
+function sameDeps(a: DependencyList, b: DependencyList): boolean {
+  return a.length === b.length && a.every((x, i) => Object.is(x, b[i]));
+}
+
 /** Runs an async read and tracks loading / error / data, with a reload for "Try again". */
 export function useQuery<T>(fn: () => Promise<T>, deps: DependencyList): QueryState<T> {
   const [data, setData] = useState<T | undefined>(undefined);
@@ -38,6 +42,17 @@ export function useQuery<T>(fn: () => Promise<T>, deps: DependencyList): QuerySt
   const [nonce, setNonce] = useState(0);
   const fnRef = useRef(fn);
   fnRef.current = fn;
+
+  // New inputs (another booking, another verification token): the previous answer is about something else, so it is
+  // dropped in this same render and never shown with them. reload() keeps it, so "Try again" does not flash empty.
+  const [dataDeps, setDataDeps] = useState<DependencyList>(deps);
+  const changed = !sameDeps(dataDeps, deps);
+  if (changed) {
+    setDataDeps(deps);
+    setData(undefined);
+    setError(null);
+    setLoading(true);
+  }
 
   useEffect(() => {
     let alive = true;
@@ -63,7 +78,8 @@ export function useQuery<T>(fn: () => Promise<T>, deps: DependencyList): QuerySt
   }, [...deps, nonce]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
-  return { data, error, loading, reload };
+  // React redoes this render with the reset state; even this one returns nothing from the previous inputs.
+  return changed ? { data: undefined, error: null, loading: true, reload } : { data, error, loading, reload };
 }
 
 /** Reloads a query when the screen comes back into focus (not on first show: the query already loads then). */

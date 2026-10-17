@@ -371,6 +371,7 @@ export const te: Record<StringKey, string> = {
   'demo.paymentSub': 'ఒక్క చెల్లింపుకు మాత్రమే; తర్వాత మళ్ళీ విజయం.',
   'demo.payment.SUCCESS': 'విజయవంతం',
   'demo.payment.PENDING': 'పెండింగ్, తర్వాత విజయం',
+  'demo.payment.PENDING_THEN_FAILED': 'పెండింగ్, తర్వాత విఫలం',
   'demo.payment.FAILED': 'విఫలం',
   'help.a5': 'టెక్నీషియన్ మీ ఇంటి వద్దకు వచ్చినప్పుడు బుకింగ్‌లోని 4 అంకెల కోడ్ చెప్పండి. వారు రాకముందు ఎప్పుడూ చెప్పకండి.',
   'help.chat': 'Housefi అసిస్టెంట్‌తో చాట్ చేయండి',

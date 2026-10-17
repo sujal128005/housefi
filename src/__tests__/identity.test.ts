@@ -7,6 +7,10 @@ import type { VisitTime } from '../domain/types';
 import type { Backend } from '../services/api';
 import { createMockBackend, DEMO_VERIFY_BASE, memoryStore } from '../services/mock/MockBackend';
 
+/** A fresh idempotency key for each create / pay call. */
+let keySeq = 0;
+const key = () => `test-key-${++keySeq}`;
+
 const webCrypto = (globalThis as unknown as { crypto: { getRandomValues: (a: Uint8Array) => Uint8Array } }).crypto;
 const bytes = (n: number) => webCrypto.getRandomValues(new Uint8Array(n));
 
@@ -37,8 +41,8 @@ async function paidBooking(backend: Backend, token: string) {
   const a = await backend.addresses.create(token, ADDRESS);
   const b = await backend.bookings.create(token, {
     serviceId: 'plumb-tap', problem: { issueIds: ['tap-leak'], notes: '', voiceNote: null, photos: [] }, addressId: a.id, time: INSTANT, preferWomenRated: false,
-  });
-  await backend.bookings.pay(token, b.id, 'VISIT', 'UPI');
+  }, key());
+  await backend.bookings.pay(token, b.id, 'VISIT', 'UPI', key());
   return b.id;
 }
 

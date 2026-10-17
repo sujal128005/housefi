@@ -13,7 +13,7 @@ import { colors, space } from '../theme/tokens';
 import { Banner, Button, Card, ConfirmSheet, Divider, Header, RadioDot, Screen, Tap, Txt, useToast } from '../ui';
 
 const SCENARIOS: readonly MatchingScenario[] = ['QUICK', 'SLOW', 'NONE'];
-const PAYMENTS: readonly PaymentOutcome[] = ['SUCCESS', 'PENDING', 'FAILED'];
+const PAYMENTS: readonly PaymentOutcome[] = ['SUCCESS', 'PENDING', 'PENDING_THEN_FAILED', 'FAILED'];
 const PRACTICE: readonly DemoSettings['practiceCustomer'][] = ['APPROVE', 'REVISION', 'DECLINE'];
 const REVIEWS: readonly DemoSettings['verification'][] = ['APPROVE', 'CORRECTION'];
 

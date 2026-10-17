@@ -2,7 +2,7 @@
 // signed-in sessions (customer and technician are separate accounts, each with its own token). Preferences persist in
 // the plain device store; session tokens only in the secret store (Keychain / Keystore), and are re-checked with the
 // backend at start.
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Customer, Session, TechProfile, TechSession } from '../domain/types';
 import type { Locale } from '../i18n/format';
 import type { Backend, KeyValueStore } from '../services/api';
@@ -61,6 +61,8 @@ export function AppStateProvider({ store, secrets, backend, deviceLocale, childr
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [prefs, setPrefs] = useState<Prefs>(EMPTY);
+  /** The latest prefs, for update(); always set together with setPrefs. */
+  const prefsRef = useRef<Prefs>(EMPTY);
   const [session, setSession] = useState<Session | null>(null);
   const [techSession, setTechSession] = useState<TechSession | null>(null);
 
@@ -97,7 +99,9 @@ export function AppStateProvider({ store, secrets, backend, deviceLocale, childr
         // A session the backend says has ended is forgotten on the device too.
         if (p.token && !s) void writeToken(secrets, 'token', null).catch(() => undefined);
         if (p.techToken && !ts) void writeToken(secrets, 'techToken', null).catch(() => undefined);
-        setPrefs({ ...p, token: s ? p.token : null, techToken: ts ? p.techToken : null });
+        const loaded: Prefs = { ...p, token: s ? p.token : null, techToken: ts ? p.techToken : null };
+        prefsRef.current = loaded;
+        setPrefs(loaded);
         setSession(s);
         setTechSession(ts);
         setReady(true);
@@ -115,12 +119,13 @@ export function AppStateProvider({ store, secrets, backend, deviceLocale, childr
   }, [prefs.feedback]);
 
   const update = useCallback((patch: Partial<Prefs>) => {
-    setPrefs((prev) => {
-      const next = { ...prev, ...patch };
-      // Tokens never go into the plain preferences file.
-      void store.set(PREFS_KEY, JSON.stringify(withoutTokens(next))).catch(() => undefined);
-      return next;
-    });
+    // Built from the latest prefs (a ref, so quick back-to-back updates each see the one before) and written outside
+    // the state update, which React may run twice.
+    const next = { ...prefsRef.current, ...patch };
+    prefsRef.current = next;
+    setPrefs(next);
+    // Tokens never go into the plain preferences file.
+    void store.set(PREFS_KEY, JSON.stringify(withoutTokens(next))).catch(() => undefined);
     if ('token' in patch) void writeToken(secrets, 'token', patch.token ?? null).catch(() => undefined);
     if ('techToken' in patch) void writeToken(secrets, 'techToken', patch.techToken ?? null).catch(() => undefined);
   }, [store, secrets]);

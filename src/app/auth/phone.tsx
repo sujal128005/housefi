@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { normalizePhone } from '../../domain/rules';
+import { nationalDigits, normalizePhone } from '../../domain/rules';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { useBackend, useIsDemo } from '../../services/ServicesProvider';
@@ -11,9 +11,9 @@ import { authFlow } from '../../state/authFlow';
 import { colors, space } from '../../theme/tokens';
 import { Banner, Button, ErrorBanner, Field, Header, NotInDemoSheet, Pill, Screen, Tap, Txt } from '../../ui';
 
-/** "9876543210" -> "98765 43210" while typing. */
+/** "9876543210" -> "98765 43210" while typing; a pasted or autofilled "+91 98765 43210" becomes the same. */
 function formatTyping(raw: string): string {
-  const d = raw.replace(/\D/g, '').slice(0, 10);
+  const d = nationalDigits(raw);
   return d.length > 5 ? `${d.slice(0, 5)} ${d.slice(5)}` : d;
 }
 
@@ -71,7 +71,6 @@ export default function PhoneSignIn() {
         keyboardType="number-pad"
         textContentType="telephoneNumber"
         autoComplete="tel"
-        maxLength={11}
         placeholder="98765 43210"
         returnKeyType="done"
         onSubmitEditing={send}

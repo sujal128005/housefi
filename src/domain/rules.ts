@@ -5,9 +5,24 @@ import type { AddressInput, BookingStatus, Category, Quote, QuoteLine, Service, 
 
 // ---------- validation ----------
 
-/** Indian mobile numbers: 10 digits starting 6-9. Accepts spaces; returns the bare digits or null. */
+/** Digits without one country code (+91, as 12 digits) or trunk 0 (as 11 digits), as pasted or autofilled. */
+function withoutPrefix(digits: string): string {
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits;
+}
+
+/** The national number while typing: "+91 98765 43210" -> "9876543210" (at most 10 digits). */
+export function nationalDigits(input: string): string {
+  return withoutPrefix(input.replace(/\D/g, '')).slice(0, 10);
+}
+
+/**
+ * Indian mobile numbers: 10 digits starting 6-9. Accepts spaces, +91 and a leading 0; returns the bare digits or null.
+ * Extra digits are refused rather than cut off, so a mistyped number is never read as someone else's.
+ */
 export function normalizePhone(input: string): string | null {
-  const digits = input.replace(/\D/g, '');
+  const digits = withoutPrefix(input.replace(/\D/g, ''));
   return /^[6-9]\d{9}$/.test(digits) ? digits : null;
 }
 
@@ -224,7 +239,8 @@ export function finalAmount(quote: Quote | null, extra: Quote | null): number {
 // ---------- lifecycle ----------
 
 export type MatchingScenario = 'QUICK' | 'SLOW' | 'NONE';
-export type PaymentOutcome = 'SUCCESS' | 'PENDING' | 'FAILED';
+/** PENDING_THEN_FAILED: the bank first says pending, then the payment fails (nothing taken). */
+export type PaymentOutcome = 'SUCCESS' | 'PENDING' | 'PENDING_THEN_FAILED' | 'FAILED';
 
 /** Demo timings in seconds. Real visits take far longer; the demo is sped up and says so. */
 export const DEMO_TIMING = {

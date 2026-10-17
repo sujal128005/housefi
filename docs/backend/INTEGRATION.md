@@ -35,6 +35,12 @@ Create `src/services/http/HttpBackend.ts` implementing `Backend` with `createTra
 the API table in `README.md` (section 6), each with a decoder. Then return it from `createBackend` for
 `kind: 'live'`. No screen changes. Keep `mode: 'LIVE'` and `demo: null`.
 
+`bookings.create(token, input, idempotencyKey)` and `bookings.pay(token, bookingId, kind, method, idempotencyKey)`
+take the key from the screen: one key per attempt (`src/state/idempotency.ts`), sent again on every retry after a
+time-out or lost connection, and a new one when the input changes or the backend has answered. The HTTP client sends
+it as the `Idempotency-Key` header; the backend must answer a key it has seen (for the same customer and request) with
+its first result, and refuse the same key with a different request.
+
 ## Error codes the app expects
 
 Envelope: `{ "error": { "code", "message", "attemptsLeft"?, "retryAfterSec"?, "requestId"? } }`. `message` is for

@@ -47,6 +47,8 @@ interface StoredBooking extends Booking {
   /** Technicians who rejected or missed the offer. */
   readonly declinedBy: readonly string[];
   readonly otpTries: number;
+  /** Demo "pending, then fails": the pending payment fails instead of confirming. */
+  readonly pendingFails?: boolean;
 }
 
 interface StoredTech extends TechProfile {
@@ -71,6 +73,18 @@ interface StoredOffer {
   readonly distanceKm: number;
 }
 
+/** A create or pay call already answered, by "<customer>|<CREATE or PAY>|<idempotency key>". */
+interface SeenKey {
+  /** The request it answered; the same key with a different request is refused. */
+  readonly input: string;
+  readonly bookingId: string;
+  /** For PAY: the payment state of the first answer. */
+  readonly state: PaymentResult['state'] | null;
+  readonly at: number;
+}
+
+const SEEN_KEY_TTL_MS = 24 * 60 * 60_000;
+
 interface DemoState {
   customers: Record<string, Customer>;
   sessions: Record<string, string>;
@@ -87,6 +101,7 @@ interface DemoState {
   verifyTokens: Record<string, string>;
   /** IDs and tokens of the fictional demo technicians, issued the first time each is assigned. */
   fictional: Record<string, { techCode: string; verifyToken: string }>;
+  idempotency: Record<string, SeenKey>;
   settings: DemoSettings;
 }
 
@@ -116,7 +131,7 @@ const DEFAULT_SETTINGS: DemoSettings = {
 
 const emptyState = (): DemoState => ({
   customers: {}, sessions: {}, addresses: {}, bookings: {}, techs: {}, techSessions: {}, offers: [], notifications: {}, tickets: [],
-  issuedTechCodes: [], verifyTokens: {}, fictional: {}, settings: DEFAULT_SETTINGS,
+  issuedTechCodes: [], verifyTokens: {}, fictional: {}, idempotency: {}, settings: DEFAULT_SETTINGS,
 });
 
 function defaultRandomBytes(n: number): Uint8Array {
@@ -546,7 +561,9 @@ export function createMockBackend(opts: MockOptions): Backend {
         case 'PAYMENT_PENDING':
           if (el >= T.paymentPendingSec) {
             const at = b.phaseStartedAt + T.paymentPendingSec * 1000;
-            next = go(b, 'MATCHING', at, { visitPayment: { ...b.visitPayment, state: 'PAID', txnId: `DEMO${digits(10)}`, at } });
+            // A failed pending payment takes nothing; the booking waits for the visit fee again.
+            next = b.pendingFails ? go(b, 'AWAITING_PAYMENT', at, { visitPayment: { ...b.visitPayment, state: 'FAILED', at }, pendingFails: false })
+              : go(b, 'MATCHING', at, { visitPayment: { ...b.visitPayment, state: 'PAID', txnId: `DEMO${digits(10)}`, at } });
           }
           break;
         case 'MATCHING':
@@ -595,7 +612,8 @@ export function createMockBackend(opts: MockOptions): Backend {
           if (!fp) break;
           if (fp.state === 'PENDING' && fp.method !== 'CASH' && el >= T.paymentPendingSec) {
             const at = b.phaseStartedAt + T.paymentPendingSec * 1000;
-            next = go(b, 'COMPLETED', at, { finalPayment: { ...fp, state: 'PAID', txnId: `DEMO${digits(10)}`, at } });
+            next = b.pendingFails ? { ...b, pendingFails: false, finalPayment: { ...fp, state: 'FAILED', at } }
+              : go(b, 'COMPLETED', at, { finalPayment: { ...fp, state: 'PAID', txnId: `DEMO${digits(10)}`, at } });
           } else if (fp.state === 'PENDING' && fp.method === 'CASH' && sim && el >= T.cashConfirmSec) {
             const at = b.phaseStartedAt + T.cashConfirmSec * 1000;
             next = go(b, 'COMPLETED', at, { finalPayment: { ...fp, state: 'PAID', at } });
@@ -626,7 +644,7 @@ export function createMockBackend(opts: MockOptions): Backend {
   }
 
   function publicBooking(b: StoredBooking): Booking {
-    const { customerId: _c, scenario: _s, extraWorkPlanned: _e, phaseStartedAt, techId: _t, practice: _p, declinedBy: _d, otpTries: _o, ...rest } = b;
+    const { customerId: _c, scenario: _s, extraWorkPlanned: _e, phaseStartedAt, techId: _t, practice: _p, declinedBy: _d, otpTries: _o, pendingFails: _f, ...rest } = b;
     const etaMin = b.status === 'EN_ROUTE' ? etaMinutes(T.travelSec - (now() - phaseStartedAt) / 1000) : null;
     // The customer sees a quote only after it passes the price check.
     // A technician-app account's photo and verification are read fresh (an approval can be withdrawn after assignment).
@@ -669,6 +687,67 @@ export function createMockBackend(opts: MockOptions): Backend {
   }
 
   /** Loads a customer's booking, advances it, saves if changed, and hands back both forms. */
+  /** One payment, with the outcome chosen on the Demo screen (it applies to one payment only). */
+  async function payOnce(token: string, bookingId: string, kind: 'VISIT' | 'FINAL', method: PaymentMethod): Promise<PaymentResult> {
+    const s0 = await load();
+    const outcome = s0.settings.payment;
+    // A forced pending / failed outcome applies to one payment only, like the other demo failures.
+    if (outcome !== 'SUCCESS') s0.settings = { ...s0.settings, payment: 'SUCCESS' };
+    const { list, index, b } = await touch(token, bookingId);
+    const t = now();
+    const simulatedTxn = `DEMO${digits(10)}`;
+    if (kind === 'VISIT') {
+      if (b.status !== 'AWAITING_PAYMENT') throw new ApiError('CONFLICT');
+      if (method === 'CASH') throw new ApiError('VALIDATION');
+      if (outcome === 'FAILED') {
+        const nb = { ...b, visitPayment: { ...b.visitPayment, state: 'FAILED' as const, method, at: t } };
+        return { booking: await store(list, index, nb), state: 'FAILED' } satisfies PaymentResult;
+      }
+      if (outcome === 'PENDING' || outcome === 'PENDING_THEN_FAILED') {
+        const nb = go(b, 'PAYMENT_PENDING', t, { visitPayment: { ...b.visitPayment, state: 'PENDING', method, at: t }, pendingFails: outcome === 'PENDING_THEN_FAILED' });
+        return { booking: await store(list, index, nb), state: 'PENDING' };
+      }
+      const nb = go(b, 'MATCHING', t, { visitPayment: { ...b.visitPayment, state: 'PAID', method, txnId: simulatedTxn, at: t } });
+      return { booking: await store(list, index, nb), state: 'PAID' };
+    }
+    const fp = b.finalPayment;
+    if (b.status !== 'PAYMENT_DUE' || !fp || fp.state === 'PAID' || (fp.state === 'PENDING' && fp.method !== 'CASH')) throw new ApiError('CONFLICT');
+    if (method === 'CASH') {
+      // Cash is confirmed by the technician (the simulated one does it after a few seconds).
+      const nb = { ...b, phaseStartedAt: t, finalPayment: { ...fp, state: 'PENDING' as const, method, at: t } };
+      return { booking: await store(list, index, nb), state: 'PENDING' };
+    }
+    if (outcome === 'FAILED') {
+      const nb = { ...b, finalPayment: { ...fp, state: 'FAILED' as const, method, at: t } };
+      return { booking: await store(list, index, nb), state: 'FAILED' };
+    }
+    if (outcome === 'PENDING' || outcome === 'PENDING_THEN_FAILED') {
+      const nb = { ...b, phaseStartedAt: t, finalPayment: { ...fp, state: 'PENDING' as const, method, at: t }, pendingFails: outcome === 'PENDING_THEN_FAILED' };
+      return { booking: await store(list, index, nb), state: 'PENDING' };
+    }
+    const nb = go(b, 'COMPLETED', t, { finalPayment: { ...fp, state: 'PAID', method, txnId: simulatedTxn, at: t } });
+    return { booking: await store(list, index, nb), state: 'PAID' };
+  }
+
+  /**
+   * A create or pay call this customer already made with this key (a retry after a lost answer), or null for a new
+   * one. The same key with a different request is refused.
+   */
+  function seenKey(s: DemoState, customerId: string, op: 'CREATE' | 'PAY', key: string, input: string): SeenKey | null {
+    if (!key) throw new ApiError('VALIDATION');
+    const seen = s.idempotency[`${customerId}|${op}|${key}`];
+    if (!seen || now() - seen.at > SEEN_KEY_TTL_MS) return null;
+    if (seen.input !== input) throw new ApiError('VALIDATION');
+    return seen;
+  }
+
+  /** Remembers the first answer for a key (saved with the booking change); keys older than a day are forgotten. */
+  function rememberKey(s: DemoState, customerId: string, op: 'CREATE' | 'PAY', key: string, entry: Omit<SeenKey, 'at'>): void {
+    const t = now();
+    for (const [k, v] of Object.entries(s.idempotency)) if (t - v.at > SEEN_KEY_TTL_MS) delete s.idempotency[k];
+    s.idempotency[`${customerId}|${op}|${key}`] = { ...entry, at: t };
+  }
+
   async function touch(token: string, bookingId: string): Promise<{ s: DemoState; list: StoredBooking[]; index: number; b: StoredBooking }> {
     const s = await load();
     const c = customerFor(s, token);
@@ -892,60 +971,35 @@ export function createMockBackend(opts: MockOptions): Backend {
         return slotsFor(date, serviceId, new Date(now()));
       },
 
-      async create(token, input: NewBooking) {
+      async create(token, input: NewBooking, idempotencyKey) {
         const s = await request('BOOKING_CREATE');
         const c = customerFor(s, token);
+        const fingerprint = JSON.stringify(input);
+        const seen = seenKey(s, c.id, 'CREATE', idempotencyKey, fingerprint);
+        if (seen) return publicBooking((await touch(token, seen.bookingId)).b);
         if (!serviceById(input.serviceId)) throw new ApiError('NOT_FOUND');
         const address = (s.addresses[c.id] ?? []).find((a) => a.id === input.addressId);
         if (!address) throw new ApiError('VALIDATION');
         assertTimeOpen(input.serviceId, input.time);
         const b = newBooking(c.id, input, address, now());
         s.bookings[c.id] = [b, ...(s.bookings[c.id] ?? [])];
+        rememberKey(s, c.id, 'CREATE', idempotencyKey, { input: fingerprint, bookingId: b.id, state: null });
         await save();
         return publicBooking(b);
       },
 
-      async pay(token, bookingId, kind, method: PaymentMethod) {
+      async pay(token, bookingId, kind, method: PaymentMethod, idempotencyKey) {
         const s0 = await request('WRITE');
-        const outcome = s0.settings.payment;
-        // A forced pending / failed outcome applies to one payment only, like the other demo failures.
-        if (outcome !== 'SUCCESS') s0.settings = { ...s0.settings, payment: 'SUCCESS' };
-        const { list, index, b } = await touch(token, bookingId);
-        const t = now();
-        const simulatedTxn = `DEMO${digits(10)}`;
-        if (kind === 'VISIT') {
-          if (b.status !== 'AWAITING_PAYMENT') throw new ApiError('CONFLICT');
-          if (method === 'CASH') throw new ApiError('VALIDATION');
-          if (outcome === 'FAILED') {
-            const nb = { ...b, visitPayment: { ...b.visitPayment, state: 'FAILED' as const, method, at: t } };
-            return { booking: await store(list, index, nb), state: 'FAILED' } satisfies PaymentResult;
-          }
-          if (outcome === 'PENDING') {
-            const nb = go(b, 'PAYMENT_PENDING', t, { visitPayment: { ...b.visitPayment, state: 'PENDING', method, at: t } });
-            return { booking: await store(list, index, nb), state: 'PENDING' };
-          }
-          const nb = go(b, 'MATCHING', t, { visitPayment: { ...b.visitPayment, state: 'PAID', method, txnId: simulatedTxn, at: t } });
-          return { booking: await store(list, index, nb), state: 'PAID' };
-        }
-        const fp = b.finalPayment;
-        if (b.status !== 'PAYMENT_DUE' || !fp || fp.state === 'PAID' || (fp.state === 'PENDING' && fp.method !== 'CASH')) throw new ApiError('CONFLICT');
-        if (method === 'CASH') {
-          // Cash is confirmed by the technician (the simulated one does it after a few seconds).
-          const nb = { ...b, phaseStartedAt: t, finalPayment: { ...fp, state: 'PENDING' as const, method, at: t } };
-          return { booking: await store(list, index, nb), state: 'PENDING' };
-        }
-        if (outcome === 'FAILED') {
-          const nb = { ...b, finalPayment: { ...fp, state: 'FAILED' as const, method, at: t } };
-          return { booking: await store(list, index, nb), state: 'FAILED' };
-        }
-        if (outcome === 'PENDING') {
-          const nb = { ...b, phaseStartedAt: t, finalPayment: { ...fp, state: 'PENDING' as const, method, at: t } };
-          return { booking: await store(list, index, nb), state: 'PENDING' };
-        }
-        const nb = go(b, 'COMPLETED', t, { finalPayment: { ...fp, state: 'PAID', method, txnId: simulatedTxn, at: t } });
-        return { booking: await store(list, index, nb), state: 'PAID' };
+        const c = customerFor(s0, token);
+        const fingerprint = JSON.stringify({ bookingId, kind, method });
+        // A retry of a payment already answered: the first result, nothing charged again.
+        const seen = seenKey(s0, c.id, 'PAY', idempotencyKey, fingerprint);
+        if (seen?.state) return { booking: publicBooking((await touch(token, bookingId)).b), state: seen.state } satisfies PaymentResult;
+        const result = await payOnce(token, bookingId, kind, method);
+        rememberKey(s0, c.id, 'PAY', idempotencyKey, { input: fingerprint, bookingId, state: result.state });
+        await save();
+        return result;
       },
-
       async get(token, bookingId) {
         await request('READ');
         return publicBooking((await touch(token, bookingId)).b);

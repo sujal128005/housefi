@@ -107,10 +107,17 @@ export interface PaymentResult {
 
 export interface BookingApi {
   slots(serviceId: string, date: string): Promise<readonly Slot[]>;
-  /** Creates the booking; it waits for the ₹49 visit fee before a technician is searched. */
-  create(token: string, input: NewBooking): Promise<Booking>;
-  /** Pays the visit fee (kind VISIT) or the final bill (kind FINAL). */
-  pay(token: string, bookingId: string, kind: 'VISIT' | 'FINAL', method: PaymentMethod): Promise<PaymentResult>;
+  /**
+   * Creates the booking; it waits for the ₹49 visit fee before a technician is searched. `idempotencyKey` (HTTP
+   * header `Idempotency-Key`) is made once per attempt and sent again on every retry of it: the same key from the same
+   * customer returns the booking it first created instead of creating another (see state/idempotency.ts).
+   */
+  create(token: string, input: NewBooking, idempotencyKey: string): Promise<Booking>;
+  /**
+   * Pays the visit fee (kind VISIT) or the final bill (kind FINAL). `idempotencyKey` works as for create(): a retry
+   * with the same key returns the first result and never charges twice.
+   */
+  pay(token: string, bookingId: string, kind: 'VISIT' | 'FINAL', method: PaymentMethod, idempotencyKey: string): Promise<PaymentResult>;
   get(token: string, id: string): Promise<Booking>;
   list(token: string): Promise<readonly Booking[]>;
   cancel(token: string, id: string, reason: CancelReason | null): Promise<Booking>;

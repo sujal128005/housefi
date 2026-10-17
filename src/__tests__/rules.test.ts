@@ -1,7 +1,7 @@
 import { CATEGORIES, SERVICES } from '../data/catalog';
 import {
   bookableDates, canCancel, cancelRefundsVisitFee, DEMO_TIMING, earningFor, etaMinutes, finalAmount, nextPayoutDate, priceCheck, quoteProblem, isInstantAvailable, isoDate, isValidName, isValidPincode, isWomenRated,
-  matchingStatusAt, matchingStep, normalizePhone, progressIndex, search, slotsFor, validateAddress,
+  matchingStatusAt, matchingStep, nationalDigits, normalizePhone, progressIndex, search, slotsFor, validateAddress,
 } from '../domain/rules';
 import { languageForPlace } from '../domain/language';
 import type { Quote } from '../domain/types';
@@ -12,6 +12,21 @@ describe('validation', () => {
     expect(normalizePhone('98765 43210')).toBe('9876543210');
     expect(normalizePhone('5876543210')).toBeNull();
     expect(normalizePhone('987654321')).toBeNull();
+  });
+
+  it('reads pasted or autofilled numbers with +91 or a leading 0 as the same number', () => {
+    for (const input of ['+919876543210', '+91 98765 43210', '919876543210', '09876543210', '9876543210', '98765 43210']) {
+      expect(nationalDigits(input)).toBe('9876543210');
+      expect(normalizePhone(input)).toBe('9876543210');
+    }
+  });
+
+  it('still refuses numbers that are not Indian mobiles, and never cuts extra digits into a valid one', () => {
+    expect(normalizePhone('5876543210')).toBeNull();
+    expect(normalizePhone('+1 415 555 0100')).toBeNull();
+    expect(normalizePhone('98765432109')).toBeNull();
+    expect(normalizePhone('+92 98765 43210')).toBeNull();
+    expect(nationalDigits('+1 415 555 0100')).toBe('1415555010'); // shown while typing, then refused
   });
 
   it('checks names in English and Telugu', () => {

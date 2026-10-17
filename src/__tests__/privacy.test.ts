@@ -4,6 +4,10 @@ import type { VisitTime } from '../domain/types';
 import type { Backend } from '../services/api';
 import { createMockBackend, memoryStore } from '../services/mock/MockBackend';
 
+/** A fresh idempotency key for each create / pay call. */
+let keySeq = 0;
+const key = () => `test-key-${++keySeq}`;
+
 const webCrypto = (globalThis as unknown as { crypto: { getRandomValues: (a: Uint8Array) => Uint8Array } }).crypto;
 const INSTANT: VisitTime = { mode: 'INSTANT', window: null };
 const ADDRESS = { label: 'HOME' as const, house: 'Flat 4B, Lake View', street: 'Road No. 12, Banjara Hills', landmark: 'Near Ganesh temple', city: 'Hyderabad', pincode: '500034' };
@@ -31,8 +35,8 @@ async function world() {
   const customer = (await backend.auth.verifyOtp(ch.challengeId, ch.demoCode ?? '')).session.token;
   await backend.auth.updateName(customer, 'Priya Sharma');
   const a = await backend.addresses.create(customer, ADDRESS);
-  const b = await backend.bookings.create(customer, { serviceId: 'plumb-tap', problem: { issueIds: ['tap-leak'], notes: '', voiceNote: null, photos: [] }, addressId: a.id, time: INSTANT, preferWomenRated: false });
-  await backend.bookings.pay(customer, b.id, 'VISIT', 'UPI');
+  const b = await backend.bookings.create(customer, { serviceId: 'plumb-tap', problem: { issueIds: ['tap-leak'], notes: '', voiceNote: null, photos: [] }, addressId: a.id, time: INSTANT, preferWomenRated: false }, key());
+  await backend.bookings.pay(customer, b.id, 'VISIT', 'UPI', key());
   return { backend, tech, customer, bookingId: b.id };
 }
 

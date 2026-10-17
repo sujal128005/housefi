@@ -371,6 +371,7 @@ export const en = {
   'demo.paymentSub': 'Applies to one payment, then goes back to success.',
   'demo.payment.SUCCESS': 'Succeeds',
   'demo.payment.PENDING': 'Pending, then succeeds',
+  'demo.payment.PENDING_THEN_FAILED': 'Pending, then fails',
   'demo.payment.FAILED': 'Fails',
   'help.a5': 'When the technician reaches your door, tell them the 4-digit code from your booking. Never share it before they arrive.',
   'help.chat': 'Chat with Housefi assistant',

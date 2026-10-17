@@ -1,5 +1,6 @@
 // Step 4 of 4: confirm & pay. Summary, optional "rated highly by women" preference, price (₹49 visit fee now; repair
 // quoted after inspection), payment method, then pay. The booking is created here and waits for the payment.
+import { randomUUID } from 'expo-crypto';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
@@ -12,6 +13,7 @@ import { isApiError } from '../../services/api';
 import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
+import { idempotencyKeys, outcomeUnknown } from '../../state/idempotency';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Card, Divider, ErrorBanner, Icon, Pill, RadioDot, Screen, Tap, Txt, type IconName } from '../../ui';
 import { CategoryBadge } from '../../ui/CategoryTile';
@@ -19,6 +21,7 @@ import { addressLine, visitTimeText } from '../../ui/present';
 import { VISIT_METHODS } from '../../ui/payMethods';
 import { StepHeader } from '../../ui/StepHeader';
 import { markPayIntent } from '../../state/payIntent';
+import { withdrawUnpaid } from '../../state/withdrawUnpaid';
 
 export default function ConfirmStep() {
   const { t, l, locale } = useI18n();
@@ -30,14 +33,18 @@ export default function ConfirmStep() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const created = useRef<string | null>(null);
+  const mounted = useRef(true);
+  // One key per booking attempt: a retry after a lost answer gets the booking already created, not a second one.
+  const [createKeys] = useState(() => idempotencyKeys(randomUUID));
   const addresses = useQuery(() => backend.addresses.list(session.token), [backend, session.token]);
 
   // A booking created here but never paid is withdrawn when the customer leaves this step.
-  useEffect(() => () => {
-    const pending = created.current;
-    if (pending) void backend.bookings.get(session.token, pending).then((b) => {
-      if (b.status === 'AWAITING_PAYMENT') void backend.bookings.cancel(session.token, pending, null).catch(() => undefined);
-    }).catch(() => undefined);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (created.current) void withdrawUnpaid(backend, session.token, created.current);
+    };
   }, [backend, session.token]);
 
   const svc = draft.serviceId ? serviceById(draft.serviceId) : undefined;
@@ -62,13 +69,22 @@ export default function ConfirmStep() {
         if (existing.status !== 'AWAITING_PAYMENT') bookingId = null;
       }
       if (!bookingId) {
-        const b = await backend.bookings.create(session.token, { serviceId: svc.id, problem: p, addressId, time, preferWomenRated: draft.preferWomenRated });
+        const input = { serviceId: svc.id, problem: p, addressId, time, preferWomenRated: draft.preferWomenRated };
+        const b = await backend.bookings.create(session.token, input, createKeys.keyFor(JSON.stringify(input)));
+        createKeys.settle();
+        // The customer left while the booking was being created: withdraw it at once, and stay where they went.
+        if (!mounted.current) {
+          void withdrawUnpaid(backend, session.token, b.id);
+          return;
+        }
         bookingId = b.id;
         created.current = b.id;
       }
       markPayIntent(bookingId);
       router.push({ pathname: '/pay', params: { id: bookingId, kind: 'VISIT', method: draft.method, auto: '1' } });
     } catch (e) {
+      // Kept only when the booking may have been created anyway, so the retry returns that booking.
+      if (!outcomeUnknown(e)) createKeys.settle();
       setError(e);
     } finally {
       setBusy(false);

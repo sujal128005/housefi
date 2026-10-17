@@ -1,6 +1,7 @@
 // Payment (simulated): the ₹49 visit fee (?kind=VISIT) or the final bill (?kind=FINAL). Pick a method, pay, and see the
 // outcome: paid, pending (confirms shortly), cash (the technician confirms) or failed (nothing taken). Every outcome is
 // labelled as a demo. Coming from "Confirm & pay" (?auto=1) the chosen method is charged straight away.
+import { randomUUID } from 'expo-crypto';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -15,6 +16,7 @@ import { Banner, Button, Card, ErrorBanner, ErrorView, Header, Icon, RadioDot, S
 import { Appear, Pop, Pulse } from '../ui/motion';
 import { PAY_METHODS } from '../ui/payMethods';
 import { feedback } from '../services/feedback';
+import { idempotencyKeys, outcomeUnknown } from '../state/idempotency';
 import { takePayIntent } from '../state/payIntent';
 
 type Phase = 'CHOOSE' | 'PROCESSING' | 'PAID' | 'PENDING' | 'CASH' | 'FAILED';
@@ -37,10 +39,25 @@ export default function Pay() {
   const [phase, setPhase] = useState<Phase>('CHOOSE');
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<unknown>(null);
+  // One key per payment attempt: a retry after a lost answer gets the first result and never charges twice.
+  const [payKeys] = useState(() => idempotencyKeys(randomUUID));
+  // The screen reused for another booking or bill starts over: nothing from the previous one is shown or paid.
+  const [shownFor, setShownFor] = useState(`${params.id}|${kind}`);
+  if (shownFor !== `${params.id}|${kind}`) {
+    setShownFor(`${params.id}|${kind}`);
+    setBooking(null);
+    setPhase('CHOOSE');
+    setError(null);
+  }
   const b = booking ?? q.data ?? null;
   const methods = kind === 'VISIT' ? PAY_METHODS.filter((m) => m.method !== 'CASH') : PAY_METHODS;
 
-  // While pending (bank) or waiting for the technician to confirm cash, keep checking.
+  const goToBooking = () => {
+    if (router.canDismiss()) router.dismissAll();
+    router.push(`/booking/${params.id}`);
+  };
+
+  // While pending (bank) or waiting for the technician to confirm cash, keep checking until the payment is settled.
   useEffect(() => {
     if (phase !== 'PENDING' && phase !== 'CASH') return;
     const id = setInterval(() => {
@@ -50,22 +67,48 @@ export default function Pay() {
         if (p?.state === 'PAID') {
           feedback(p.method === 'CASH' ? 'cash' : 'success');
           setPhase('PAID');
+        } else if (p?.state === 'FAILED') {
+          // A pending bank payment can still fail (nothing taken); the customer can try again.
+          feedback('error');
+          setPhase('FAILED');
+        } else if (p?.state !== 'PENDING' || nb.status === 'CANCELLED') {
+          // The booking moved on some other way (cancelled, refunded): its page says what happened.
+          goToBooking();
         }
       }).catch(() => undefined);
     }, 1500);
     return () => clearInterval(id);
+    // goToBooking only reads params.id, which is in the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, backend, session.token, params.id, kind]);
 
   const pay = async () => {
     feedback('pop');
     setPhase('PROCESSING');
     setError(null);
+    const key = payKeys.keyFor(JSON.stringify({ id: params.id, kind, method }));
     try {
-      const [r] = await Promise.all([backend.bookings.pay(session.token, params.id, kind, method), new Promise((res) => setTimeout(res, 1400))]);
+      const [r] = await Promise.all([backend.bookings.pay(session.token, params.id, kind, method, key), new Promise((res) => setTimeout(res, 1400))]);
+      payKeys.settle();
       setBooking(r.booking);
       setPhase(r.state === 'PENDING' && method === 'CASH' ? 'CASH' : r.state);
       feedback(r.state === 'PAID' ? 'success' : r.state === 'FAILED' ? 'error' : 'notify');
     } catch (e) {
+      if (outcomeUnknown(e)) {
+        // No answer, but the payment may have gone through: look before offering to pay again (the key is kept,
+        // so paying again with the same method returns the first result instead of charging twice).
+        const nb = await backend.bookings.get(session.token, params.id).catch(() => null);
+        const p = nb ? (kind === 'VISIT' ? nb.visitPayment : nb.finalPayment) : null;
+        if (nb && (p?.state === 'PAID' || p?.state === 'PENDING')) {
+          setBooking(nb);
+          feedback(p.state === 'PAID' ? 'success' : 'notify');
+          setPhase(p.state === 'PAID' ? 'PAID' : p.method === 'CASH' ? 'CASH' : 'PENDING');
+          return;
+        }
+        if (nb) setBooking(nb);
+      } else {
+        payKeys.settle();
+      }
       feedback('error');
       setError(e);
       setPhase('CHOOSE');
@@ -105,10 +148,7 @@ export default function Pay() {
       footer={
         phase === 'CHOOSE' ? <Button label={t('pay.cta', { amount: formatRupees(amount) })} icon="lock-closed" onPress={() => void pay()} disabled={!b} testID="pay-now" />
           : phase === 'PAID' ? <Button label={kind === 'VISIT' ? t('pay.continueVisit') : t('pay.viewReceipt')} trailingIcon="arrow-forward" onPress={done} testID="pay-continue" />
-            : phase === 'PENDING' || phase === 'CASH' ? <Button label={t('pay.goToBooking')} variant="outline" onPress={() => {
-              if (router.canDismiss()) router.dismissAll();
-              router.push(`/booking/${params.id}`);
-            }} testID="pay-go-booking" />
+            : phase === 'PENDING' || phase === 'CASH' ? <Button label={t('pay.goToBooking')} variant="outline" onPress={goToBooking} testID="pay-go-booking" />
               : phase === 'FAILED' ? (
                 <>
                   <Button label={t('pay.retry')} icon="refresh" onPress={() => void pay()} testID="pay-retry" />

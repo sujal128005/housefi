@@ -2,6 +2,11 @@ import { isoDate, slotsFor } from '../domain/rules';
 import type { Session, VisitTime } from '../domain/types';
 import { ApiError, type Backend } from '../services/api';
 import { createMockBackend, memoryStore } from '../services/mock/MockBackend';
+import { withdrawUnpaid } from '../state/withdrawUnpaid';
+
+/** A fresh idempotency key for each create / pay call. */
+let keySeq = 0;
+const key = () => `test-key-${++keySeq}`;
 
 function setup(start = new Date(2026, 9, 15, 9, 0).getTime()) {
   let now = start;
@@ -89,14 +94,14 @@ describe('demo bookings', () => {
     await t.backend.demo?.updateSettings({ matching: opts.matching ?? 'QUICK', extraWork: opts.extraWork ?? false });
     const b = await t.backend.bookings.create(session.token, {
       serviceId: 'plumb-tap', problem: PROBLEM, addressId: a.id, time: opts.time ?? INSTANT, preferWomenRated: opts.women ?? false,
-    });
+    }, key());
     const get = () => t.backend.bookings.get(session.token, b.id);
     return { ...t, session, booking: b, addressId: a.id, get };
   }
 
   async function paid(opts: Opts = {}) {
     const t = await created(opts);
-    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI');
+    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', key());
     expect(r.state).toBe('PAID');
     return t;
   }
@@ -138,32 +143,115 @@ describe('demo bookings', () => {
 
   it('refuses cash for the visit fee and a second visit payment', async () => {
     const t = await created();
-    await expect(t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'CASH')).rejects.toMatchObject({ code: 'VALIDATION' });
-    await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'CARD');
-    await expect(t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'CARD')).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'CASH', key())).rejects.toMatchObject({ code: 'VALIDATION' });
+    await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'CARD', key());
+    await expect(t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'CARD', key())).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
   it('a failed payment takes no money and can be retried; the failure applies once', async () => {
     const t = await created();
     await t.backend.demo?.updateSettings({ payment: 'FAILED' });
-    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI');
+    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', key());
     expect(r.state).toBe('FAILED');
     expect(r.booking.status).toBe('AWAITING_PAYMENT');
     expect(r.booking.visitPayment.txnId).toBeNull();
-    const again = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI');
+    const again = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', key());
     expect(again.state).toBe('PAID');
   });
 
   it('a pending payment confirms by itself, then matching starts', async () => {
     const t = await created();
     await t.backend.demo?.updateSettings({ payment: 'PENDING' });
-    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'NETBANKING');
+    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'NETBANKING', key());
     expect(r.state).toBe('PENDING');
     expect(r.booking.status).toBe('PAYMENT_PENDING');
     t.advance(8);
     const b = await t.get();
     expect(b.status).toBe('MATCHING');
     expect(b.visitPayment.state).toBe('PAID');
+  });
+
+  it('a pending payment can still fail: nothing taken, the visit fee can be paid again', async () => {
+    const t = await created();
+    await t.backend.demo?.updateSettings({ payment: 'PENDING_THEN_FAILED' });
+    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'NETBANKING', key());
+    expect(r.state).toBe('PENDING');
+    t.advance(8);
+    const b = await t.get();
+    expect(b.status).toBe('AWAITING_PAYMENT');
+    expect(b.visitPayment).toMatchObject({ state: 'FAILED', txnId: null });
+    expect((await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', key())).state).toBe('PAID');
+  });
+
+  it('a pending final payment can still fail and stays payable', async () => {
+    const t = await toQuote();
+    await t.backend.bookings.decideQuote(t.session.token, t.booking.id, 'MAIN', 'APPROVE');
+    t.advance(16);
+    expect((await t.get()).status).toBe('PAYMENT_DUE');
+    await t.backend.demo?.updateSettings({ payment: 'PENDING_THEN_FAILED' });
+    expect((await t.backend.bookings.pay(t.session.token, t.booking.id, 'FINAL', 'UPI', key())).state).toBe('PENDING');
+    t.advance(8);
+    const b = await t.get();
+    expect(b.status).toBe('PAYMENT_DUE');
+    expect(b.finalPayment).toMatchObject({ state: 'FAILED', txnId: null });
+    expect((await t.backend.bookings.pay(t.session.token, t.booking.id, 'FINAL', 'UPI', key())).state).toBe('PAID');
+  });
+
+  it('a retried create with the same idempotency key returns the first booking; a new key creates another', async () => {
+    const t = await created();
+    const input = { serviceId: 'plumb-tap', problem: PROBLEM, addressId: t.addressId, time: INSTANT, preferWomenRated: false };
+    const first = await t.backend.bookings.create(t.session.token, input, 'retry-create');
+    const again = await t.backend.bookings.create(t.session.token, input, 'retry-create');
+    expect(again.id).toBe(first.id);
+    const other = await t.backend.bookings.create(t.session.token, input, 'another-create');
+    expect(other.id).not.toBe(first.id);
+    const mine = await t.backend.bookings.list(t.session.token);
+    expect(mine.filter((b) => b.id === first.id)).toHaveLength(1);
+    expect(mine).toHaveLength(3); // the booking from created(), first, other
+    // The same key for a different request is refused rather than answered with the wrong booking.
+    await expect(t.backend.bookings.create(t.session.token, { ...input, preferWomenRated: true }, 'retry-create')).rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
+  it("keeps idempotency keys per customer: another customer's key never returns this booking", async () => {
+    const t = await created();
+    const input = { serviceId: 'plumb-tap', problem: PROBLEM, addressId: t.addressId, time: INSTANT, preferWomenRated: false };
+    const mine = await t.backend.bookings.create(t.session.token, input, 'shared-key');
+    const other = await signIn(t.backend, '9123456780');
+    const a = await t.backend.addresses.create(other.session.token, ADDRESS);
+    const theirs = await t.backend.bookings.create(other.session.token, { ...input, addressId: a.id }, 'shared-key');
+    expect(theirs.id).not.toBe(mine.id);
+  });
+
+  it('a retried payment with the same key returns the first result and charges once', async () => {
+    const t = await created();
+    const first = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', 'retry-pay');
+    expect(first.state).toBe('PAID');
+    const again = await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', 'retry-pay');
+    expect(again.state).toBe('PAID');
+    expect(again.booking.visitPayment.txnId).toBe(first.booking.visitPayment.txnId);
+    // One payment only: a second payment with a new key is refused (already paid).
+    await expect(t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', 'new-pay')).rejects.toMatchObject({ code: 'CONFLICT' });
+    const b = await t.get();
+    expect(b.history.filter((h) => h.status === 'MATCHING')).toHaveLength(1);
+  });
+
+  it('a retried failed payment with the same key returns the failure; a new key is a new attempt', async () => {
+    const t = await created();
+    await t.backend.demo?.updateSettings({ payment: 'FAILED' });
+    expect((await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', 'pay-1')).state).toBe('FAILED');
+    expect((await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', 'pay-1')).state).toBe('FAILED');
+    expect((await t.backend.bookings.pay(t.session.token, t.booking.id, 'VISIT', 'UPI', 'pay-2')).state).toBe('PAID');
+  });
+
+  it('withdraws a booking left unpaid on Confirm & pay (also one that arrives after leaving), never a paid one', async () => {
+    const t = await created();
+    // The booking arrives after the customer left the step: withdrawn at once.
+    expect(await withdrawUnpaid(t.backend, t.session.token, t.booking.id)).toBe(true);
+    expect((await t.get()).status).toBe('CANCELLED');
+    expect((await t.get()).visitPayment.state).not.toBe('PAID');
+    const p = await paid();
+    expect(await withdrawUnpaid(p.backend, p.session.token, p.booking.id)).toBe(false);
+    expect((await p.get()).status).toBe('MATCHING');
   });
 
   it('prefers a technician rated highly by women when asked', async () => {
@@ -209,7 +297,7 @@ describe('demo bookings', () => {
     const due = await t.get();
     expect(due.status).toBe('PAYMENT_DUE');
     expect(due.finalPayment).toMatchObject({ kind: 'FINAL', amount: q.quote?.total, state: 'DUE' });
-    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'FINAL', 'CASH');
+    const r = await t.backend.bookings.pay(t.session.token, t.booking.id, 'FINAL', 'CASH', key());
     expect(r.state).toBe('PENDING'); // the technician confirms cash
     t.advance(4);
     const settled = await t.get();
@@ -316,10 +404,10 @@ describe('demo bookings', () => {
   it('refuses closed slots and instant visits at night', async () => {
     const t = await created();
     const today8: VisitTime = { mode: 'SCHEDULED', window: { date: isoDate(new Date(t.now())), startHour: 8, endHour: 10 } };
-    await expect(t.backend.bookings.create(t.session.token, { serviceId: 'plumb-tap', problem: PROBLEM, addressId: t.addressId, time: today8, preferWomenRated: false }))
+    await expect(t.backend.bookings.create(t.session.token, { serviceId: 'plumb-tap', problem: PROBLEM, addressId: t.addressId, time: today8, preferWomenRated: false }, key()))
       .rejects.toMatchObject({ code: 'SLOT_UNAVAILABLE' });
     const night = await created({ time: TOMORROW_10, start: new Date(2026, 9, 15, 22, 30).getTime() });
-    await expect(night.backend.bookings.create(night.session.token, { serviceId: 'plumb-tap', problem: PROBLEM, addressId: night.addressId, time: INSTANT, preferWomenRated: false }))
+    await expect(night.backend.bookings.create(night.session.token, { serviceId: 'plumb-tap', problem: PROBLEM, addressId: night.addressId, time: INSTANT, preferWomenRated: false }, key()))
       .rejects.toMatchObject({ code: 'INSTANT_UNAVAILABLE' });
   });
 
@@ -334,7 +422,7 @@ describe('demo bookings', () => {
     const t = await created();
     await t.backend.demo?.updateSettings({ failNext: 'SLOT_TAKEN' });
     await expect(t.backend.addresses.list(t.session.token)).resolves.toHaveLength(1);
-    await expect(t.backend.bookings.create(t.session.token, { serviceId: 'plumb-tap', problem: PROBLEM, addressId: t.addressId, time: TOMORROW_10, preferWomenRated: false }))
+    await expect(t.backend.bookings.create(t.session.token, { serviceId: 'plumb-tap', problem: PROBLEM, addressId: t.addressId, time: TOMORROW_10, preferWomenRated: false }, key()))
       .rejects.toMatchObject({ code: 'SLOT_UNAVAILABLE', simulated: true });
   });
 
@@ -404,8 +492,8 @@ describe('technician app', () => {
   async function paidBooking(t: ReturnType<typeof setup>, phone = '9876543210') {
     const { session } = await signIn(t.backend, phone);
     const a = await t.backend.addresses.create(session.token, ADDRESS);
-    const b = await t.backend.bookings.create(session.token, { serviceId: 'plumb-tap', problem: PROBLEM, addressId: a.id, time: INSTANT, preferWomenRated: false });
-    await t.backend.bookings.pay(session.token, b.id, 'VISIT', 'UPI');
+    const b = await t.backend.bookings.create(session.token, { serviceId: 'plumb-tap', problem: PROBLEM, addressId: a.id, time: INSTANT, preferWomenRated: false }, key());
+    await t.backend.bookings.pay(session.token, b.id, 'VISIT', 'UPI', key());
     return { token: session.token, id: b.id };
   }
 
@@ -500,7 +588,7 @@ describe('technician app', () => {
     expect(done.finalPayment?.amount).toBe(300);
 
     // Cash: the customer pays, the technician confirms.
-    const r = await t.backend.bookings.pay(c.token, c.id, 'FINAL', 'CASH');
+    const r = await t.backend.bookings.pay(c.token, c.id, 'FINAL', 'CASH', key());
     expect(r.state).toBe('PENDING');
     t.advance(30);
     expect((await t.backend.bookings.get(c.token, c.id)).status).toBe('PAYMENT_DUE');
