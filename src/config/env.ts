@@ -139,6 +139,9 @@ export const envSchema = z
       if (e.SMS_PROVIDER !== 'msg91') {
         ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'must be msg91 in production' });
       }
+      if (e.S3_BUCKET_UPLOADS === 'housefi-dev-uploads') {
+        ctx.addIssue({ code: 'custom', path: ['S3_BUCKET_UPLOADS'], message: 'must be the production bucket in production' });
+      }
       if (e.PUSH_PROVIDER !== 'expo') {
         ctx.addIssue({ code: 'custom', path: ['PUSH_PROVIDER'], message: 'must be expo in production' });
       }

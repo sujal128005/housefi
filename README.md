@@ -36,8 +36,8 @@ All 14 build steps (`docs/STARTER-PROMPT.md`) are done:
     `test/journeys.e2e-spec.ts` (the full happy path and every failure path in STATE-MACHINE.md).
 
 **What is left** is outside the build order:
-- Contract endpoints: `POST /uploads/photos`, `/uploads/audio` (QUESTIONS.md #52) and `POST /bookings/{id}/call`
-  (Exotel, later).
+- After the build order: `POST /v1/uploads/photos` and `/uploads/audio` (pre-signed S3 uploads, checked files, photo
+  location removed). The one contract endpoint still missing is `POST /bookings/{id}/call` (Exotel, later).
 - The team's answers in `docs/QUESTIONS.md`, and the production setup (AWS Mumbai, live provider keys, alerting,
   backups).
 - CI on PostgreSQL 16 has not run yet (no GitHub remote). Local tests use PGlite.
@@ -141,12 +141,15 @@ src/
                           GET /tech/earnings and the payout run
     ai/                   top-problems.ts (ranking), models.ts (photo / speech stand-ins), chat-rules.ts + chat.ts
                           (support assistant); swap implementations in ai.module.ts
+    uploads/              signed upload tickets, the one-time file check (media.ts: type, length, location removal),
+                          attaching to bookings, hourly clean-up
     support/              tickets and call-back requests; the queue for npm run support; support-watchdog.ts
     coordinator/          assign and act-on-behalf (acting-for.ts in bookings/), coordinator accounts
     notifications/        notifier.ts (the outbox every module writes to), booking-notices.ts (who hears about a
                           status change), push texts (en / te), Expo sender, delivery worker, inbox and devices API
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
   common/audit/          append-only audit_log of privileged actions
+  common/storage/        the private uploads bucket (S3; S3Mock locally) and signed URLs
   common/http/sse.ts     Server-Sent Events helper (booking and job streams)
   cli/seed.ts            npm run db:seed
   cli/technicians.ts     npm run tech (verification from the command line)
@@ -541,10 +544,38 @@ configured"); everything else works.
 | RBAC + ownership, `NOT_FOUND` for others' data | Done on every endpoint (tests per module) |
 | Rate limits per IP / phone / user; idempotency keys | Done (bookings, payments) |
 | Payment state only from verified Razorpay signatures | Done |
-| Input validation on every field | Done; photo / audio types and sizes wait for uploads |
-| Signed photo URLs, private bucket, EXIF stripping | Not built: uploads are not in the build order (QUESTIONS.md #52) |
+| Input validation on every field | Done, including uploads: type and size signed into the URL, then checked from the bytes |
+| Signed photo URLs, private bucket, EXIF stripping | Done: 5-minute signed URLs, keys without personal data, GPS and XMP removed on first use. The bucket itself (private, block public access, encryption, CORS) is an infrastructure setting |
 | Logs without PII, tokens or codes | Done (redaction list + no bodies logged) |
 | Audit log for status changes and staff actions | Done (step 14) |
 | Secrets outside the repo | Done (.env only locally; production reads the environment: wire it to Secrets Manager / SSM) |
 | DPDP: data in India, deletion with anonymisation | Deletion done; India region and the retention policy are open (QUESTIONS.md #58) |
 | Dependabot, npm audit, CodeQL, no eval, helmet, CORS allow-list | Done |
+
+## Decisions taken for uploads (after step 14)
+
+- **The app uploads straight to S3.** `POST /uploads/photos` / `/uploads/audio` return a pre-signed PUT URL (5
+  minutes, `UPLOAD_URL_TTL_SEC`) with the Content-Type and the exact Content-Length signed in. S3 refuses any other
+  type or size, so no file can be larger than the ticket. File bytes never pass through the API, except for the
+  one-time check.
+- **Each file is checked once, the first time it is used** (in a booking, or an AI call):
+  - It must be in the bucket, have the ticket's size, and be the declared type by its magic bytes (JPEG, PNG, HEIC
+    brands; M4A brands; ADTS for AAC).
+  - A voice note must be at most 60 s, read from the file (MPEG-4 movie header, or by counting ADTS frames). The
+    booking stores that real length, not the one the app sent.
+  - A photo loses its location (`uploads/media.ts`, pure TypeScript, no native image library). The GPS block of
+    the EXIF data is zeroed in place, so orientation and the rest survive and photos do not turn sideways. XMP, which
+    can repeat the location, is dropped from JPEG / PNG and blanked in HEIC. The cleaned file replaces the original.
+  - **A failed file** is deleted and marked `REJECTED` (with the reason), and stays refused. A file not uploaded yet
+    is `VALIDATION` until it arrives.
+- **Ownership:** an id that is not the caller's upload is `NOT_FOUND`. A file joins one booking for good (attached
+  in the booking's transaction). Customers upload `PROBLEM` photos and voice notes; technicians `INSPECTION` /
+  `COMPLETION` photos (nothing in the contract uses those yet, QUESTIONS.md #60).
+- **Responses:** `problem.photos` are `{ id, url }` with a 5-minute signed GET URL, and `voiceNote.audioId` is set.
+  The technician sees photos once assigned; the offer only has `photoCount`.
+- **Clean-up:** `UploadsWorker` (hourly) deletes uploads not used within 24 h, and refused ones, from the bucket and
+  the database. Account deletion deletes all of the person's uploads, files included.
+- **Limits:** 40 tickets per person per hour. Object keys are `u/<uploadId>` (no personal data). In production,
+  `S3_BUCKET_UPLOADS` must be set (not the dev default); credentials come from the task's IAM role.
+- **Not verified against real S3 / S3Mock yet:** the tests use an in-memory bucket and the real AWS SDK's signing.
+  Try a PUT against `docker compose up` (S3Mock on :9090) before go-live.

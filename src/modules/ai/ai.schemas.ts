@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const Locale = z.enum(['en', 'te']);
-/** Upload ids (photos, audio). Uploads are not built yet (QUESTIONS.md #52), so only the shape is checked. */
+/** Upload ids from POST /uploads/photos and /uploads/audio (checked against the caller's uploads). */
 const UploadId = z.string().trim().min(1).max(100);
 
 export const TopProblemsQuery = z.object({ pincode: z.string().regex(/^[1-9][0-9]{5}$/).optional() }).strict();

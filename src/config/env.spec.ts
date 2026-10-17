@@ -17,6 +17,7 @@ const production = {
   KMS_KEY_ID: 'alias/housefi-pii',
   SMS_PROVIDER: 'msg91',
   PUSH_PROVIDER: 'expo',
+  S3_BUCKET_UPLOADS: 'housefi-prod-uploads',
   MSG91_AUTH_KEY: 'k',
   MSG91_OTP_TEMPLATE_ID: 't',
   RAZORPAY_KEY_ID: 'rzp_live_x',
@@ -112,6 +113,10 @@ describe('parseEnv', () => {
 
   it('refuses to print sign-in codes to the log in production', () => {
     expect(problems({ ...production, SMS_PROVIDER: 'console' })).toEqual(['SMS_PROVIDER: must be msg91 in production']);
+  });
+
+  it('refuses the development uploads bucket in production', () => {
+    expect(problems({ ...production, S3_BUCKET_UPLOADS: 'housefi-dev-uploads' })).toEqual(['S3_BUCKET_UPLOADS: must be the production bucket in production']);
   });
 
   it('refuses to only log push notifications in production', () => {

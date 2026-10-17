@@ -184,8 +184,7 @@ Found while reading the handoff and building. Each one says what the backend doe
 
 51. **Top problems for a PIN we have never served:** the list is city-wide (or the default list) with `area: null`.
     Should the app show the address's own locality instead (it knows it)?
-52. **Uploads** (`POST /uploads/photos`, `/uploads/audio` in README §5) are not in the 14-step build order, so
-    `photoId` / `audioId` cannot be checked against a real upload yet. Which step should add S3 pre-signed uploads?
+52. ~~Uploads~~: built after step 14 (see README "Decisions taken for uploads").
 53. **Support chat wording and keywords** (`src/modules/ai/chat-rules.ts`), especially the Telugu and the safety
     advice (112), need review by the support team.
 
@@ -208,3 +207,11 @@ Found while reading the handoff and building. Each one says what the backend doe
     addresses, bookings, tickets, audit_log and notifications? A sweep is easy to add once the numbers are agreed.
 59. **Ratings:** `women_rated` is still not computed (QUESTIONS.md #16). Should low ratings (1-2 stars, or "not
     satisfied") also open a support ticket automatically?
+
+## Found while building uploads
+
+60. **Technician photos** (`stage: INSPECTION` / `COMPLETION`) can be uploaded, but no endpoint attaches them to a job
+    (quotes and `complete` take no photos in the contract), so they are deleted after 24 h. Add `photoIds` to the
+    quote and complete bodies?
+61. **Virus / content scanning** of uploads: files are checked for type, size and length only. Is a malware scan or
+    image moderation needed before technicians open customer photos?

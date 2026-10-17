@@ -282,3 +282,20 @@ The goal is none. Each entry links to the open question that will remove it.
   - `comment` is trimmed, at most 500 characters.
   - The response is the `Booking` with `rating` set. `Job.rating` and `TechProfile.rating` (average) follow.
 - **System support tickets** (`TRIP_OVERDUE`, `BILL_UNPAID`) name the booking's customer as `raised_by`.
+
+## Uploads
+
+- **`POST /uploads/photos` / `/uploads/audio`** return `openapi.yaml` `UploadTicket` `{ id, uploadUrl, expiresAt }`.
+  The README table says `photoId` / `audioId`; the contract (the source of truth) says `id`.
+- **Uploading:** `bytes` must be the file's exact size. The app must PUT with exactly that `Content-Length` and the
+  `Content-Type` it declared, or S3 answers 403.
+- **Using an upload** (`problem.photos[].id`, `problem.voiceNote.audioId`, `photoId`, `audioId`):
+  - `NOT_FOUND` when it is not the caller's.
+  - `VALIDATION` (on that field) when it is not uploaded yet, refused, already in a booking, a duplicate, or the
+    wrong kind.
+- **Who may upload:** customers upload `PROBLEM` photos and audio. Technicians upload `INSPECTION` / `COMPLETION`
+  photos (their default stage); audio from a technician is `NOT_FOUND`.
+- **What changes in a booking:**
+  - `Booking` / `Job` `problem.photos` carry `url` (signed, 5 minutes).
+  - `voiceNote.durationSec` is the recording's real length when there is an `audioId`.
+  - `JobOffer.photoCount` counts the problem photos.

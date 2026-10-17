@@ -1,11 +1,11 @@
 // Booking rows -> openapi.yaml Booking, as the customer sees it.
-import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Rating, Technician, User } from '@prisma/client';
+import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Rating, Technician, Upload, User } from '@prisma/client';
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import { paiseToRupees } from '../../common/money';
 import type { AddressDto } from '../addresses/addresses.service';
 import { latestQuote, type QuoteDto, type QuoteRow, toQuoteDto } from './quote-view';
 
-export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User }) | null; quotes: QuoteRow[]; rating: Rating | null };
+export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User }) | null; quotes: QuoteRow[]; rating: Rating | null; uploads: Upload[] };
 
 export const BOOKING_INCLUDE = {
   events: { orderBy: [{ at: 'asc' }, { id: 'asc' }] },
@@ -13,7 +13,33 @@ export const BOOKING_INCLUDE = {
   technician: { include: { user: true } },
   quotes: { include: { lines: true }, orderBy: [{ which: 'asc' }, { version: 'asc' }] },
   rating: true,
+  uploads: { where: { state: 'READY' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
 } satisfies Prisma.BookingInclude;
+
+/** Signs short-lived read URLs for photos (common/storage MediaUrls). */
+export interface PhotoSigner {
+  photoUrl(uploadId: string): Promise<string>;
+}
+
+/** openapi.yaml ProblemDescription, as responses carry it: photos with a 5-minute signed URL, the voice note's audio id. */
+export interface ProblemDto {
+  readonly issueIds: readonly string[];
+  readonly notes: string;
+  readonly voiceNote: { readonly durationSec: number; readonly transcript: string; readonly audioId?: string } | null;
+  readonly photos: readonly { readonly id: string; readonly url: string }[];
+}
+
+export async function toProblemDto(b: BookingRow, media: PhotoSigner): Promise<ProblemDto> {
+  const photos = b.uploads.filter((u) => u.kind === 'PHOTO' && u.stage === 'PROBLEM');
+  const audio = b.uploads.find((u) => u.kind === 'AUDIO');
+  return {
+    issueIds: b.issueIds,
+    notes: b.notes,
+    voiceNote:
+      b.voiceDurationSec !== null ? { durationSec: b.voiceDurationSec, transcript: b.voiceTranscript ?? '', ...(audio ? { audioId: audio.id } : {}) } : null,
+    photos: await Promise.all(photos.map(async (p) => ({ id: p.id, url: await media.photoUrl(p.id) }))),
+  };
+}
 
 /** openapi.yaml Rating. */
 export interface RatingDto {
@@ -58,12 +84,7 @@ export interface BookingDto {
   readonly code: string;
   readonly serviceId: string;
   readonly categoryId: CategoryId;
-  readonly problem: {
-    readonly issueIds: readonly string[];
-    readonly notes: string;
-    readonly voiceNote: { readonly durationSec: number; readonly transcript: string } | null;
-    readonly photos: readonly { readonly id: string }[];
-  };
+  readonly problem: ProblemDto;
   readonly address: AddressDto;
   readonly time: { readonly mode: 'INSTANT'; readonly window: null } | { readonly mode: 'SCHEDULED'; readonly window: { date: string; startHour: number; endHour: number } };
   readonly preferWomenRated: boolean;
@@ -129,7 +150,7 @@ function visibleQuote(quotes: QuoteRow[], which: 'MAIN' | 'EXTRA'): QuoteDto | n
 
 export const EMPTY_ADDRESS: AddressDto = { id: '', label: 'OTHER', house: '', street: '', landmark: '', city: '', pincode: '' };
 
-export async function toBookingDto(b: BookingRow, cipher: FieldCipher): Promise<BookingDto> {
+export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: PhotoSigner): Promise<BookingDto> {
   const visit = latest(b.payments, 'VISIT');
   if (!visit) throw new Error(`booking ${b.id} has no visit payment`);
   const final = latest(b.payments, 'FINAL');
@@ -141,13 +162,7 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher): Promise<
     code: b.code,
     serviceId: b.serviceId,
     categoryId: b.categoryId,
-    problem: {
-      issueIds: b.issueIds,
-      notes: b.notes,
-      voiceNote: b.voiceDurationSec !== null ? { durationSec: b.voiceDurationSec, transcript: b.voiceTranscript ?? '' } : null,
-      // Photos arrive with uploads (step 10).
-      photos: [],
-    },
+    problem: await toProblemDto(b, media),
     address,
     time:
       b.timeMode === 'SCHEDULED' && b.windowDate && b.windowStartHour !== null && b.windowEndHour !== null

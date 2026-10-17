@@ -4,7 +4,7 @@ import type { FieldCipher } from '../../common/crypto/field-cipher';
 import type { AddressDto } from '../addresses/addresses.service';
 import { ACTIVE_STATUSES } from './booking-status';
 import { jobCredits, rupees } from '../earnings/earnings-rules';
-import { BOOKING_INCLUDE, type BookingRow, EMPTY_ADDRESS, latest, payment, type PaymentDto, type RatingDto, toRatingDto } from './booking-view';
+import { BOOKING_INCLUDE, type BookingRow, EMPTY_ADDRESS, latest, payment, type PaymentDto, type PhotoSigner, type ProblemDto, type RatingDto, toProblemDto, toRatingDto } from './booking-view';
 import { approvedQuotes, latestQuote, type QuoteDto, toQuoteDto } from './quote-view';
 
 export const JOB_INCLUDE = { ...BOOKING_INCLUDE, customer: { select: { nameEnc: true } } } satisfies Prisma.BookingInclude;
@@ -18,12 +18,7 @@ export interface JobDto {
   readonly code: string;
   readonly serviceId: string;
   readonly categoryId: CategoryId;
-  readonly problem: {
-    readonly issueIds: readonly string[];
-    readonly notes: string;
-    readonly voiceNote: { readonly durationSec: number; readonly transcript: string } | null;
-    readonly photos: readonly { readonly id: string }[];
-  };
+  readonly problem: ProblemDto;
   /** First name only. */
   readonly customerName: string;
   readonly address: AddressDto;
@@ -72,7 +67,7 @@ function earningSoFar(b: BookingRow, opts: JobViewOptions): number {
   return rupees(jobCredits(opts, approved).reduce((sum, l) => sum + l.amountPaise, 0n));
 }
 
-export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOptions): Promise<JobDto> {
+export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOptions, media: PhotoSigner): Promise<JobDto> {
   const visit = latest(b.payments, 'VISIT');
   if (!visit) throw new Error(`booking ${b.id} has no visit payment`);
   const final = latest(b.payments, 'FINAL');
@@ -92,12 +87,7 @@ export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOpti
     code: b.code,
     serviceId: b.serviceId,
     categoryId: b.categoryId,
-    problem: {
-      issueIds: b.issueIds,
-      notes: b.notes,
-      voiceNote: b.voiceDurationSec !== null ? { durationSec: b.voiceDurationSec, transcript: b.voiceTranscript ?? '' } : null,
-      photos: [],
-    },
+    problem: await toProblemDto(b, media),
     customerName: fullName.split(/\s+/)[0] ?? '',
     address,
     maskedPhone: '',

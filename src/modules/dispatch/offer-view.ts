@@ -9,7 +9,7 @@ export interface JobOfferDto {
   readonly categoryId: Booking['categoryId'];
   readonly issueIds: readonly string[];
   readonly notes: string;
-  /** Photos arrive with uploads (step 10). */
+  /** Problem photos (the technician sees them after accepting). */
   readonly photoCount: number;
   /** Locality and city only. */
   readonly area: string;
@@ -23,7 +23,7 @@ export interface JobOfferDto {
   readonly expiresAt: number;
 }
 
-export function toJobOfferDto(o: JobOffer & { booking: Booking }, visitShareRupees: number): JobOfferDto {
+export function toJobOfferDto(o: JobOffer & { booking: Booking & { _count: { uploads: number } } }, visitShareRupees: number): JobOfferDto {
   const b = o.booking;
   return {
     id: o.id,
@@ -33,7 +33,7 @@ export function toJobOfferDto(o: JobOffer & { booking: Booking }, visitShareRupe
     categoryId: b.categoryId,
     issueIds: b.issueIds,
     notes: b.notes,
-    photoCount: 0,
+    photoCount: b._count.uploads,
     area: b.locality && b.locality !== b.city ? `${b.locality}, ${b.city}` : b.city,
     pincode: b.pincode.trim(),
     time:

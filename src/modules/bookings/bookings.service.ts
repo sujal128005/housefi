@@ -10,6 +10,7 @@ import { type AddressDto, AddressesService } from '../addresses/addresses.servic
 import { DispatchService } from '../dispatch/dispatch.service';
 import { PaymentsService } from '../payments/payments.service';
 import { SlotsService } from '../slots/slots.service';
+import { UploadsService } from '../uploads/uploads.service';
 import { type Actor, BookingCore } from './booking-core';
 import { ACTIVE_STATUSES, CANCELLABLE, REFUND_ON_CANCEL, RESCHEDULABLE } from './booking-status';
 import { BOOKING_INCLUDE, type BookingDto, type BookingRow } from './booking-view';
@@ -46,6 +47,7 @@ export class BookingsService {
     private readonly payments: PaymentsService,
     private readonly core: BookingCore,
     private readonly dispatch: DispatchService,
+    private readonly uploads: UploadsService,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -64,9 +66,11 @@ export class BookingsService {
     if (!service) throw validation('serviceId');
     const known = new Set(service.issues.map((i) => i.id));
     if (input.problem.issueIds.some((id) => !known.has(id))) throw validation('problem.issueIds');
-    // Uploads arrive in step 10; until then no photo or audio id can exist.
-    if (input.problem.photos.length > 0) throw validation('problem.photos');
-    if (input.problem.voiceNote?.audioId !== undefined) throw validation('problem.voiceNote.audioId');
+    // Photos and the voice note must be the customer's own uploads, checked (type, size, length; photo location removed).
+    const photoIds = input.problem.photos.map((p) => p.id);
+    await this.uploads.ready(customerId, photoIds, 'PHOTO', 'problem.photos', 'PROBLEM');
+    const audioId = input.problem.voiceNote?.audioId;
+    const [audio] = audioId ? await this.uploads.ready(customerId, [audioId], 'AUDIO', 'problem.voiceNote.audioId') : [];
     const address = await this.ownedAddress(customerId, input.addressId);
 
     const addressSnapshotEnc = await this.cipher.encrypt('bookings.address', JSON.stringify(address));
@@ -93,7 +97,8 @@ export class BookingsService {
               issueIds: input.problem.issueIds,
               notes: input.problem.notes,
               voiceTranscript: input.problem.voiceNote?.transcript ?? null,
-              voiceDurationSec: input.problem.voiceNote?.durationSec ?? null,
+              // The recording's real length when there is one, not what the app says.
+              voiceDurationSec: audio?.durationSec ?? input.problem.voiceNote?.durationSec ?? null,
               ...windowFields(input.time),
               preferWomenRated: input.preferWomenRated,
               status: 'AWAITING_PAYMENT',
@@ -106,6 +111,8 @@ export class BookingsService {
           });
           await tx.$executeRaw`UPDATE bookings SET location = (SELECT location FROM addresses WHERE id = ${address.id}::uuid) WHERE id = ${b.id}::uuid`;
           await this.payments.createDue(tx, b.id, 'VISIT', service.visitFeePaise);
+          await this.uploads.attach(tx, b.id, customerId, photoIds, 'problem.photos');
+          if (audio) await this.uploads.attach(tx, b.id, customerId, [audio.id], 'problem.voiceNote.audioId');
           await this.core.event(tx, b.id, 'AWAITING_PAYMENT', actor);
           return b.id;
         });

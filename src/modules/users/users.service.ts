@@ -9,6 +9,7 @@ import { PrismaService } from '../../common/prisma/prisma.module';
 import { AddressesService } from '../addresses/addresses.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { TechniciansService } from '../technicians/technicians.service';
+import { UploadsService } from '../uploads/uploads.service';
 
 /** openapi.yaml Customer: the signed-in person's identity (used for both roles). */
 export interface CustomerDto {
@@ -34,6 +35,7 @@ export class UsersService {
     private readonly bookings: BookingsService,
     private readonly technicians: TechniciansService,
     private readonly audit: AuditService,
+    private readonly uploads: UploadsService,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -68,7 +70,7 @@ export class UsersService {
   async delete(userId: string): Promise<void> {
     const user = await this.active(userId);
     const now = new Date(this.clock.now());
-    await this.prisma.$transaction(async (tx) => {
+    const uploads = await this.prisma.$transaction(async (tx) => {
       if (user.role === 'CUSTOMER') await this.bookings.anonymiseForDeletion(tx, userId);
       if (user.role === 'TECHNICIAN') await this.technicians.anonymiseForDeletion(tx, userId);
       await tx.otpChallenge.deleteMany({ where: { phoneHash: user.phoneHash, role: user.role } });
@@ -84,7 +86,10 @@ export class UsersService {
         data: { status: 'DELETED', deletedAt: now, nameEnc: null, phoneEnc: new Uint8Array(0), phoneHash: new Uint8Array(randomBytes(32)) },
       });
       await this.audit.record({ actorType: user.role === 'TECHNICIAN' ? 'TECHNICIAN' : 'CUSTOMER', actorId: userId, action: 'user.delete', entity: 'user', entityId: userId, before: { status: user.status }, after: { status: 'DELETED' } }, tx);
+      // Photos and voice notes (their home, their voice) go too; the files after commit.
+      return this.uploads.forgetUser(tx, userId);
     });
+    await this.uploads.deleteObjects(uploads);
     this.log.log(`account ${userId} deleted and anonymised`);
   }
 

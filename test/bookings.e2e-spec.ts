@@ -155,8 +155,9 @@ describe('bookings (e2e)', () => {
         expect(await fieldsOf(newBooking({ problem: { issueIds: ['fan-dead'], notes: '', voiceNote: null, photos: [] } }))).toEqual({ 'problem.issueIds': 'INVALID' });
       });
 
-      it('refuses photo and audio ids until uploads exist (step 10)', async () => {
-        expect(await fieldsOf(newBooking({ problem: { issueIds: ['tap-leak'], notes: '', voiceNote: null, photos: [{ id: 'ph_1' }] } }))).toEqual({ 'problem.photos': 'INVALID' });
+      it("refuses photo and audio ids that are not the customer's uploads (test/uploads.e2e-spec.ts has the rest)", async () => {
+        await book(newBooking({ problem: { issueIds: ['tap-leak'], notes: '', voiceNote: null, photos: [{ id: 'ph_1' }] } })).expect(404);
+        await book(newBooking({ problem: { issueIds: [], notes: '', voiceNote: { durationSec: 5, transcript: '', audioId: randomUUID() }, photos: [] } })).expect(404);
       });
 
       it('needs an existing service and one of your own addresses', async () => {

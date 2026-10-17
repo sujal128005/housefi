@@ -6,6 +6,7 @@ import type { ActorType, Booking, BookingStatus, Prisma } from '@prisma/client';
 import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { FieldCipher } from '../../common/crypto/field-cipher';
+import { MediaUrls } from '../../common/storage/object-store';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectConfig } from '../../config/config.module';
@@ -39,6 +40,7 @@ export class BookingCore {
     readonly updates: BookingUpdates,
     private readonly notifier: Notifier,
     private readonly audit: AuditService,
+    private readonly media: MediaUrls,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -132,7 +134,7 @@ export class BookingCore {
     const row = await this.prisma.booking.findFirst({ where: { id, customerId }, select: { status: true, createdAt: true } });
     if (!row) throw new AppError('NOT_FOUND');
     if (this.isOverdueUnpaid(row)) await this.expireOne(id);
-    return toBookingDto(await this.prisma.booking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE }), this.cipher);
+    return toBookingDto(await this.prisma.booking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE }), this.cipher, this.media);
   }
 
   async list(customerId: string, scope: 'active' | 'past' | 'all'): Promise<BookingDto[]> {
@@ -149,7 +151,7 @@ export class BookingCore {
       take: LIST_LIMIT,
       include: BOOKING_INCLUDE,
     });
-    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher)));
+    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher, this.media)));
   }
 
   // ---------- technician reads ----------
@@ -159,7 +161,7 @@ export class BookingCore {
     if (!UUID.test(id)) throw new AppError('NOT_FOUND');
     const row = await this.prisma.booking.findFirst({ where: { id, technicianId }, include: JOB_INCLUDE });
     if (!row) throw new AppError('NOT_FOUND');
-    return toJobDto(row, this.cipher, this.jobViewOptions());
+    return toJobDto(row, this.cipher, this.jobViewOptions(), this.media);
   }
 
   async listJobs(technicianId: string, scope: 'active' | 'past' | 'all'): Promise<JobDto[]> {
@@ -171,7 +173,7 @@ export class BookingCore {
       include: JOB_INCLUDE,
     });
     const opts = this.jobViewOptions();
-    return Promise.all(rows.map((r) => toJobDto(r, this.cipher, opts)));
+    return Promise.all(rows.map((r) => toJobDto(r, this.cipher, opts, this.media)));
   }
 
   private jobViewOptions(): JobViewOptions {

@@ -6,6 +6,7 @@ import request from 'supertest';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
 import { FALLBACK_PROBLEMS } from '../src/modules/ai/top-problems';
 import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, type TestApp } from './helpers';
+import { jpegWithGps, m4a } from './media-fixtures';
 
 const DAY = 24 * 60 * 60_000;
 const HOME = { label: 'HOME', house: 'Flat 4B, Lake View', street: 'Road No. 12, Banjara Hills', landmark: '', city: 'Hyderabad', pincode: '500034', lat: 17.4126, lng: 78.4482 };
@@ -102,16 +103,26 @@ describe('AI endpoints (e2e)', () => {
   });
 
   describe('photo and voice (no models yet)', () => {
+    /** A file uploaded the way the app does it: ticket, then PUT to the signed URL. */
+    async function uploaded(kind: 'photos' | 'audio', bytes: Buffer, contentType: string): Promise<string> {
+      const { id } = (await api().post(`/v1/uploads/${kind}`).set(as(customer)).send({ contentType, bytes: bytes.length }).expect(200)).body;
+      t.store.upload(id, bytes, contentType);
+      return id;
+    }
+
     it('classify-photo does not guess: it offers the most booked services', async () => {
       for (let i = 0; i < 2; i++) await booking({ serviceId: 'app-washer', categoryId: 'APPLIANCE', issueIds: ['wm-drain'], createdAt: new Date(t.clock.now()) });
-      const res = await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId: 'ph_123' }).expect(200);
+      const photoId = await uploaded('photos', jpegWithGps(), 'image/jpeg');
+      const res = await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId }).expect(200);
       expect(res.body).toEqual({ serviceId: null, confidence: 0, alternatives: ['app-washer', 'plumb-tap', 'elec-fan', 'ac-service'] });
       await api().post('/v1/ai/classify-photo').set(as(customer)).send({}).expect(422);
+      await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId: 'ph_123' }).expect(404);
     });
 
     it('transcribe returns no text until speech-to-text is chosen', async () => {
-      expect((await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId: 'au_1', serviceId: 'plumb-tap', locale: 'te' }).expect(200)).body).toEqual({ text: '' });
-      expect((await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId: 'au_1', serviceId: null, locale: 'en' }).expect(200)).body).toEqual({ text: '' });
+      const audioId = await uploaded('audio', m4a(6), 'audio/m4a');
+      expect((await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId, serviceId: 'plumb-tap', locale: 'te' }).expect(200)).body).toEqual({ text: '' });
+      expect((await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId, serviceId: null, locale: 'en' }).expect(200)).body).toEqual({ text: '' });
       await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId: 'au_1', serviceId: 'no-such-service', locale: 'en' }).expect(422);
       await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId: 'au_1', locale: 'hi' }).expect(422);
     });

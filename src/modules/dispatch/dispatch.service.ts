@@ -127,7 +127,7 @@ export class DispatchService {
   async currentOffer(technicianId: string): Promise<JobOfferDto | null> {
     const offer = await this.prisma.jobOffer.findFirst({
       where: { technicianId, state: 'OPEN', expiresAt: { gt: new Date(this.clock.now()) } },
-      include: { booking: true },
+      include: { booking: { include: { _count: { select: { uploads: { where: { kind: 'PHOTO', stage: 'PROBLEM' } } } } } } },
     });
     return offer ? toJobOfferDto(offer, this.config.TECH_VISIT_SHARE_RUPEES) : null;
   }

@@ -15,6 +15,7 @@ import { type Env, parseEnv } from '../src/config/env';
 import { configureApp, createAdapter } from '../src/http';
 import { SMS_SENDER, type SmsSender } from '../src/modules/auth/sms';
 import { TechVerificationService } from '../src/modules/technicians/tech-verification.service';
+import { OBJECT_STORE, ObjectTooLarge, type ObjectStore, uploadKey } from '../src/common/storage/object-store';
 import { PUSH_SENDER, PushUnavailable, type PushMessage, type PushSender, type PushTicket } from '../src/modules/notifications/push-sender';
 import { RAZORPAY_CLIENT, RazorpayError, type RazorpayClient, type RzpOrder, type RzpPayment, type RzpPaymentStatus, type RzpRefund } from '../src/modules/payments/razorpay.client';
 
@@ -141,6 +142,41 @@ export class FakeRazorpay implements RazorpayClient {
   }
 }
 
+/** The uploads bucket in memory. `upload(id, bytes)` is the app's PUT to the signed URL. */
+export class FakeObjectStore implements ObjectStore {
+  readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
+
+  async presignPut(key: string, contentType: string, bytes: number, expiresInSec: number): Promise<string> {
+    return `https://uploads.test/${key}?op=put&type=${encodeURIComponent(contentType)}&bytes=${bytes}&expires=${expiresInSec}`;
+  }
+
+  async presignGet(key: string, expiresInSec: number): Promise<string> {
+    return `https://uploads.test/${key}?op=get&expires=${expiresInSec}`;
+  }
+
+  async get(key: string, maxBytes: number): Promise<Uint8Array | null> {
+    const o = this.objects.get(key);
+    if (o && o.bytes.length > maxBytes) throw new ObjectTooLarge('too large');
+    return o ? new Uint8Array(o.bytes) : null;
+  }
+
+  async put(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
+    this.objects.set(key, { bytes: new Uint8Array(bytes), contentType });
+  }
+
+  async delete(key: string): Promise<void> {
+    this.objects.delete(key);
+  }
+
+  upload(uploadId: string, bytes: Uint8Array, contentType = 'application/octet-stream'): void {
+    this.objects.set(uploadKey(uploadId), { bytes: new Uint8Array(bytes), contentType });
+  }
+
+  stored(uploadId: string): Uint8Array | undefined {
+    return this.objects.get(uploadKey(uploadId))?.bytes;
+  }
+}
+
 /** Records pushes instead of sending them; can be made unavailable, or told a device is gone. */
 export class FakePush implements PushSender {
   readonly sent: PushMessage[] = [];
@@ -164,7 +200,7 @@ export class FakePush implements PushSender {
 }
 
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE ratings, notifications, devices, earnings_ledger, payouts, support_tickets, quote_lines, quotes, job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE uploads, ratings, notifications, devices, earnings_ledger, payouts, support_tickets, quote_lines, quotes, job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
 }
 
 export interface TestApp {
@@ -176,6 +212,7 @@ export interface TestApp {
   readonly rateLimits: MemoryRateLimitStore;
   readonly razorpay: FakeRazorpay;
   readonly push: FakePush;
+  readonly store: FakeObjectStore;
   close(): Promise<void>;
 }
 
@@ -190,6 +227,7 @@ export async function buildTestApp(opts: {
   const rateLimits = new MemoryRateLimitStore();
   const razorpay = new FakeRazorpay();
   const push = new FakePush();
+  const store = new FakeObjectStore();
   let builder = Test.createTestingModule({ imports: [AppModule.forRoot(config)], controllers: opts.controllers ?? [] })
     .overrideProvider(CLOCK)
     .useValue(clock)
@@ -200,14 +238,16 @@ export async function buildTestApp(opts: {
     .overrideProvider(RAZORPAY_CLIENT)
     .useValue(razorpay)
     .overrideProvider(PUSH_SENDER)
-    .useValue(push);
+    .useValue(push)
+    .overrideProvider(OBJECT_STORE)
+    .useValue(store);
   if (opts.prisma) builder = builder.overrideProvider(PrismaService).useValue(opts.prisma);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(createAdapter(config), { rawBody: true });
   await configureApp(app, config);
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  return { app, prisma: app.get(PrismaService), clock, sms, rateLimits, razorpay, push, close: () => app.close() };
+  return { app, prisma: app.get(PrismaService), clock, sms, rateLimits, razorpay, push, store, close: () => app.close() };
 }
 
 export interface SignedIn {

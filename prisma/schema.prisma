@@ -60,6 +60,7 @@ model User {
   addresses     Address[]
   devices       Device[]
   ratingsGiven  Rating[]
+  uploads       Upload[]
   notifications Notification[]
   bookings      Booking[]
   technician    Technician?     @relation("TechnicianUser")
@@ -350,6 +351,7 @@ model Booking {
   tickets       SupportTicket[]
   ledger        EarningsLedger[]
   rating        Rating?
+  uploads       Upload[]
   notifications Notification[]
 
   @@unique([customerId, idempotencyKey])
@@ -914,4 +916,61 @@ model Rating {
 
   @@index([technicianId, createdAt(sort: Desc)])
   @@map("ratings")
+}
+
+// ---------- uploads ----------
+
+enum UploadKind {
+  PHOTO
+  AUDIO
+
+  @@map("upload_kind")
+}
+
+enum UploadStage {
+  PROBLEM
+  INSPECTION
+  COMPLETION
+
+  @@map("upload_stage")
+}
+
+enum UploadState {
+  /// A signed PUT URL was handed out; the file may or may not be in the bucket yet.
+  PENDING
+  /// The file was checked (type, size, length) and, for photos, its location data removed.
+  READY
+  /// The file failed the checks; the object is deleted.
+  REJECTED
+
+  @@map("upload_state")
+}
+
+/// A photo or voice note in the private uploads bucket. The object key carries no personal data (u/<id>).
+model Upload {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId      String       @map("owner_id") @db.Uuid
+  kind         UploadKind
+  stage        UploadStage?
+  contentType  String       @map("content_type")
+  /// The exact size the signed URL allows (S3 refuses any other Content-Length).
+  bytes        Int
+  state        UploadState  @default(PENDING)
+  /// Seconds, for voice notes (from the file).
+  durationSec  Int?         @map("duration_sec")
+  /// Set once the upload is part of a booking; it can never move to another one.
+  bookingId    String?      @map("booking_id") @db.Uuid
+  rejectReason String?      @map("reject_reason")
+  createdAt    DateTime     @map("created_at") @db.Timestamptz(6)
+  /// The signed PUT URL stops working at this time.
+  urlExpiresAt DateTime     @map("url_expires_at") @db.Timestamptz(6)
+  verifiedAt   DateTime?    @map("verified_at") @db.Timestamptz(6)
+
+  owner   User     @relation(fields: [ownerId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@index([bookingId])
+  @@index([state, createdAt])
+  @@map("uploads")
 }

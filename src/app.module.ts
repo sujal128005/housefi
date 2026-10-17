@@ -8,6 +8,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { RateLimitGuard } from './common/rate-limit/rate-limit.guard';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { RedisModule } from './common/redis/redis.module';
+import { StorageModule } from './common/storage/object-store';
 import { ConfigModule } from './config/config.module';
 import type { Env } from './config/env';
 import { AddressesModule } from './modules/addresses/addresses.module';
@@ -27,6 +28,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { SlotsModule } from './modules/slots/slots.module';
 import { SupportModule } from './modules/support/support.module';
 import { TechniciansModule } from './modules/technicians/technicians.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({})
@@ -34,7 +36,7 @@ export class AppModule {
   static forRoot(config: Env): DynamicModule {
     return {
       module: AppModule,
-      imports: [ConfigModule.forRoot(config), ClockModule, RedisModule, PrismaModule, CryptoModule, AuditModule, NotifierModule, RateLimitModule, AuthModule, UsersModule, CatalogModule, AddressesModule, SlotsModule, BookingsModule, PaymentsModule, TechniciansModule, DispatchModule, JobsModule, EarningsModule, NotificationsModule, AiModule, SupportModule, CoordinatorModule, HealthModule],
+      imports: [ConfigModule.forRoot(config), ClockModule, RedisModule, PrismaModule, StorageModule, CryptoModule, AuditModule, NotifierModule, RateLimitModule, AuthModule, UploadsModule, UsersModule, CatalogModule, AddressesModule, SlotsModule, BookingsModule, PaymentsModule, TechniciansModule, DispatchModule, JobsModule, EarningsModule, NotificationsModule, AiModule, SupportModule, CoordinatorModule, HealthModule],
       providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
         // Guards run in this order: per-IP rate limit first (cheap, stops floods before token checks), then auth.
