@@ -243,3 +243,14 @@ The goal is none. Each entry links to the open question that will remove it.
   - `devices`: `push_token` unique on its own, plus `session_id` and `created_at`; `platform` is an enum.
   - `notifications`: `kind` is an enum; adds `seq` (tie-break) and `push_state` / `push_attempts` /
     `push_claimed_at` (delivery). Timestamps come from the application clock.
+
+## AI (step 12)
+
+- **Access:** all `/ai/*` endpoints need a customer token (`NOT_FOUND` for a technician).
+- **`GET /ai/top-problems`:** `pincode` is optional.
+  - `area` is null without a PIN or for a PIN with no bookings yet.
+  - `recentCount` can be 0 (items from the default list while there is little data).
+- **`POST /ai/classify-photo`:** always `{ serviceId: null, confidence: 0, alternatives: [4 service ids] }`.
+- **`POST /ai/transcribe`:** always `{ text: "" }`. An unknown `serviceId` is `VALIDATION`.
+- **`POST /ai/chat`:** `conversationId` is always returned (a new one when none is sent); no history is kept.
+  The `suggestions` are ready-to-send messages in the request's `locale`.

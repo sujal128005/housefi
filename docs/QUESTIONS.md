@@ -179,3 +179,12 @@ Found while reading the handoff and building. Each one says what the backend doe
     Add kinds for these, or leave them to the live booking updates?
 50. **SMS fallback** for customers ("technician on the way") is optional in README §9 and not built. Needed for v1?
     It would need DLT templates.
+
+## Found in step 12 (AI)
+
+51. **Top problems for a PIN we have never served:** the list is city-wide (or the default list) with `area: null`.
+    Should the app show the address's own locality instead (it knows it)?
+52. **Uploads** (`POST /uploads/photos`, `/uploads/audio` in README §5) are not in the 14-step build order, so
+    `photoId` / `audioId` cannot be checked against a real upload yet. Which step should add S3 pre-signed uploads?
+53. **Support chat wording and keywords** (`src/modules/ai/chat-rules.ts`), especially the Telugu and the safety
+    advice (112), need review by the support team.

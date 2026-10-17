@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-11 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-12 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -27,8 +27,10 @@ Build steps 1-11 of 14 (`docs/STARTER-PROMPT.md`) are done:
     `npm run payouts` (audited).
 11. Notifications: `GET /v1/notifications`, `POST /v1/notifications/read`, `POST /v1/devices`; an inbox row for every
     `NotificationKind`, written with the change it announces, and Expo push (job offers high priority).
+12. AI (rule-based v1): `GET /v1/ai/top-problems`, `POST /v1/ai/classify-photo`, `/ai/transcribe`, `/ai/chat`, each
+    behind an interface a model can replace.
 
-Next is **step 12**: the rule-based AI endpoints (`/v1/ai/top-problems`, `classify-photo`, `transcribe`, `chat`).
+Next is **step 13**: support and coordinator (tickets, callback requests, coordinator assign / act on behalf).
 
 ## Run it locally
 
@@ -124,6 +126,8 @@ src/
     jobs/                 the visit step by step (jobs.service.ts), price-check.ts, review auto-clear worker, jobs API
     earnings/             earnings-rules.ts (shares, payout calendar), ledger.ts (written by BookingCore.transition),
                           GET /tech/earnings and the payout run
+    ai/                   top-problems.ts (ranking), models.ts (photo / speech stand-ins), chat-rules.ts + chat.ts
+                          (support assistant); swap implementations in ai.module.ts
     notifications/        notifier.ts (the outbox every module writes to), booking-notices.ts (who hears about a
                           status change), push texts (en / te), Expo sender, delivery worker, inbox and devices API
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
@@ -420,3 +424,30 @@ configured"); everything else works.
 - **Account deletion** deletes the user's inbox and devices.
 - **`PUSH_PROVIDER`:** `log` (default, development and tests) or `expo` (required in production).
   `EXPO_ACCESS_TOKEN` is needed only if the Expo project turns on enhanced push security.
+
+## Decisions taken in step 12
+
+- **Customers only.** The AI endpoints are customer features (Home, booking, Help). A technician gets `NOT_FOUND`,
+  like any other wrong role. All four need a signed-in customer (README: only auth, catalog, health and the
+  webhook are open).
+- **Each feature is an interface with a DI token** (`TOP_PROBLEMS_RANKER`, `PHOTO_CLASSIFIER`, `SPEECH_TO_TEXT`,
+  `CHAT_ASSISTANT`). A model replaces the rules by changing one provider in `ai.module.ts`.
+- **Top problems** counts issue chips on bookings from the last 7 days:
+  - First in the PIN and its neighbours (`service_area_pincodes`), then city-wide (the PIN's city, from past
+    bookings), then the app's own `TOP_PROBLEMS` list with `recentCount` 0. There are always 6 items.
+  - Only bookings that went ahead count: awaiting payment, payment pending and expired-unpaid bookings do not.
+    Only issues still in the catalog count.
+  - `area` is the most common locality booked in that PIN plus its city ("Banjara Hills, Hyderabad"). It is null
+    without a PIN, or for a PIN never booked.
+  - A city-wide fill keeps its city-wide count.
+- **Photo classification** never guesses (`serviceId: null`, `confidence: 0`); it offers the 4 most booked
+  services. **Transcription** returns `""`, and the app keeps the voice note as audio. Uploads do not exist yet, so
+  `photoId` / `audioId` are only checked for shape (QUESTIONS.md #52).
+- **Support chat** uses keyword rules in English and Telugu (like the app's demo) over the caller's newest active
+  booking, read through `BookingCore.list` (their own bookings only):
+  - It answers where the technician is, the quote or bill waiting, prices (from config), cancelling (by status, with
+    the refund rule), rescheduling (where allowed) and refunds.
+  - Anything that sounds dangerous (sparks, gas, shock, fire) gets safety advice and `offerHuman`. So does asking
+    for a person, a cancellation the app cannot do, or anything it does not understand.
+  - It is stateless: `conversationId` is echoed, or a new one is started. Messages are not logged or stored.
+- **Rate limits:** chat 30 per minute; photo and voice 20 per minute.
