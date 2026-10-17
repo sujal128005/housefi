@@ -62,6 +62,8 @@ stateDiagram-v2
 
 `OPEN` → `ACCEPTED` | `REJECTED` | `EXPIRED` (45 s) | `WITHDRAWN` (customer cancelled or another technician got it).
 Only one `OPEN` offer per booking and per technician at a time. Accepting checks, in one transaction with a row lock on the booking: offer still `OPEN`, not expired, booking still `MATCHING`/`MATCHING_DELAYED`, technician has no other active job. Otherwise `OFFER_EXPIRED`.
+Every channel (app, IVR call, coordinator) accepts through this same transaction. A phone call being placed, ringing or
+answered never accepts an offer; only a keypad "accept" does (proposed IVR rules: `TELEPHONY-DISPATCH.md`).
 
 ## Quotes
 

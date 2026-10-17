@@ -126,6 +126,14 @@ Check everything in README section 6b, with tests:
   coordinator actions audited.
 - `npm audit` and Dependabot have no high or critical issues; CodeQL runs in CI.
 
+## 7b. Phone-call offers (once built, see `TELEPHONY-DISPATCH.md`)
+
+With the fake telephony provider only, never real numbers: a call being placed, ringing or answered never accepts a
+job; a keypad accept after expiry or for a taken job changes nothing; a keypad accept racing an app accept gives one
+winner; forged, duplicate and out-of-order provider callbacks are refused or ignored; no answer, busy and provider
+failure move to the next technician; the customer is never notified before `ASSIGNED`; logs carry no phone numbers or
+keypad input.
+
 ## 8. Reliability
 
 - Health check reports database, Redis and storage. If Redis or storage goes down, requests fail with

@@ -173,7 +173,7 @@ IN_PROGRESS ── technician: Complete ──► PAYMENT_DUE ── customer pa
 Answers:
 
 - **After the customer books:** the booking exists in `AWAITING_PAYMENT`, holding the arrival code. Nothing is dispatched until the ₹49 is paid. Unpaid bookings expire after 30 minutes (release the slot).
-- **Automatic or coordinator?** Automatic dispatch in v1. Coordinators can also assign manually (needed for technicians without smartphones; API only now, admin portal later).
+- **Automatic or coordinator?** Automatic dispatch in v1. Coordinators can also assign manually (needed for technicians without smartphones; API only now, admin portal later). Offers by automatic phone call (IVR) to keypad-phone technicians, call outcomes, retries and the manual queue: requirements in `TELEPHONY-DISPATCH.md` (not built yet).
 - **Dispatch order:** approved + online + has the skill + inside the service area (same PIN or within radius once GPS is used) + no active job + not already offered this booking. If the customer asked for "rated highly by women", offer those technicians first. Then by distance, rating and fewest jobs today (fairness).
 - **Can a technician reject?** Yes, with an optional reason (`TOO_FAR`, `BUSY`, `NOT_MY_SKILL`, `OTHER`). The next technician is offered at once.
 - **No response:** the offer expires after 45 seconds (`OFFER_EXPIRED`), the technician gets a "missed offer" record, next technician. 3 missed offers in a row sets the technician offline automatically (and tells them).
@@ -411,7 +411,7 @@ Every query must filter by the owner (`customerId = me` / `technicianId = me`); 
 | In-app inbox | Yes: `GET /notifications` (kinds listed in `NotificationKind`, `api.ts`). The app writes the text in the right language from `kind` + `params`. | |
 | Push (smartphone) | Yes: Expo push tokens via `POST /devices` (Expo push service, or FCM/APNs directly). Job offers use a high-priority channel with sound. | |
 | SMS | OTP only. Booking confirmations and "technician on the way" SMS to customers: optional in v1. | |
-| Keypad-phone technicians | Data model ready: `phoneType = KEYPAD`, offers with `channel = SMS` ("Reply 1 HF-12345 to accept"). | Two-way SMS and IVR ("press 1 to accept", key in the start code) via Exotel/Knowlarity. |
+| Keypad-phone technicians | Data model ready: `phoneType = KEYPAD`, offers with `channel = SMS` ("Reply 1 HF-12345 to accept"). | Two-way SMS and IVR ("press 1 to accept", key in the start code) via Exotel/Knowlarity. Requirements for IVR offers (calls, outcomes, retries, fallback, manual queue): `TELEPHONY-DISPATCH.md`. |
 | Technicians with no phone | `phoneType = NONE`, linked to a coordinator. **Coordinator-assisted assignment API in v1** (assign a job to a technician, update status on their behalf; every action audited with `actorType = COORDINATOR`). No UI yet (admin portal later). | Coordinator app/portal. |
 | Acceptance confirmation | Customer: `TECH_ASSIGNED` push + live update. Technician: the accept response. | |
 | Reminders | Scheduled visits: technician reminder 60 min before window start; customer reminder the evening before and when the technician starts the trip. | |
