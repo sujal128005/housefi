@@ -150,3 +150,16 @@ Found while reading the handoff and building. Each one says what the backend doe
     #8); reminders come with notifications (step 11). Should a 30-minute timeout close it automatically instead?
 42. **ETA** is a straight-line estimate (x1.4 at 20 km/h). Is that good enough until a routing API (Google
     Distance Matrix) is added?
+
+## Found in step 10 (earnings)
+
+43. **Negative balances:** a technician who collects a lot of cash (the full bill) can owe Housefi more than they earned
+    that week. The backend carries the debt into the next week and shows `pendingPayout` as a negative number. How
+    should the app show that, and should there be a limit on cash jobs for a technician who owes money?
+44. **Bank / UPI details** for payouts are not part of the technician profile (`TechProfileInput`), so the payout
+    list has no account to pay into. Where do they come from (onboarding, a coordinator)? And should they be verified
+    (penny drop) before the first payout?
+45. **Cancelled while travelling:** the customer pays nothing back (the ₹49 is not refunded from `EN_ROUTE`), and the
+    technician gets the ₹30 visit share. Is that the intended rule?
+46. **Payout day on a Monday:** `nextPayoutOn` shows today until the end of Monday, even after that week's payout is
+    paid. Should it switch to the following Monday once paid?

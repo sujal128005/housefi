@@ -1,4 +1,4 @@
-import { priceCheck, technicianEarning, totals } from './price-check';
+import { priceCheck, totals } from './price-check';
 
 const labour = (unitPrice: number, qty = 1) => ({ kind: 'LABOUR' as const, qty, unitPrice });
 const material = (unitPrice: number, qty = 1) => ({ kind: 'MATERIAL' as const, qty, unitPrice });
@@ -26,21 +26,5 @@ describe('price check (README §10)', () => {
   it('sends any single line above ₹5,000 to review, even when the service range is high', () => {
     expect(priceCheck([material(5000)], 1_000_000n)).toBe('FAIR');
     expect(priceCheck([material(2501, 2)], 1_000_000n)).toBe('UNDER_REVIEW');
-  });
-});
-
-describe("technician's earning (README §10)", () => {
-  it('is the ₹30 visit share plus 80% of labour plus all materials', () => {
-    // examples/earnings.json: ₹120 labour + ₹200 materials = 30 + 96 + 200.
-    expect(technicianEarning(30, 80, [{ labourPaise: 12_000n, materialPaise: 20_000n }])).toBe(326);
-  });
-
-  it('adds approved extra work and is just the visit share without a repair', () => {
-    expect(technicianEarning(30, 80, [{ labourPaise: 12_000n, materialPaise: 20_000n }, { labourPaise: 0n, materialPaise: 34_000n }])).toBe(666);
-    expect(technicianEarning(30, 80, [])).toBe(30);
-  });
-
-  it('rounds to whole rupees', () => {
-    expect(technicianEarning(30, 80, [{ labourPaise: 14_900n, materialPaise: 0n }])).toBe(149); // 30 + 119.2
   });
 });

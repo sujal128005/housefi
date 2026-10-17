@@ -176,7 +176,7 @@ export class PaymentsService {
       const latest = await tx.payment.findFirst({ where: { bookingId, kind: 'FINAL' }, orderBy: { createdAt: 'desc' } });
       if (b.status !== 'PAYMENT_DUE' || !latest || latest.method !== 'CASH' || latest.state !== 'PENDING') throw new AppError('CONFLICT');
       await tx.payment.update({ where: { id: latest.id }, data: { state: 'PAID', settledAt: this.core.now() } });
-      // Step 10: the earnings ledger records cash collected here.
+      // The transition writes the earnings, with the cash as a debit (earnings/ledger.ts).
       await this.core.transition(tx, b, 'COMPLETED', {}, { type: 'TECHNICIAN', id: technicianId }, { paymentId: latest.id, cash: true });
     });
     this.core.updates.publish(bookingId);
@@ -277,7 +277,7 @@ export class PaymentsService {
         const paidBefore = await tx.payment.count({ where: { bookingId: b.id, kind: p.kind, state: { in: ['PAID', 'REFUNDED'] }, id: { not: p.id } } });
         const waiting = p.kind === 'VISIT' ? b.status === 'AWAITING_PAYMENT' || b.status === 'PAYMENT_PENDING' : b.status === 'PAYMENT_DUE';
         if (waiting && paidBefore === 0) {
-          // VISIT: the booking is confirmed and the search starts. FINAL: completed (earnings in step 10).
+          // VISIT: the booking is confirmed and the search starts. FINAL: completed (the transition writes the earnings).
           if (p.kind === 'VISIT') {
             await this.core.transition(tx, b, 'MATCHING', { matchingStartedAt: now }, SYSTEM, { paymentId: p.id });
             return { ...done, outcome, changed: true, startedMatching: true };

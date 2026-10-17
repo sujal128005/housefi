@@ -42,12 +42,3 @@ export function priceCheck(lines: readonly LineInput[], typicalMaxPaise: bigint)
   return 'FAIR';
 }
 
-/**
- * What a job earns the technician (README §10): the visit share, plus a share of approved labour, plus approved
- * materials in full (reimbursement). Rupees, rounded to the nearest rupee.
- */
-export function technicianEarning(visitShareRupees: number, labourPercent: number, approved: readonly { labourPaise: bigint; materialPaise: bigint }[]): number {
-  let paise = BigInt(visitShareRupees) * 100n;
-  for (const q of approved) paise += (q.labourPaise * BigInt(labourPercent)) / 100n + q.materialPaise;
-  return Math.round(Number(paise) / 100);
-}

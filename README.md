@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-9 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-10 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -23,8 +23,10 @@ Build steps 1-9 of 14 (`docs/STARTER-PROMPT.md`) are done:
    sequential 45 s offers, ranking, still searching / none found, reassignment, offline after 3 misses.
 9. Job actions: `POST /v1/tech/jobs/{id}/start-trip|arrived|verify-start-code|quotes|start-work|complete|confirm-cash|reports`,
    `POST /v1/bookings/{id}/quotes/{MAIN|EXTRA}/answer`; rule-based price check, ETA from location updates.
+10. Earnings: append-only `earnings_ledger` written when a job closes, `GET /v1/tech/earnings`, weekly payouts with
+    `npm run payouts` (audited).
 
-Next is **step 10**: the earnings ledger and `GET /v1/tech/earnings`.
+Next is **step 11**: notifications (push, SMS fallback, `GET /v1/notifications`).
 
 ## Run it locally
 
@@ -63,6 +65,7 @@ minute); the per-phone OTP limits live in Postgres and always apply.
 | `npm run db:migrate` / `npm run db:deploy` | Create a migration (development) / apply migrations |
 | `npm run db:seed` | Load `catalog.data.json` into the database; idempotent, run it on every deploy after `db:deploy` |
 | `npm run tech -- pending` / `approve <id\|phone>` / `correct <id\|phone> "<note>" ["<te>"]` | Review technician profiles (every decision goes to `audit_log`) |
+| `npm run payouts -- prepare` / `list [STATE]` / `paid <id> <ref>` / `failed <id>` | Monday payouts: create them, list them, record the transfer (audited) |
 | `npm run catalog:import` | Re-import the catalog from the app's `catalog.ts` (default `docs/app-contract/catalog.ts`) into `catalog.data.json` |
 
 ## Auth in short
@@ -117,11 +120,14 @@ src/
     technicians/          profile, availability, location; tech-verification.service.ts (approve / correct)
     dispatch/             ranking + offers, accept / reject, timers (DispatchWorker every 5 s), offers API
     jobs/                 the visit step by step (jobs.service.ts), price-check.ts, review auto-clear worker, jobs API
+    earnings/             earnings-rules.ts (shares, payout calendar), ledger.ts (written by BookingCore.transition),
+                          GET /tech/earnings and the payout run
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
   common/audit/          append-only audit_log of privileged actions
   common/http/sse.ts     Server-Sent Events helper (booking and job streams)
   cli/seed.ts            npm run db:seed
   cli/technicians.ts     npm run tech (verification from the command line)
+  cli/payouts.ts         npm run payouts (weekly payouts from the command line)
   common/money.ts         paise <-> whole rupees (refuses fractions)
 prisma/                   schema.prisma + committed migrations (models arrive feature by feature, from docs/schema.sql)
 scripts/                  setup.mjs (local secrets), test.mjs (test database + Jest), import-catalog.mjs,
@@ -342,3 +348,35 @@ configured"); everything else works.
   the jobs controller** (same path) so it can refresh the ETA.
 - **`Job.earning`** is the visit share plus 80% of approved labour plus approved materials, using the same rules
   as the step 10 ledger.
+
+## Decisions taken in step 10
+
+- **The ledger is written by the state machine.** `BookingCore.transition` calls `earnings/ledger.ts` in the same
+  transaction whenever a job closes, so every path (payment webhook or verify, cash confirmation, declined quote,
+  reports, customer cancellation, the coordinator later) records the same amounts:
+  - `COMPLETED`: `VISIT_SHARE` ₹30, `LABOUR_SHARE` 80% of approved labour, `MATERIAL_REIMBURSE` 100% of approved
+    materials, and for a cash bill `CASH_COLLECTED` = minus the bill (the technician holds Housefi's money).
+    `technicians.jobs_done` goes up by one.
+  - `CLOSED_NO_REPAIR` (declined, customer unavailable, cannot complete) and `CANCELLED` while `EN_ROUTE`: the visit
+    share only. Cancelled before the trip, unfulfilled or expired: nothing.
+- **Amounts stay in paise in the ledger** (80% of ₹149 is 11,920 paise); the API rounds to whole rupees. `Job.earning`
+  uses the same functions (`earnings-rules.ts`), so the job card and the ledger always agree.
+- **Append-only, enforced by the database:** a trigger refuses `DELETE` and any change except linking a row to a
+  payout (or unlinking it when the payout failed); CHECK constraints fix the sign of each type; a partial unique index
+  on `(booking_id, type)` means a job is credited once, however often the closing code runs. Corrections are new
+  `ADJUSTMENT` rows. The ledger's foreign keys are `RESTRICT`, so a booking with earnings can never be deleted.
+- **`GET /v1/tech/earnings`:**
+  - `today` / `jobsToday`: job credits written since 00:00 IST, before cash is netted.
+  - `total`: all job credits and adjustments.
+  - `pendingPayout`: the balance: everything in the ledger, i.e. credits minus cash collected minus payouts made. It
+    can be negative when the technician collected more cash than they earned (QUESTIONS.md #43).
+  - `entries`: the latest 50 jobs, each with its credits (cash is netted in the payout, not per job), `PAID` once
+    the payout holding it is paid.
+  - `nextPayoutOn`: the coming Monday (today on a Monday).
+- **Payouts by hand until RazorpayX:** `npm run payouts -- prepare` on Monday creates one payout per technician for
+  the unsettled balance up to Sunday 23:59 IST and links those rows to it. A zero or negative balance creates nothing
+  and carries over. `paid <id> <ref>` records the transfer and adds a `PAYOUT` debit, so the balance drops to zero;
+  `failed <id>` unlinks the rows for next week. Running `prepare` twice creates nothing new; every change is audited.
+- **Test database fix:** PGlite answers a database error in the extended protocol with two ReadyForQuery messages,
+  and Prisma's engine then dropped the connection. `scripts/pglite-server.mjs` now passes on one per Sync, so tests
+  can assert on constraint and trigger errors. Production (PostgreSQL) never had this problem.

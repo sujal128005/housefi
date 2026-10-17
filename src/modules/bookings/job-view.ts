@@ -3,7 +3,7 @@ import type { BookingStatus, CancelReason, CategoryId, CloseReason, Prisma } fro
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import type { AddressDto } from '../addresses/addresses.service';
 import { ACTIVE_STATUSES } from './booking-status';
-import { technicianEarning } from '../jobs/price-check';
+import { jobCredits, rupees } from '../earnings/earnings-rules';
 import { BOOKING_INCLUDE, type BookingRow, EMPTY_ADDRESS, latest, payment, type PaymentDto } from './booking-view';
 import { approvedQuotes, latestQuote, type QuoteDto, toQuoteDto } from './quote-view';
 
@@ -62,12 +62,13 @@ const API_CANCEL_REASONS = new Set<CancelReason>(['PLANS_CHANGED', 'FIXED', 'TOO
 /**
  * What the job earns the technician so far (README §10): nothing when cancelled before the trip; the visit share
  * once the visit is on (also when it ends without repair or is cancelled after the trip started); plus the labour
- * share and materials of approved quotes when the repair goes ahead. Step 10 records the same amounts in the ledger.
+ * share and materials of approved quotes when the repair goes ahead. The ledger records the same amounts
+ * (earnings-rules.ts) when the job closes.
  */
 function earningSoFar(b: BookingRow, opts: JobViewOptions): number {
   if (b.status === 'CANCELLED') return b.events.some((e) => e.status === 'EN_ROUTE') ? opts.visitShareRupees : 0;
-  if (b.status === 'CLOSED_NO_REPAIR') return opts.visitShareRupees;
-  return technicianEarning(opts.visitShareRupees, opts.labourSharePercent, approvedQuotes(b.quotes));
+  const approved = b.status === 'CLOSED_NO_REPAIR' ? [] : approvedQuotes(b.quotes);
+  return rupees(jobCredits(opts, approved).reduce((sum, l) => sum + l.amountPaise, 0n));
 }
 
 export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOptions): Promise<JobDto> {

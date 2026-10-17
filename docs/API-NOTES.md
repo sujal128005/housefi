@@ -202,3 +202,20 @@ The goal is none. Each entry links to the open question that will remove it.
   - CHECK constraints on quotes: totals add up, at least ₹100 for MAIN, more than 0 for EXTRA.
   - A partial unique index allows one waiting quote per kind.
   - `support_tickets` uses enums for state and priority.
+
+## Earnings (step 10)
+
+- **`GET /tech/earnings`** follows the `Earnings` schema. What each field counts:
+  - `today` and `total` are gross earnings (credits); cash collected is netted only in `pendingPayout`.
+  - `pendingPayout` may be **negative** (the technician owes Housefi cash).
+  - `entries` are per job (latest 50), `at` = when the job closed.
+  - `nextPayoutOn` is today on a Monday.
+- **No HTTP endpoint for payouts**; an admin runs `npm run payouts` (the admin portal comes later).
+- **Schema differences from docs/schema.sql:**
+  - `payouts` gains `paid_at`.
+  - Ledger and payout timestamps come from the application clock.
+  - CHECK constraints: the sign of each ledger type; payouts are positive, end after they start, and a PAID payout
+    has a reference.
+  - A partial unique index on `(booking_id, type)`.
+  - An append-only trigger.
+  - `RESTRICT` foreign keys.

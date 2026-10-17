@@ -28,9 +28,62 @@ class ReconnectingSocketServer extends PGLiteSocketServer {
   }
 }
 
+/** Splits a buffer of typed protocol messages into their type bytes; null if it is not exactly that (startup packet, a split message). */
+function messageTypes(buf) {
+  const types = [];
+  let i = 0;
+  while (i < buf.length) {
+    if (buf[i] === 0 || i + 5 > buf.length) return null;
+    const len = buf.readInt32BE(i + 1);
+    if (len < 4 || i + 1 + len > buf.length) return null;
+    types.push({ type: buf[i], start: i, end: i + 1 + len });
+    i += 1 + len;
+  }
+  return types;
+}
+
+const READY = 0x5a; // 'Z'
+const ERROR = 0x45; // 'E'
+const SYNC = 0x53; // 'S'
+const QUERY = 0x51; // 'Q'
+
+/**
+ * PGlite 0.5 answers an error in the extended protocol with ErrorResponse + ReadyForQuery straight away, and then a
+ * second ReadyForQuery for the client's Sync. A real server sends one, after the Sync. Prisma's engine then reads
+ * the extra one as the reply to its next query ("unexpected message from server") and drops the connection, so any
+ * database error (a constraint, a trigger) broke the test connection. Pass on exactly one ReadyForQuery per Sync or
+ * simple Query the client sent, dropping the surplus that follows an error.
+ */
+function fixReadyAfterError(db) {
+  const original = db.execProtocolRawStream.bind(db);
+  db.execProtocolRawStream = async (message, opts = {}) => {
+    const input = messageTypes(Buffer.from(message));
+    if (!input || !opts.onRawData) return original(message, opts);
+    const chunks = [];
+    const result = await original(message, { ...opts, onRawData: (d) => chunks.push(Buffer.from(d)) });
+    const out = Buffer.concat(chunks);
+    const replies = messageTypes(out);
+    let surplus = replies ? replies.filter((m) => m.type === READY).length - input.filter((m) => m.type === SYNC || m.type === QUERY).length : 0;
+    if (surplus <= 0 || !replies) {
+      if (out.length) opts.onRawData(out);
+      return result;
+    }
+    const kept = replies.filter((m, k) => {
+      if (surplus > 0 && m.type === READY && replies[k - 1]?.type === ERROR) {
+        surplus--;
+        return false;
+      }
+      return true;
+    });
+    opts.onRawData(Buffer.concat(kept.map((m) => out.subarray(m.start, m.end))));
+    return result;
+  };
+}
+
 /** @param {{ port: number, dataDir?: string }} opts  dataDir omitted = in memory */
 export async function startPgliteServer({ port, dataDir }) {
   const db = await PGlite.create({ ...(dataDir ? { dataDir } : {}), extensions: { postgis } });
+  fixReadyAfterError(db);
   const server = new ReconnectingSocketServer({ db, port, host: '127.0.0.1', maxConnections: 8 });
   await server.start();
   return {

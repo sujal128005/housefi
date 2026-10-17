@@ -23,6 +23,7 @@
     "db:local": "node scripts/local-db.mjs",
     "catalog:import": "node scripts/import-catalog.mjs",
     "tech": "tsc -p tsconfig.build.json && node dist/cli/technicians.js",
+    "payouts": "tsc -p tsconfig.build.json && node dist/cli/payouts.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {

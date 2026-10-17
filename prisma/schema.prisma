@@ -337,14 +337,15 @@ model Booking {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  service    Service         @relation(fields: [serviceId], references: [id])
-  customer   User            @relation(fields: [customerId], references: [id])
-  technician Technician?     @relation(fields: [technicianId], references: [userId])
+  service    Service          @relation(fields: [serviceId], references: [id])
+  customer   User             @relation(fields: [customerId], references: [id])
+  technician Technician?      @relation(fields: [technicianId], references: [userId])
   events     BookingEvent[]
   payments   Payment[]
   offers     JobOffer[]
   quotes     Quote[]
   tickets    SupportTicket[]
+  ledger     EarningsLedger[]
 
   @@unique([customerId, idempotencyKey])
   @@index([customerId, createdAt(sort: Desc)])
@@ -506,6 +507,8 @@ model Technician {
   skills      TechnicianSkill[]
   bookings    Booking[]
   offers      JobOffer[]
+  ledger      EarningsLedger[]
+  payouts     Payout[]
 
   @@index([pincode, online, verification])
   @@index([verification, submittedAt])
@@ -725,4 +728,66 @@ model SupportTicket {
   @@index([state, priority, createdAt])
   @@index([bookingId])
   @@map("support_tickets")
+}
+
+// ---------- earnings ----------
+
+enum LedgerType {
+  VISIT_SHARE
+  LABOUR_SHARE
+  MATERIAL_REIMBURSE
+  CASH_COLLECTED
+  ADJUSTMENT
+  PAYOUT
+
+  @@map("ledger_type")
+}
+
+enum PayoutState {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+
+  @@map("payout_state")
+}
+
+/// Append-only money owed to (credits, positive) or by (debits, negative) a technician. Never updated except to link
+/// an entry to the payout that settles it. Balances are always sums, never a stored running number.
+model EarningsLedger {
+  id           BigInt     @id @default(autoincrement())
+  technicianId String     @map("technician_id") @db.Uuid
+  bookingId    String?    @map("booking_id") @db.Uuid
+  type         LedgerType
+  amountPaise  BigInt     @map("amount_paise")
+  payoutId     String?    @map("payout_id") @db.Uuid
+  createdAt    DateTime   @map("created_at") @db.Timestamptz(6)
+
+  technician Technician @relation(fields: [technicianId], references: [userId])
+  booking    Booking?   @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  payout     Payout?    @relation(fields: [payoutId], references: [id], onDelete: Restrict)
+
+  @@index([technicianId, createdAt(sort: Desc)])
+  @@index([technicianId, payoutId])
+  @@map("earnings_ledger")
+}
+
+/// A weekly settlement: everything a technician earned minus cash they collected, up to the period end.
+model Payout {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  technicianId String      @map("technician_id") @db.Uuid
+  periodStart  DateTime    @map("period_start") @db.Date
+  periodEnd    DateTime    @map("period_end") @db.Date
+  amountPaise  BigInt      @map("amount_paise")
+  state        PayoutState @default(PENDING)
+  /// Bank / UPI transfer reference, entered when marked paid (RazorpayX payout id later).
+  providerRef  String?     @map("provider_ref")
+  createdAt    DateTime    @map("created_at") @db.Timestamptz(6)
+  paidAt       DateTime?   @map("paid_at") @db.Timestamptz(6)
+
+  technician Technician       @relation(fields: [technicianId], references: [userId])
+  entries    EarningsLedger[]
+
+  @@index([state, createdAt])
+  @@map("payouts")
 }

@@ -9,6 +9,7 @@ import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
+import { recordJobClose } from '../earnings/ledger';
 import { ACTIVE_STATUSES, canTransition } from './booking-status';
 import { BookingUpdates } from './booking-updates';
 import { BOOKING_INCLUDE, type BookingDto, toBookingDto } from './booking-view';
@@ -49,7 +50,10 @@ export class BookingCore {
     return tx.booking.findUnique({ where: { id } });
   }
 
-  /** Moves a locked booking to `to` (CONFLICT if the state machine does not allow it) and records the event. */
+  /**
+   * Moves a locked booking to `to` (CONFLICT if the state machine does not allow it) and records the event. A job that
+   * closes writes the technician's earnings to the ledger in the same transaction.
+   */
   async transition(
     tx: Prisma.TransactionClient,
     b: Booking,
@@ -61,6 +65,11 @@ export class BookingCore {
     if (!canTransition(b.status, to)) throw new AppError('CONFLICT');
     await tx.booking.update({ where: { id: b.id }, data: { ...data, status: to, version: { increment: 1 } } });
     await this.event(tx, b.id, to, actor, { from: b.status, ...meta });
+    await recordJobClose(tx, b, to, this.shares(), this.now());
+  }
+
+  private shares() {
+    return { visitShareRupees: this.config.TECH_VISIT_SHARE_RUPEES, labourSharePercent: this.config.TECH_LABOUR_SHARE_PERCENT };
   }
 
   async event(tx: Prisma.TransactionClient, bookingId: string, status: BookingStatus, actor: Actor, meta: Prisma.InputJsonObject = {}): Promise<void> {
@@ -160,8 +169,7 @@ export class BookingCore {
   private jobViewOptions(): JobViewOptions {
     return {
       now: this.clock.now(),
-      visitShareRupees: this.config.TECH_VISIT_SHARE_RUPEES,
-      labourSharePercent: this.config.TECH_LABOUR_SHARE_PERCENT,
+      ...this.shares(),
       startCodeMaxAttempts: this.config.START_CODE_MAX_ATTEMPTS,
     };
   }
