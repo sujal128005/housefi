@@ -72,6 +72,9 @@ export class UsersService {
       await tx.otpChallenge.deleteMany({ where: { phoneHash: user.phoneHash, role: user.role } });
       await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
       await this.addresses.wipeAll(tx, userId);
+      // The inbox is the user's own data; devices would only receive pushes for a closed account.
+      await tx.device.deleteMany({ where: { userId } });
+      await tx.notification.deleteMany({ where: { userId } });
       await tx.user.update({
         where: { id: userId },
         data: { status: 'DELETED', deletedAt: now, nameEnc: null, phoneEnc: new Uint8Array(0), phoneHash: new Uint8Array(randomBytes(32)) },

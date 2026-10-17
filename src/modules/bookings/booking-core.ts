@@ -10,6 +10,8 @@ import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { recordJobClose } from '../earnings/ledger';
+import { transitionNotices } from '../notifications/booking-notices';
+import { Notifier } from '../notifications/notifier';
 import { ACTIVE_STATUSES, canTransition } from './booking-status';
 import { BookingUpdates } from './booking-updates';
 import { BOOKING_INCLUDE, type BookingDto, toBookingDto } from './booking-view';
@@ -34,6 +36,7 @@ export class BookingCore {
     private readonly prisma: PrismaService,
     private readonly cipher: FieldCipher,
     readonly updates: BookingUpdates,
+    private readonly notifier: Notifier,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -52,7 +55,8 @@ export class BookingCore {
 
   /**
    * Moves a locked booking to `to` (CONFLICT if the state machine does not allow it) and records the event. A job that
-   * closes writes the technician's earnings to the ledger in the same transaction.
+   * closes writes the technician's earnings to the ledger, and the people concerned are notified (both in the same
+   * transaction).
    */
   async transition(
     tx: Prisma.TransactionClient,
@@ -63,9 +67,10 @@ export class BookingCore {
     meta: Prisma.InputJsonObject = {},
   ): Promise<void> {
     if (!canTransition(b.status, to)) throw new AppError('CONFLICT');
-    await tx.booking.update({ where: { id: b.id }, data: { ...data, status: to, version: { increment: 1 } } });
+    const after = await tx.booking.update({ where: { id: b.id }, data: { ...data, status: to, version: { increment: 1 } } });
     await this.event(tx, b.id, to, actor, { from: b.status, ...meta });
     await recordJobClose(tx, b, to, this.shares(), this.now());
+    await this.notifier.enqueue(tx, await transitionNotices(tx, b, after, actor));
   }
 
   private shares() {

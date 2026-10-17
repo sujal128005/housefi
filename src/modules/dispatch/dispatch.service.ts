@@ -8,6 +8,7 @@ import type { Env } from '../../config/env';
 import { BookingCore, SYSTEM, UUID } from '../bookings/booking-core';
 import { TECH_ACTIVE } from '../bookings/booking-status';
 import type { JobDto } from '../bookings/job-view';
+import { Notifier } from '../notifications/notifier';
 import { istDate, istDayStart, windowStartMs } from '../slots/slot-rules';
 import { type JobOfferDto, toJobOfferDto } from './offer-view';
 
@@ -42,6 +43,7 @@ export class DispatchService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly core: BookingCore,
+    private readonly notifier: Notifier,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -61,18 +63,21 @@ export class DispatchService {
         const candidate = await this.bestCandidate(tx, b);
         if (!candidate) return false;
         const now = this.clock.now();
-        await tx.jobOffer.create({
-          data: {
-            bookingId,
-            technicianId: candidate.id,
-            distanceM: candidate.distance_m,
-            createdAt: new Date(now),
-            expiresAt: new Date(now + this.config.OFFER_TIMEOUT_SEC * 1000),
-          },
+        const expiresAt = now + this.config.OFFER_TIMEOUT_SEC * 1000;
+        const offer = await tx.jobOffer.create({
+          data: { bookingId, technicianId: candidate.id, distanceM: candidate.distance_m, createdAt: new Date(now), expiresAt: new Date(expiresAt) },
         });
+        // High priority with sound, dropped by the push service once the offer has expired (notifications.service.ts).
+        await this.notifier.enqueue(tx, [
+          {
+            userId: candidate.id,
+            kind: 'JOB_OFFER',
+            bookingId,
+            params: { code: b.code, offerId: offer.id, serviceId: b.serviceId, earning: this.config.TECH_VISIT_SHARE_RUPEES, expiresAt },
+          },
+        ]);
         return true;
       });
-      // Step 11: push JOB_OFFER (high priority, with sound) to the technician.
       return offered;
     } catch (err) {
       this.log.warn(`offer for booking ${bookingId} failed (${(err as Error).message}); retrying on the next sweep`);
@@ -146,7 +151,6 @@ export class DispatchService {
       await tx.technician.update({ where: { userId: technicianId }, data: { missedOffersInRow: 0 } });
     });
     this.core.updates.publish(offer0.bookingId);
-    // Step 11: TECH_ASSIGNED push to the customer.
     return this.core.getJob(technicianId, offer0.bookingId);
   }
 
@@ -191,7 +195,7 @@ export class DispatchService {
           await tx.technician.update({ where: { userId: offer.technicianId }, data: { online: false, missedOffersInRow: 0 } });
           await tx.$executeRaw`UPDATE technicians SET last_location = NULL, last_location_at = NULL, last_accuracy_m = NULL WHERE user_id = ${offer.technicianId}::uuid`;
           this.log.log(`technician ${offer.technicianId} missed ${MISSED_OFFERS_LIMIT} offers in a row; set offline`);
-          // Step 11: tell the technician they were set offline.
+          // No NotificationKind for this yet (QUESTIONS.md #48); the app sees online: false in GET /tech/me.
         }
         return true;
       });
@@ -228,7 +232,6 @@ export class DispatchService {
         if (b.status === 'MATCHING_DELAYED' && b.matchingStartedAt && b.matchingStartedAt <= giveUpAt) {
           await this.withdrawOpen(tx, id);
           await this.core.transition(tx, b, 'UNFULFILLED', {}, SYSTEM, { minutes: this.config.MATCHING_GIVE_UP_AFTER_MIN });
-          // Step 11: NO_TECHNICIAN to the customer.
           return { wasDelayed, gaveUp: true };
         }
         return { wasDelayed, gaveUp: false };
@@ -276,7 +279,6 @@ export class DispatchService {
           SYSTEM,
           { reassigned: true, previousTechnicianId: b.technicianId },
         );
-        // Step 11: JOB_CANCELLED to the previous technician; "finding another technician" to the customer.
         return true;
       });
       if (done) {

@@ -16,6 +16,7 @@ const production = {
   PHONE_HASH_KEY_B64: secret(),
   KMS_KEY_ID: 'alias/housefi-pii',
   SMS_PROVIDER: 'msg91',
+  PUSH_PROVIDER: 'expo',
   MSG91_AUTH_KEY: 'k',
   MSG91_OTP_TEMPLATE_ID: 't',
   RAZORPAY_KEY_ID: 'rzp_live_x',
@@ -111,6 +112,10 @@ describe('parseEnv', () => {
 
   it('refuses to print sign-in codes to the log in production', () => {
     expect(problems({ ...production, SMS_PROVIDER: 'console' })).toEqual(['SMS_PROVIDER: must be msg91 in production']);
+  });
+
+  it('refuses to only log push notifications in production', () => {
+    expect(problems({ ...production, PUSH_PROVIDER: 'log' })).toEqual(['PUSH_PROVIDER: must be expo in production']);
   });
 
   it('requires a 32-byte local data key', () => {

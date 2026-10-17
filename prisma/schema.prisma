@@ -58,6 +58,8 @@ model User {
 
   refreshTokens RefreshToken[]
   addresses     Address[]
+  devices       Device[]
+  notifications Notification[]
   bookings      Booking[]
   technician    Technician?     @relation("TechnicianUser")
   tickets       SupportTicket[]
@@ -337,15 +339,16 @@ model Booking {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  service    Service          @relation(fields: [serviceId], references: [id])
-  customer   User             @relation(fields: [customerId], references: [id])
-  technician Technician?      @relation(fields: [technicianId], references: [userId])
-  events     BookingEvent[]
-  payments   Payment[]
-  offers     JobOffer[]
-  quotes     Quote[]
-  tickets    SupportTicket[]
-  ledger     EarningsLedger[]
+  service       Service          @relation(fields: [serviceId], references: [id])
+  customer      User             @relation(fields: [customerId], references: [id])
+  technician    Technician?      @relation(fields: [technicianId], references: [userId])
+  events        BookingEvent[]
+  payments      Payment[]
+  offers        JobOffer[]
+  quotes        Quote[]
+  tickets       SupportTicket[]
+  ledger        EarningsLedger[]
+  notifications Notification[]
 
   @@unique([customerId, idempotencyKey])
   @@index([customerId, createdAt(sort: Desc)])
@@ -790,4 +793,96 @@ model Payout {
 
   @@index([state, createdAt])
   @@map("payouts")
+}
+
+// ---------- notifications ----------
+
+enum NotificationKind {
+  TECH_ASSIGNED
+  TECH_ON_THE_WAY
+  TECH_ARRIVED
+  QUOTE_READY
+  EXTRA_QUOTE
+  PAYMENT_DUE
+  BOOKING_COMPLETED
+  BOOKING_CANCELLED
+  NO_TECHNICIAN
+  JOB_OFFER
+  QUOTE_APPROVED
+  QUOTE_REVISION
+  QUOTE_DECLINED
+  EXTRA_APPROVED
+  EXTRA_DECLINED
+  PAYMENT_RECEIVED
+  JOB_CANCELLED
+  PROFILE_APPROVED
+  PROFILE_NEEDS_CORRECTION
+
+  @@map("notification_kind")
+}
+
+enum PushState {
+  /// Waiting for the delivery worker.
+  PENDING
+  /// Claimed by a worker (reclaimed if it stays here too long).
+  SENDING
+  /// Accepted by the push service for at least one device.
+  SENT
+  /// Not sent: no live device, or too old to be useful (an expired offer).
+  SKIPPED
+  /// The push service kept failing.
+  FAILED
+
+  @@map("push_state")
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
+
+  @@map("device_platform")
+}
+
+/// A phone that receives push notifications for one account, from one sign-in session.
+model Device {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  pushToken  String         @unique @map("push_token")
+  platform   DevicePlatform
+  /// The refresh-token family it was registered from: pushes stop when that session ends (logout, revoked, expired).
+  sessionId  String         @map("session_id") @db.Uuid
+  lastSeenAt DateTime       @map("last_seen_at") @db.Timestamptz(6)
+  createdAt  DateTime       @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("devices")
+}
+
+/// The in-app inbox, and the outbox for push: rows are written in the transaction of the change they announce.
+model Notification {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Insertion order: breaks ties between notifications written in the same millisecond.
+  seq           BigInt           @default(autoincrement())
+  userId        String           @map("user_id") @db.Uuid
+  kind          NotificationKind
+  bookingId     String?          @map("booking_id") @db.Uuid
+  /// Values for the text (codes, amounts, ids): never names, phone numbers or addresses.
+  params        Json             @default("{}")
+  readAt        DateTime?        @map("read_at") @db.Timestamptz(6)
+  pushState     PushState        @default(PENDING) @map("push_state")
+  pushAttempts  Int              @default(0) @map("push_attempts")
+  pushClaimedAt DateTime?        @map("push_claimed_at") @db.Timestamptz(6)
+  pushedAt      DateTime?        @map("pushed_at") @db.Timestamptz(6)
+  /// SMS fallback (keypad phones) comes with two-way SMS later.
+  smsAt         DateTime?        @map("sms_at") @db.Timestamptz(6)
+  createdAt     DateTime         @map("created_at") @db.Timestamptz(6)
+
+  user    User     @relation(fields: [userId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc), seq(sort: Desc)])
+  @@map("notifications")
 }

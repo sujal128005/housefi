@@ -13,6 +13,7 @@ import { CryptoModule } from '../common/crypto/crypto.module';
 import { AppError } from '../common/errors/app-error';
 import { PrismaModule } from '../common/prisma/prisma.module';
 import { ConfigModule } from '../config/config.module';
+import { NotifierModule } from '../modules/notifications/notifier';
 import { type Env, parseEnv } from '../config/env';
 import { type TechVerificationService, TechVerificationService as Verification, type VerificationActor } from '../modules/technicians/tech-verification.service';
 import { TechniciansModule } from '../modules/technicians/technicians.module';
@@ -52,7 +53,7 @@ export async function runTechCommand(args: readonly string[], verification: Tech
 @Module({})
 class CliModule {
   static forRoot(config: Env): DynamicModule {
-    return { module: CliModule, imports: [ConfigModule.forRoot(config), ClockModule, PrismaModule, CryptoModule, AuditModule, TechniciansModule] };
+    return { module: CliModule, imports: [ConfigModule.forRoot(config), ClockModule, PrismaModule, CryptoModule, AuditModule, NotifierModule, TechniciansModule] };
   }
 }
 

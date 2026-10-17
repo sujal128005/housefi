@@ -14,6 +14,7 @@ import { TECH_ACTIVE } from '../bookings/booking-status';
 import type { BookingDto } from '../bookings/booking-view';
 import type { JobDto } from '../bookings/job-view';
 import { approvedQuotes, latestQuote } from '../bookings/quote-view';
+import { Notifier } from '../notifications/notifier';
 import { PaymentsService } from '../payments/payments.service';
 import type { QuoteInput } from './jobs.schemas';
 import { priceCheck, totals } from './price-check';
@@ -43,6 +44,7 @@ export class JobsService {
     private readonly core: BookingCore,
     private readonly payments: PaymentsService,
     private readonly audit: AuditService,
+    private readonly notifier: Notifier,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -53,7 +55,6 @@ export class JobsService {
     await this.core.mutateAssigned(technicianId, id, async (tx, b) => {
       if (b.status !== 'ASSIGNED') throw new AppError('CONFLICT');
       await this.core.transition(tx, b, 'EN_ROUTE', { etaMin: await this.etaMinutes(tx, b.id, technicianId) }, this.tech(technicianId));
-      // Step 11: TECH_ON_THE_WAY to the customer.
       return { changed: true, result: undefined };
     });
     return this.core.getJob(technicianId, id);
@@ -168,7 +169,11 @@ export class JobsService {
       } else if (answer === 'DECLINE') {
         await this.core.transition(tx, b, 'CLOSED_NO_REPAIR', { closeReason: 'CUSTOMER_DECLINED' }, customer, { quoteVersion: q.version });
       }
-      // REVISION keeps QUOTE_SHARED; the revised quote is recorded when it is shared. Step 11 tells the technician.
+      // REVISION keeps QUOTE_SHARED; the revised quote is recorded when it is shared. The other answers notify through
+      // the transition (booking-notices.ts).
+      if (answer === 'REVISION' && b.technicianId) {
+        await this.notifier.enqueue(tx, [{ userId: b.technicianId, kind: 'QUOTE_REVISION', bookingId: b.id, params: { code: b.code, version: q.version } }]);
+      }
       return { changed: true, result: undefined };
     });
     return this.core.get(customerId, id);
@@ -194,7 +199,6 @@ export class JobsService {
       const amount = approvedQuotes(quotes).reduce((sum, q) => sum + q.totalPaise, 0n);
       await this.payments.createDue(tx, b.id, 'FINAL', amount);
       await this.core.transition(tx, b, 'PAYMENT_DUE', {}, this.tech(technicianId), { billPaise: amount.toString() });
-      // Step 11: PAYMENT_DUE to the customer.
       return { changed: true, result: undefined };
     });
     return this.core.getJob(technicianId, id);
@@ -271,7 +275,6 @@ export class JobsService {
   private async share(tx: Prisma.TransactionClient, b: Booking, which: Quote['which'], actor: Actor): Promise<void> {
     if (which === 'MAIN' && (b.status === 'INSPECTING' || b.status === 'QUOTE_SHARED')) await this.core.transition(tx, b, 'QUOTE_SHARED', {}, actor);
     if (which === 'EXTRA' && b.status === 'IN_PROGRESS') await this.core.transition(tx, b, 'EXTRA_WORK', {}, actor);
-    // Step 11: QUOTE_READY / EXTRA_QUOTE to the customer.
   }
 
   private async etaMinutes(db: Prisma.TransactionClient | PrismaService, bookingId: string, technicianId: string): Promise<number | null> {

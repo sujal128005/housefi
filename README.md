@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-10 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-11 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -25,8 +25,10 @@ Build steps 1-10 of 14 (`docs/STARTER-PROMPT.md`) are done:
    `POST /v1/bookings/{id}/quotes/{MAIN|EXTRA}/answer`; rule-based price check, ETA from location updates.
 10. Earnings: append-only `earnings_ledger` written when a job closes, `GET /v1/tech/earnings`, weekly payouts with
     `npm run payouts` (audited).
+11. Notifications: `GET /v1/notifications`, `POST /v1/notifications/read`, `POST /v1/devices`; an inbox row for every
+    `NotificationKind`, written with the change it announces, and Expo push (job offers high priority).
 
-Next is **step 11**: notifications (push, SMS fallback, `GET /v1/notifications`).
+Next is **step 12**: the rule-based AI endpoints (`/v1/ai/top-problems`, `classify-photo`, `transcribe`, `chat`).
 
 ## Run it locally
 
@@ -122,6 +124,8 @@ src/
     jobs/                 the visit step by step (jobs.service.ts), price-check.ts, review auto-clear worker, jobs API
     earnings/             earnings-rules.ts (shares, payout calendar), ledger.ts (written by BookingCore.transition),
                           GET /tech/earnings and the payout run
+    notifications/        notifier.ts (the outbox every module writes to), booking-notices.ts (who hears about a
+                          status change), push texts (en / te), Expo sender, delivery worker, inbox and devices API
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
   common/audit/          append-only audit_log of privileged actions
   common/http/sse.ts     Server-Sent Events helper (booking and job streams)
@@ -380,3 +384,39 @@ configured"); everything else works.
 - **Test database fix:** PGlite answers a database error in the extended protocol with two ReadyForQuery messages,
   and Prisma's engine then dropped the connection. `scripts/pglite-server.mjs` now passes on one per Sync, so tests
   can assert on constraint and trigger errors. Production (PostgreSQL) never had this problem.
+
+## Decisions taken in step 11
+
+- **The inbox is also the push outbox.** `Notifier.enqueue(tx, ...)` writes notification rows in the transaction of
+  the change they announce: a rolled-back change never notifies, and a committed one always does, even if the
+  process dies before pushing. `NotificationsWorker` delivers right after each enqueue (150 ms later, after commit)
+  and sweeps every 5 s. Rows are claimed with `FOR UPDATE SKIP LOCKED`, so several instances can run it.
+- **Status changes notify from one place.** `BookingCore.transition` calls `booking-notices.ts`, so every path
+  (webhooks, sweeps, the customer, the technician, the coordinator later) behaves the same. Who hears what:
+  - The customer: `TECH_ASSIGNED`, `TECH_ON_THE_WAY` (with `etaMin`), `TECH_ARRIVED`, `QUOTE_READY` (again
+    for a revised quote), `EXTRA_QUOTE`, `PAYMENT_DUE`, `BOOKING_COMPLETED`, `BOOKING_CANCELLED`,
+    `NO_TECHNICIAN`.
+  - The technician: `QUOTE_APPROVED` / `QUOTE_DECLINED`, `EXTRA_APPROVED` / `EXTRA_DECLINED`,
+    `PAYMENT_RECEIVED`, and `JOB_CANCELLED` (cancelled, rescheduled or reassigned away from them).
+  - Written where they happen: `JOB_OFFER` (dispatch), `QUOTE_REVISION` (no status change),
+    `PROFILE_APPROVED` / `PROFILE_NEEDS_CORRECTION` (verification).
+  - **Nobody is told about their own action:** a customer who cancels gets no `BOOKING_CANCELLED`, and a technician
+    who confirms cash gets no `PAYMENT_RECEIVED`.
+- **`params` hold codes, amounts and ids only:** `code`, `amount`, `etaMin`, `version`, `reason`, `method`,
+  `serviceId`, `offerId`, `earning`, `expiresAt`. Never names, phones or addresses: the inbox is not
+  encrypted, and the app fetches the booking for details.
+- **Push text is written by the server** in the account's language (`users.locale`, en / te). The phone shows it
+  before the app runs; the in-app inbox is still worded by the app from `kind` + `params`.
+  - **Job offers:** `priority: high`, sound, the `job-offers` Android channel, and a `ttl` that ends with the
+    offer.
+  - **Too old to send:** an expired offer, or anything older than an hour, is `SKIPPED`.
+  - **Failures:** a push service outage is retried up to 3 times, then `FAILED` (it stays in the inbox).
+    `DeviceNotRegistered` deletes the device.
+- **Devices belong to a sign-in session.** `POST /devices` records the refresh-token family of the access token, and
+  pushes go only to devices whose session is still live. Logout, refresh-token reuse, expiry and account deletion
+  stop pushes with no change to auth. A token registered by another account moves to it (one phone, whoever is
+  signed in). Only Expo tokens are sent (others are stored and ignored).
+- **No SMS in v1** (README §9: SMS is for OTP only). `sms_at` is kept for keypad-phone technicians later.
+- **Account deletion** deletes the user's inbox and devices.
+- **`PUSH_PROVIDER`:** `log` (default, development and tests) or `expo` (required in production).
+  `EXPO_ACCESS_TOKEN` is needed only if the Expo project turns on enhanced push security.

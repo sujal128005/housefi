@@ -15,6 +15,7 @@ import { type Env, parseEnv } from '../src/config/env';
 import { configureApp, createAdapter } from '../src/http';
 import { SMS_SENDER, type SmsSender } from '../src/modules/auth/sms';
 import { TechVerificationService } from '../src/modules/technicians/tech-verification.service';
+import { PUSH_SENDER, PushUnavailable, type PushMessage, type PushSender, type PushTicket } from '../src/modules/notifications/push-sender';
 import { RAZORPAY_CLIENT, RazorpayError, type RazorpayClient, type RzpOrder, type RzpPayment, type RzpPaymentStatus, type RzpRefund } from '../src/modules/payments/razorpay.client';
 
 const keys = generateKeyPairSync('ed25519', {
@@ -140,8 +141,30 @@ export class FakeRazorpay implements RazorpayClient {
   }
 }
 
+/** Records pushes instead of sending them; can be made unavailable, or told a device is gone. */
+export class FakePush implements PushSender {
+  readonly sent: PushMessage[] = [];
+  readonly goneTokens = new Set<string>();
+  unavailable = false;
+
+  reset(): void {
+    this.sent.length = 0;
+    this.goneTokens.clear();
+    this.unavailable = false;
+  }
+
+  async send(messages: readonly PushMessage[]): Promise<PushTicket[]> {
+    if (this.unavailable) throw new PushUnavailable('push service down (test)');
+    return messages.map((m) => {
+      if (this.goneTokens.has(m.to)) return { ok: false, error: 'DeviceNotRegistered', deviceGone: true };
+      this.sent.push(m);
+      return { ok: true };
+    });
+  }
+}
+
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE earnings_ledger, payouts, support_tickets, quote_lines, quotes, job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE notifications, devices, earnings_ledger, payouts, support_tickets, quote_lines, quotes, job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
 }
 
 export interface TestApp {
@@ -152,6 +175,7 @@ export interface TestApp {
   /** Per-IP counters; clear between tests, since every test request comes from 127.0.0.1. */
   readonly rateLimits: MemoryRateLimitStore;
   readonly razorpay: FakeRazorpay;
+  readonly push: FakePush;
   close(): Promise<void>;
 }
 
@@ -165,6 +189,7 @@ export async function buildTestApp(opts: {
   const sms = new FakeSms();
   const rateLimits = new MemoryRateLimitStore();
   const razorpay = new FakeRazorpay();
+  const push = new FakePush();
   let builder = Test.createTestingModule({ imports: [AppModule.forRoot(config)], controllers: opts.controllers ?? [] })
     .overrideProvider(CLOCK)
     .useValue(clock)
@@ -173,14 +198,16 @@ export async function buildTestApp(opts: {
     .overrideProvider(RATE_LIMIT_STORE)
     .useValue(rateLimits)
     .overrideProvider(RAZORPAY_CLIENT)
-    .useValue(razorpay);
+    .useValue(razorpay)
+    .overrideProvider(PUSH_SENDER)
+    .useValue(push);
   if (opts.prisma) builder = builder.overrideProvider(PrismaService).useValue(opts.prisma);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(createAdapter(config), { rawBody: true });
   await configureApp(app, config);
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  return { app, prisma: app.get(PrismaService), clock, sms, rateLimits, razorpay, close: () => app.close() };
+  return { app, prisma: app.get(PrismaService), clock, sms, rateLimits, razorpay, push, close: () => app.close() };
 }
 
 export interface SignedIn {

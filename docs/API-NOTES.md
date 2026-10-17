@@ -219,3 +219,27 @@ The goal is none. Each entry links to the open question that will remove it.
   - A partial unique index on `(booking_id, type)`.
   - An append-only trigger.
   - `RESTRICT` foreign keys.
+
+## Notifications (step 11)
+
+- **`GET /notifications`** returns the latest 50, newest first. `params` per kind:
+  - Booking notices carry `code`. Amounts are whole rupees.
+  - `TECH_ASSIGNED`: `serviceId`.
+  - `TECH_ON_THE_WAY`: `etaMin` (only when known).
+  - `QUOTE_READY`: `amount`, `version`.
+  - `EXTRA_QUOTE`, `PAYMENT_DUE`, `QUOTE_APPROVED`, `EXTRA_APPROVED`: `amount`.
+  - `PAYMENT_RECEIVED`: `amount`, `method`.
+  - `BOOKING_CANCELLED`: `reason` (the booking's cancel reason, e.g. `UNPAID_EXPIRED`).
+  - `JOB_CANCELLED`: `reason` (`BOOKING_CANCELLED` | `RESCHEDULED` | `REASSIGNED`).
+  - `QUOTE_REVISION`: `version`.
+  - `JOB_OFFER`: `offerId`, `serviceId`, `earning` (visit share), `expiresAt` (epoch ms).
+  - `PROFILE_*` have no booking and empty params (the note is in `GET /tech/me`).
+- **`POST /notifications/read`** ignores ids that are not the caller's (no error), and takes at most 200.
+- **`POST /devices`:** `pushToken` is 1-512 characters. Only Expo tokens (`ExponentPushToken[...]`) receive
+  pushes. The device is tied to the current sign-in session, so the app should register again after each sign-in.
+- **The app must create** an Android notification channel `job-offers` (high importance, sound) and a `default`
+  one. Push `data` carries `notificationId`, `kind`, `bookingId` and `params`.
+- **Schema differences from docs/schema.sql:**
+  - `devices`: `push_token` unique on its own, plus `session_id` and `created_at`; `platform` is an enum.
+  - `notifications`: `kind` is an enum; adds `seq` (tie-break) and `push_state` / `push_attempts` /
+    `push_claimed_at` (delivery). Timestamps come from the application clock.

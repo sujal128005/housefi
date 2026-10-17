@@ -147,7 +147,7 @@ export class BookingsService {
       const refund = REFUND_ON_CANCEL.includes(b.status);
       await this.core.transition(tx, b, 'CANCELLED', { cancelReason: reason, etaMin: null }, { type: 'CUSTOMER', id: customerId }, { refund });
       const marked = refund ? await this.payments.refundVisitFee(tx, b.id, this.core.now()) : false;
-      // An assigned technician is freed by the status change itself; step 11 tells them (JOB_CANCELLED).
+      // An assigned technician is freed by the status change itself, which also tells them (JOB_CANCELLED).
       await this.dispatch.withdrawOpen(tx, b.id);
       return { changed: true, result: marked };
     });
@@ -161,7 +161,7 @@ export class BookingsService {
       if (!RESCHEDULABLE.includes(b.status)) throw new AppError('CONFLICT');
       await this.slots.hold(tx, { categoryId: b.categoryId, pincode: b.pincode }, time, b.id);
       await this.dispatch.withdrawOpen(tx, b.id);
-      // A fresh search; a previously assigned technician is released (step 11 tells them).
+      // A fresh search; a previously assigned technician is released (and told: JOB_CANCELLED).
       await this.core.transition(
         tx,
         b,

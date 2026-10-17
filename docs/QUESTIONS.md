@@ -163,3 +163,19 @@ Found while reading the handoff and building. Each one says what the backend doe
     technician gets the ₹30 visit share. Is that the intended rule?
 46. **Payout day on a Monday:** `nextPayoutOn` shows today until the end of Monday, even after that week's payout is
     paid. Should it switch to the following Monday once paid?
+
+## Found in step 11 (notifications)
+
+47. **Push wording**, especially the Telugu, is ours (`src/modules/notifications/push-texts.ts`). Should it match the
+    app's `notif.<kind>` strings? Can the team send the approved texts?
+48. **Set offline after 3 missed offers** has no `NotificationKind`, so the technician is not told (the app sees
+    `online: false`). Add a kind (e.g. `SET_OFFLINE`)?
+49. **Events without a kind:**
+    - The customer is not told when the visit ends without repair after a technician's report (`CUSTOMER_UNAVAILABLE`,
+      `CANNOT_COMPLETE`).
+    - The customer is not told "finding another technician" after a reassignment.
+    - The reminders in README §9 (technician 60 min before a scheduled window; customer the evening before) have no
+      kind either.
+    Add kinds for these, or leave them to the live booking updates?
+50. **SMS fallback** for customers ("technician on the way") is optional in README §9 and not built. Needed for v1?
+    It would need DLT templates.

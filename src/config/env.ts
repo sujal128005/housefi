@@ -89,6 +89,9 @@ export const envSchema = z
     S3_SECRET_ACCESS_KEY: z.string().optional(),
     UPLOAD_URL_TTL_SEC: int(300, 30),
 
+    /** log = write pushes to the server log (development, tests); expo = send through the Expo push service. */
+    PUSH_PROVIDER: z.enum(['log', 'expo']).default('log'),
+    /** Optional: required only when "enhanced push security" is turned on in the Expo project. */
     EXPO_ACCESS_TOKEN: z.string().optional(),
 
     EXOTEL_SID: z.string().optional(),
@@ -135,6 +138,9 @@ export const envSchema = z
       }
       if (e.SMS_PROVIDER !== 'msg91') {
         ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'must be msg91 in production' });
+      }
+      if (e.PUSH_PROVIDER !== 'expo') {
+        ctx.addIssue({ code: 'custom', path: ['PUSH_PROVIDER'], message: 'must be expo in production' });
       }
       if (!e.PUBLIC_BASE_URL.startsWith('https://')) {
         ctx.addIssue({ code: 'custom', path: ['PUBLIC_BASE_URL'], message: 'must be https:// in production' });

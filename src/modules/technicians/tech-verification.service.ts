@@ -6,6 +6,7 @@ import { FieldCipher } from '../../common/crypto/field-cipher';
 import { Hashing } from '../../common/crypto/hashing';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
+import { Notifier } from '../notifications/notifier';
 import { CATEGORY_ORDER } from './technicians.schemas';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,6 +44,7 @@ export class TechVerificationService {
     private readonly cipher: FieldCipher,
     private readonly hashing: Hashing,
     private readonly audit: AuditService,
+    private readonly notifier: Notifier,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -85,7 +87,6 @@ export class TechVerificationService {
 
   async approve(technicianId: string, actor: VerificationActor): Promise<void> {
     await this.decide(technicianId, actor, 'tech.approve', { verification: 'APPROVED', verifiedAt: new Date(this.clock.now()) });
-    // Step 11: notify the technician (PROFILE_APPROVED).
   }
 
   /** Back to the technician with a note shown in the app (English and Telugu). They go offline until approved. */
@@ -98,7 +99,6 @@ export class TechVerificationService {
       correctionNoteTe: note.te?.trim() || en,
       online: false,
     });
-    // Step 11: notify the technician (PROFILE_NEEDS_CORRECTION).
   }
 
   private async decide(
@@ -115,6 +115,10 @@ export class TechVerificationService {
       // Only a submitted, not yet decided profile can be decided: a stale decision must not override a resubmission.
       if (before.verification !== 'PENDING') throw new AppError('CONFLICT', {}, `profile is ${before.verification}, not PENDING`);
       await tx.technician.update({ where: { userId: technicianId }, data });
+      // The note itself is read from GET /tech/me; the notification only says there is one.
+      await this.notifier.enqueue(tx, [
+        { userId: technicianId, kind: data.verification === 'APPROVED' ? 'PROFILE_APPROVED' : 'PROFILE_NEEDS_CORRECTION', bookingId: null, params: {} },
+      ]);
       if (data.online === false) {
         await tx.jobOffer.updateMany({ where: { technicianId, state: 'OPEN' }, data: { state: 'WITHDRAWN', respondedAt: new Date(this.clock.now()) } });
       }
