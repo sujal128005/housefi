@@ -46,3 +46,22 @@ The goal is none. Each entry links to the open question that will remove it.
   - `services.rating` and `services.reviews`: the API's `Service` requires them; demo values for now.
   - `sort` on services and issues: keeps the app's order.
   - CHECK constraints on prices, durations and ratings.
+
+## Addresses and slots (step 4)
+
+- **`GET /slots` takes an optional `pincode`** (not in openapi.yaml; additive). With it, that area's capacity
+  applies; without it, the default capacity. The app should send the PIN of the address the customer picked.
+- **Slots outside the 7 bookable days** (or in the past) come back as six `CLOSED` windows rather than an error.
+  A malformed date or PIN code is `VALIDATION`; an unknown service is `NOT_FOUND`. Customers only.
+- **Nothing is `FULL` from bookings yet:** bookings arrive in step 5. Until then a window is `FULL` only when an
+  area's capacity is set to 0.
+- **Addresses are customers only.**
+  - Someone else's address is `NOT_FOUND` on `PUT`. `DELETE` always returns 204 and changes nothing that isn't
+    yours.
+  - More than 20 saved addresses is `CONFLICT`.
+  - Input is trimmed. `lat` and `lng` come together (the missing one is `REQUIRED`). A `PUT` without them
+    clears the stored point.
+- **Schema differences from docs/schema.sql:**
+  - `addresses.locality` is NOT NULL and derived from the street (QUESTIONS.md #9).
+  - `addresses.updated_at` is added, plus a CHECK on the PIN format.
+  - New table `slot_capacities` (QUESTIONS.md #10).

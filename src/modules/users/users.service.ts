@@ -5,6 +5,7 @@ import { type Clock, InjectClock } from '../../common/clock';
 import { FieldCipher } from '../../common/crypto/field-cipher';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
+import { AddressesService } from '../addresses/addresses.service';
 
 /** openapi.yaml Customer: the signed-in person's identity (used for both roles). */
 export interface CustomerDto {
@@ -26,6 +27,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cipher: FieldCipher,
+    private readonly addresses: AddressesService,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -53,20 +55,21 @@ export class UsersService {
   /**
    * DPDP right to erasure. The row stays (later steps' bookings and payments point to it) but is anonymised:
    * name removed, phone ciphertext wiped, phone hash replaced with random bytes so the number no longer finds this
-   * account and can sign up again as a new one. All sessions end and pending sign-in codes are deleted.
-   * Bookings, addresses and other personal records are anonymised here too as those features arrive (step 4 on).
+   * account and can sign up again as a new one. All sessions end, pending sign-in codes are deleted and saved
+   * addresses are wiped. Bookings and other personal records join this as those features arrive (step 5 on).
    */
   async delete(userId: string): Promise<void> {
     const user = await this.active(userId);
     const now = new Date(this.clock.now());
-    await this.prisma.$transaction([
-      this.prisma.otpChallenge.deleteMany({ where: { phoneHash: user.phoneHash, role: user.role } }),
-      this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
-      this.prisma.user.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.otpChallenge.deleteMany({ where: { phoneHash: user.phoneHash, role: user.role } });
+      await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+      await this.addresses.wipeAll(tx, userId);
+      await tx.user.update({
         where: { id: userId },
         data: { status: 'DELETED', deletedAt: now, nameEnc: null, phoneEnc: new Uint8Array(0), phoneHash: new Uint8Array(randomBytes(32)) },
-      }),
-    ]);
+      });
+    });
     this.log.log(`account ${userId} deleted and anonymised`);
   }
 

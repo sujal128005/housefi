@@ -109,6 +109,8 @@ export const envSchema = z
     MATCHING_GIVE_UP_AFTER_MIN: int(30, 1),
     UNPAID_BOOKING_EXPIRY_MIN: int(30, 1),
     INSTANT_HOURS: hourRange,
+    /** Bookings per 2-hour window per category in one PIN area, unless slot_capacities says otherwise. */
+    SLOT_CAPACITY_PER_WINDOW: int(10, 0),
     START_CODE_MAX_ATTEMPTS: int(5, 1),
   })
   .superRefine((e, ctx) => {

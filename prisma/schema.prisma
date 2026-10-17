@@ -1,15 +1,17 @@
 // Housefi database. Models are added feature by feature (auth, catalog, bookings, ...), each with a committed
 // migration, following docs/schema.sql. Money is stored in paise (BigInt); the API speaks whole rupees.
 // Columns ending in Enc hold AES-256-GCM envelope ciphertext (src/common/crypto); Hash columns hold HMAC-SHA256.
-// PostGIS is enabled with the first table that needs it (addresses, step 4).
+// PostGIS: geography(Point, 4326) columns are Unsupported for Prisma and are read / written with raw SQL.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
 }
 
 // ---------- enums (mirror the app's src/domain/types.ts) ----------
@@ -55,6 +57,7 @@ model User {
   deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
   refreshTokens RefreshToken[]
+  addresses     Address[]
 
   @@unique([role, phoneHash])
   @@map("users")
@@ -169,4 +172,52 @@ model ServiceIssue {
 
   @@index([serviceId, sort])
   @@map("service_issues")
+}
+
+// ---------- customers ----------
+
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+
+  @@map("address_label")
+}
+
+/// Saved addresses. House, street and landmark are encrypted; city, PIN and the coarse locality stay readable because
+/// offers show the area to technicians before they accept. Deleting wipes the personal fields (soft delete).
+model Address {
+  id          String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String                                 @map("user_id") @db.Uuid
+  label       AddressLabel
+  houseEnc    Bytes                                  @map("house_enc")
+  streetEnc   Bytes                                  @map("street_enc")
+  landmarkEnc Bytes?                                 @map("landmark_enc")
+  /// Coarse area shown in job offers ("Banjara Hills"); derived from the street until the app sends one.
+  locality    String
+  city        String
+  pincode     String                                 @db.Char(6)
+  /// From the phone's GPS when the customer used "my current location".
+  location    Unsupported("geography(Point, 4326)")?
+  createdAt   DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?                              @map("deleted_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ---------- visit slots ----------
+
+/// Per-area capacity overrides: bookings allowed per 2-hour window for one category in one PIN area.
+/// Areas without a row use SLOT_CAPACITY_PER_WINDOW.
+model SlotCapacity {
+  categoryId   CategoryId @map("category_id")
+  pincode      String     @db.Char(6)
+  maxPerWindow Int        @map("max_per_window")
+
+  @@id([categoryId, pincode])
+  @@map("slot_capacities")
 }

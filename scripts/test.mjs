@@ -1,13 +1,12 @@
-// Runs Jest against a real PostgreSQL. Uses DATABASE_URL_TEST when set (CI, or your own database); otherwise starts
-// an embedded PostgreSQL 16 in a temporary folder, so `npm test` works without Docker. Migrations are applied
-// first, exactly as in production (`prisma migrate deploy`). Extra arguments go to Jest.
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+// Runs Jest against a real database. Uses DATABASE_URL_TEST when set (CI: PostgreSQL 16 + PostGIS, or your own
+// database); otherwise starts an in-memory PGlite with PostGIS (scripts/pglite-server.mjs), so `npm test` works
+// without Docker. Migrations are applied first, exactly as in production (`prisma migrate deploy`).
+// Extra arguments go to Jest.
+import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { startPgliteServer } from './pglite-server.mjs';
 
-const node = process.execPath;
 const jestBin = join('node_modules', 'jest', 'bin', 'jest.js');
 const prismaBin = join('node_modules', 'prisma', 'build', 'index.js');
 
@@ -22,41 +21,33 @@ function freePort() {
   });
 }
 
+/** Runs a Node script as a child process without blocking: the PGlite server in this process must keep serving. */
+function run(script, args, env) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [script, ...args], { stdio: 'inherit', env: { ...process.env, ...env } });
+    child.on('exit', (code) => resolve(code ?? 1));
+  });
+}
+
 let url = process.env.DATABASE_URL_TEST;
-let pg = null;
+let local = null;
 
 async function stop() {
-  if (pg) await pg.stop().catch(() => undefined);
-  pg = null;
+  if (local) await local.stop().catch(() => undefined);
+  local = null;
 }
 process.on('SIGINT', () => void stop().then(() => process.exit(130)));
 
 try {
   if (!url) {
-    const { default: EmbeddedPostgres } = await import('embedded-postgres');
-    const port = await freePort();
-    // A short path under the system temp folder: initdb fails on very long Windows paths.
-    const dir = mkdtempSync(join(tmpdir(), 'hfpg-'));
-    pg = new EmbeddedPostgres({
-      databaseDir: dir, port, user: 'housefi', password: 'housefi', persistent: false,
-      initdbFlags: ['--encoding=UTF8', '--locale=C'], onLog: () => {},
-    });
-    await pg.initialise();
-    await pg.start();
-    await pg.createDatabase('housefi_test');
-    url = `postgresql://housefi:housefi@127.0.0.1:${port}/housefi_test?schema=public`;
-    console.log(`[test] embedded PostgreSQL 16 on port ${port}`);
+    local = await startPgliteServer({ port: await freePort() });
+    url = local.url;
+    console.log('[test] in-memory PGlite + PostGIS (CI runs PostgreSQL 16)');
   }
-
-  const migrate = spawnSync(node, [prismaBin, 'migrate', 'deploy'], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, DATABASE_URL: url } });
-  if (migrate.status !== 0) {
-    process.stdout.write(migrate.stdout ?? '');
-    throw new Error('prisma migrate deploy failed');
-  }
-
-  const jest = spawnSync(node, [jestBin, ...process.argv.slice(2)], { stdio: 'inherit', env: { ...process.env, DATABASE_URL_TEST: url } });
+  if ((await run(prismaBin, ['migrate', 'deploy'], { DATABASE_URL: url })) !== 0) throw new Error('prisma migrate deploy failed');
+  const code = await run(jestBin, process.argv.slice(2), { DATABASE_URL_TEST: url });
   await stop();
-  process.exit(jest.status ?? 1);
+  process.exit(code);
 } catch (err) {
   console.error(`[test] ${err.message}`);
   await stop();

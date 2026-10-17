@@ -6,18 +6,19 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-3 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-4 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
 3. Users and catalog: `GET/PATCH/DELETE /v1/me`; `GET /v1/catalog/categories`, `/catalog/services`,
    `/catalog/services/{id}`, seeded from the app's catalog.
+4. Addresses and slots: `GET/POST/PUT/DELETE /v1/addresses` (encrypted, PostGIS point) and `GET /v1/slots`.
 
-Next is **step 4**: addresses and slots.
+Next is **step 5**: bookings.
 
 ## Run it locally
 
-Needs Node.js 22+ and Docker.
+Needs Node.js 22+. Docker is recommended (it matches production); without it, see "No Docker?" below.
 
 ```bash
 npm install
@@ -32,6 +33,11 @@ Sign in locally: `POST /v1/auth/otp/request` with `{ "phone": "9876543210", "rol
 6-digit code from the server log (`SMS_PROVIDER=console` prints it instead of sending an SMS), and send it to
 `POST /v1/auth/otp/verify` with the `challengeId`.
 
+**No Docker?** `npm run db:local` starts a local database with PostGIS (PGlite, data kept in `.data/pglite`)
+and prints the `DATABASE_URL` to put in `.env`. Keep it running in its own terminal, then run `db:deploy`,
+`db:seed` and `dev` as above. Redis is optional for local work (rate limits fail open). PGlite is PostgreSQL 18
+with a single connection, so treat CI (PostgreSQL 16) as the authoritative check.
+
 The API starts even when Postgres or Redis are down: `GET /v1/health` stays 200 and `GET /v1/health/ready` returns
 503 with which dependency is missing. Rate limits fail open while Redis is down (and say so in the log, once a
 minute); the per-phone OTP limits live in Postgres and always apply.
@@ -40,7 +46,8 @@ minute); the per-phone OTP limits live in Postgres and always apply.
 | --- | --- |
 | `npm run setup` | Create `.env` and fill blank local secrets (never overwrites existing values) |
 | `npm run dev` | Start with reload, pretty logs |
-| `npm test` | Unit + e2e tests against a real PostgreSQL: `DATABASE_URL_TEST` if set, otherwise an embedded PostgreSQL 16 (no Docker needed) |
+| `npm test` | Unit + e2e tests against a real database: `DATABASE_URL_TEST` if set (CI: PostgreSQL 16 + PostGIS), otherwise an in-memory PGlite with PostGIS (no Docker needed) |
+| `npm run db:local` | Local PGlite + PostGIS database for development without Docker |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run build` then `npm start` | Production build in `dist/` |
 | `npm run db:migrate` / `npm run db:deploy` | Create a migration (development) / apply migrations |
@@ -88,11 +95,14 @@ src/
                           tokens, global AuthGuard with @Public / @Roles / @CurrentUser
     catalog/              public catalog endpoints, catalog.data.json (imported from the app), idempotent seed
     users/                GET/PATCH/DELETE /me (delete = anonymise); maps a user to the API's Customer shape
+    addresses/            saved addresses: encrypted house/street/landmark, PostGIS point, soft delete that wipes
+    slots/                slot-rules.ts (IST windows, cutoff, 7 days) + per-area capacity
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
   cli/seed.ts             npm run db:seed
   common/money.ts         paise <-> whole rupees (refuses fractions)
 prisma/                   schema.prisma + committed migrations (models arrive feature by feature, from docs/schema.sql)
-scripts/                  setup.mjs (local secrets), test.mjs (test database + Jest), import-catalog.mjs
+scripts/                  setup.mjs (local secrets), test.mjs (test database + Jest), import-catalog.mjs,
+                          pglite-server.mjs + local-db.mjs (PostGIS database without Docker)
 test/                     e2e tests and helpers (test clock, fake SMS, database reset)
 docs/                     the app team's handoff + QUESTIONS.md, API-NOTES.md, LATER.md
 ```
@@ -127,9 +137,8 @@ docs/                     the app team's handoff + QUESTIONS.md, API-NOTES.md, L
   advisory lock per phone stops parallel requests from slipping past them.
 - **Development secrets are required:** the server refuses to start without them, and `npm run setup` generates
   them once. Changing them later would make local encrypted data unreadable.
-- **Embedded PostgreSQL 16 for tests when no database is given**, so `npm test` works without Docker. CI uses its
-  PostGIS service instead.
-- **PostGIS is not enabled yet:** no table needs it until addresses (step 4).
+- **A local test database when none is given**, so `npm test` works without Docker (since step 4 this is PGlite
+  with PostGIS). CI uses its PostGIS service instead.
 - **Added env var `SMS_PROVIDER`** (`console` | `msg91`; production requires `msg91`).
 
 ## Decisions taken in step 3
@@ -145,3 +154,22 @@ docs/                     the app team's handoff + QUESTIONS.md, API-NOTES.md, L
 - **Deleting an account anonymises the row instead of removing it:** the name goes, the phone ciphertext is wiped,
   and the phone hash is replaced with random bytes. Every session ends, and the number can sign up again as a
   brand-new account. Later steps add their own anonymisation (addresses, bookings).
+
+## Decisions taken in step 4
+
+- **PostGIS from now on.** Addresses store a `geography(Point, 4326)`, written and read with raw SQL (Prisma treats
+  the type as `Unsupported`). The migration runs `CREATE EXTENSION postgis`; on AWS RDS the migration user needs
+  the `rds_superuser` role for that.
+- **Local tests moved from embedded PostgreSQL to PGlite**, because the embedded build has no PostGIS. PGlite
+  (pinned to the 0.5.8 release from August) runs PostGIS 3.6 on PostgreSQL 18, behind a socket server that allows
+  one connection.
+  - `scripts/pglite-server.mjs` works around two problems: shared prepared statements (fixed by Prisma's
+    `pgbouncer=true` mode) and a pglite-socket bug where a client that vanishes keeps its connection slot forever.
+  - Both are explained in that file. The bug is worth reporting upstream.
+- **Times are India time.** Slot windows, the 60-minute cutoff and the 7 bookable days use IST whatever the
+  server's time zone is.
+- **Slot capacity is per category and PIN area:** `SLOT_CAPACITY_PER_WINDOW` by default, with per-PIN overrides in
+  `slot_capacities`. `GET /slots` takes an optional `pincode` (an additive change). Bookings start counting
+  against capacity in step 5.
+- **Location is stored unencrypted** (needed for distance queries), like city and PIN code. House, street and
+  landmark are encrypted. Deleting an address or the account wipes all of them, including the point.

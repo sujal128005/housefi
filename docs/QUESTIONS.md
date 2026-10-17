@@ -37,10 +37,15 @@ Found while reading the handoff and building. Each one says what the backend doe
 9. **Locality for offers.** `JobOffer.area` and `bookings.locality` need a locality ("Banjara Hills"), but
    `AddressInput` has no locality field. Where should it come from: a new optional `locality` field, the street,
    or reverse geocoding?
-   *Until then:* derived from the last comma-separated part of `street`, falling back to the city.
+   *Until then (done in step 4):* derived from the last comma-separated part of `street` ("Road No. 12, Banjara
+   Hills" gives "Banjara Hills"), falling back to the city.
 10. **Slot capacity.** `FULL` slots depend on capacity per service area, but `schema.sql` has no capacity table and
     the demo marks slots full at random. What capacity rule do you want for v1 (e.g. N bookings per window per
     category per PIN group)?
+    *Until then (done in step 4):* N bookings per window per category per PIN code. N comes from
+    `SLOT_CAPACITY_PER_WINDOW` (10), with per-PIN overrides in `slot_capacities`. Also, `/slots` has no way to
+    know the area: could the app send `pincode` (the chosen address's PIN) with `GET /slots`? The backend
+    already accepts it.
 11. **Coordinators and technician approval.** OTP accepts only `CUSTOMER` and `TECHNICIAN`, so a coordinator
     cannot sign in, and there is no endpoint to approve a technician.
     *Until then:* a CLI command / internal endpoint protected by an admin key (README §12 allows this).
@@ -80,3 +85,10 @@ Found while reading the handoff and building. Each one says what the backend doe
     are today.
 21. **Deleting an account with a technician account on the same phone** deletes only the account that asked; the
     other stays. Is that what the app expects?
+
+## Found in step 4 (addresses and slots)
+
+22. **GPS coordinates are stored unencrypted** (like the city and PIN code) so dispatch can measure distances.
+    They pinpoint a home, so please confirm this matches your privacy notice. Rounding them (for example to
+    about 100 m) would be an option.
+23. **Should addresses outside India be rejected?** Today any valid latitude and longitude is accepted.
