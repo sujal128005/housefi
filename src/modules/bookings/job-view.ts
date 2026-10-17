@@ -4,7 +4,7 @@ import type { FieldCipher } from '../../common/crypto/field-cipher';
 import type { AddressDto } from '../addresses/addresses.service';
 import { ACTIVE_STATUSES } from './booking-status';
 import { jobCredits, rupees } from '../earnings/earnings-rules';
-import { BOOKING_INCLUDE, type BookingRow, EMPTY_ADDRESS, latest, payment, type PaymentDto } from './booking-view';
+import { BOOKING_INCLUDE, type BookingRow, EMPTY_ADDRESS, latest, payment, type PaymentDto, type RatingDto, toRatingDto } from './booking-view';
 import { approvedQuotes, latestQuote, type QuoteDto, toQuoteDto } from './quote-view';
 
 export const JOB_INCLUDE = { ...BOOKING_INCLUDE, customer: { select: { nameEnc: true } } } satisfies Prisma.BookingInclude;
@@ -41,7 +41,8 @@ export interface JobDto {
   readonly cancelReason: Exclude<CancelReason, 'UNPAID_EXPIRED' | 'UNFULFILLED_EXPIRED'> | null;
   readonly otpAttemptsLeft: number;
   readonly earning: number;
-  readonly rating: null;
+  /** What the customer gave (README §4: the technician sees each rating). */
+  readonly rating: RatingDto | null;
   readonly history: readonly { readonly status: BookingStatus; readonly at: number }[];
   readonly acceptedAt: number;
   readonly practice: false;
@@ -114,7 +115,7 @@ export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOpti
     cancelReason: b.cancelReason && API_CANCEL_REASONS.has(b.cancelReason) ? (b.cancelReason as JobDto['cancelReason']) : null,
     otpAttemptsLeft: Math.max(0, opts.startCodeMaxAttempts - b.startCodeAttempts),
     earning: earningSoFar(b, opts),
-    rating: null,
+    rating: toRatingDto(b.rating),
     history: b.events.map((e) => ({ status: e.status, at: e.at.getTime() })),
     acceptedAt: accepted?.getTime() ?? 0,
     practice: false,

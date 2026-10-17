@@ -155,6 +155,26 @@ export class BookingsService {
     return this.core.get(customerId, id);
   }
 
+  /**
+   * The customer rates a finished visit (COMPLETED or CLOSED_NO_REPAIR), once. The technician's average and count are
+   * recomputed from all their ratings in the same transaction (exact, never drifting).
+   */
+  async rate(customerId: string, id: string, input: { satisfied: boolean; stars: number; tags: string[]; comment: string }): Promise<BookingDto> {
+    await this.core.mutateOwned(customerId, id, async (tx, b) => {
+      if (b.status !== 'COMPLETED' && b.status !== 'CLOSED_NO_REPAIR') throw new AppError('CONFLICT', {}, 'only a finished visit can be rated');
+      if (await tx.rating.findUnique({ where: { bookingId: b.id }, select: { bookingId: true } })) throw new AppError('CONFLICT', {}, 'already rated');
+      await tx.rating.create({ data: { bookingId: b.id, customerId, technicianId: b.technicianId, ...input, createdAt: this.core.now() } });
+      if (b.technicianId) {
+        await tx.$executeRaw`
+          UPDATE technicians t SET rating_count = r.n, rating_avg = r.avg
+          FROM (SELECT COUNT(*)::int AS n, ROUND(AVG(stars)::numeric, 2) AS avg FROM ratings WHERE technician_id = ${b.technicianId}::uuid) r
+          WHERE t.user_id = ${b.technicianId}::uuid`;
+      }
+      return { changed: true, result: undefined };
+    });
+    return this.core.get(customerId, id);
+  }
+
   /** New time for a booking still searching, unfulfilled or assigned: it goes back to MATCHING. */
   async reschedule(customerId: string, id: string, time: VisitTime): Promise<BookingDto> {
     await this.core.mutateOwned(customerId, id, async (tx, b) => {

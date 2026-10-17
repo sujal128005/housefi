@@ -60,4 +60,15 @@ export const CancelBody = z
 
 export const RescheduleBody = z.object({ time: VisitTime });
 
+/** README §5 Rating: satisfied, 1-5 stars, tags from a fixed list, a comment of up to 500 characters. */
+export const RATING_TAGS = ['onTime', 'polite', 'clean', 'fair', 'explained', 'fixed'] as const;
+export const RatingInput = z
+  .object({
+    satisfied: z.boolean(),
+    stars: z.number().int().min(1).max(5),
+    tags: z.array(z.enum(RATING_TAGS)).max(RATING_TAGS.length).transform((t) => [...new Set(t)]),
+    comment: z.string().trim().max(500),
+  })
+  .strict();
+
 export const ListQuery = z.object({ scope: z.enum(['active', 'past', 'all']).default('all') });

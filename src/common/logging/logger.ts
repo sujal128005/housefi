@@ -10,6 +10,8 @@ import type { Env } from '../../config/env';
 const SENSITIVE_FIELDS = [
   'phone', 'customerName', 'house', 'street', 'landmark', 'address', 'lat', 'lng', 'otp', 'arrivalOtp', 'startCode', 'demoCode',
   'token', 'accessToken', 'refreshToken', 'pushToken', 'authorization', 'password', 'secret', 'razorpaySignature',
+  // Free text people type can hold anything personal. ('message' is left out: it is also every error's text.)
+  'note', 'comment', 'transcript', 'resolution',
 ] as const;
 
 export const REDACT_PATHS: readonly string[] = [

@@ -157,7 +157,9 @@ describe('coordinator (e2e)', () => {
 
       const events = await t.prisma.bookingEvent.findMany({ where: { bookingId: id, status: { in: ['ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'INSPECTING', 'QUOTE_SHARED', 'PAYMENT_DUE', 'COMPLETED'] } } });
       expect(events.every((e) => e.actorType === 'COORDINATOR' && e.actorId === coordinator.id)).toBe(true);
-      const audit = await t.prisma.auditLog.findMany({ where: { actorId: coordinator.id }, orderBy: { id: 'asc' } });
+      const audit = await t.prisma.auditLog.findMany({ where: { actorId: coordinator.id, action: { startsWith: 'coordinator.' } }, orderBy: { id: 'asc' } });
+      // Each status change they caused is also in the log, as theirs (booking.status).
+      expect(await t.prisma.auditLog.count({ where: { actorId: coordinator.id, action: 'booking.status' } })).toBe(7);
       expect(audit.map((a) => [a.action, (a.after as { outcome?: string }).outcome ?? null])).toEqual([
         ['coordinator.assign', null],
         ['coordinator.start-trip', 'OK'],

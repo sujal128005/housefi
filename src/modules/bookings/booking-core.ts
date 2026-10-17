@@ -3,6 +3,7 @@
 // above it, so any module can use it without circular imports.
 import { Injectable } from '@nestjs/common';
 import type { ActorType, Booking, BookingStatus, Prisma } from '@prisma/client';
+import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { FieldCipher } from '../../common/crypto/field-cipher';
 import { AppError } from '../../common/errors/app-error';
@@ -37,6 +38,7 @@ export class BookingCore {
     private readonly cipher: FieldCipher,
     readonly updates: BookingUpdates,
     private readonly notifier: Notifier,
+    private readonly audit: AuditService,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -55,8 +57,8 @@ export class BookingCore {
 
   /**
    * Moves a locked booking to `to` (CONFLICT if the state machine does not allow it) and records the event. A job that
-   * closes writes the technician's earnings to the ledger, and the people concerned are notified (both in the same
-   * transaction).
+   * closes writes the technician's earnings to the ledger, the people concerned are notified, and audit_log gets a row
+   * (who, when, before, after; README hardening): all in the same transaction.
    */
   async transition(
     tx: Prisma.TransactionClient,
@@ -69,6 +71,7 @@ export class BookingCore {
     if (!canTransition(b.status, to)) throw new AppError('CONFLICT');
     const after = await tx.booking.update({ where: { id: b.id }, data: { ...data, status: to, version: { increment: 1 } } });
     await this.event(tx, b.id, to, actor, { from: b.status, ...meta });
+    await this.audit.record({ actorType: actor.type, actorId: actor.id, action: 'booking.status', entity: 'booking', entityId: b.id, before: { status: b.status }, after: { status: to, ...meta } }, tx);
     await recordJobClose(tx, b, to, this.shares(), this.now());
     await this.notifier.enqueue(tx, await transitionNotices(tx, b, after, actor));
   }

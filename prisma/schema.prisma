@@ -59,6 +59,7 @@ model User {
   refreshTokens RefreshToken[]
   addresses     Address[]
   devices       Device[]
+  ratingsGiven  Rating[]
   notifications Notification[]
   bookings      Booking[]
   technician    Technician?     @relation("TechnicianUser")
@@ -348,6 +349,7 @@ model Booking {
   quotes        Quote[]
   tickets       SupportTicket[]
   ledger        EarningsLedger[]
+  rating        Rating?
   notifications Notification[]
 
   @@unique([customerId, idempotencyKey])
@@ -512,6 +514,7 @@ model Technician {
   offers      JobOffer[]
   ledger      EarningsLedger[]
   payouts     Payout[]
+  ratings     Rating[]
 
   @@index([pincode, online, verification])
   @@index([verification, submittedAt])
@@ -889,4 +892,26 @@ model Notification {
 
   @@index([userId, createdAt(sort: Desc), seq(sort: Desc)])
   @@map("notifications")
+}
+
+// ---------- ratings ----------
+
+/// The customer's rating of a finished visit (COMPLETED or CLOSED_NO_REPAIR), once per booking.
+model Rating {
+  bookingId    String   @id @map("booking_id") @db.Uuid
+  customerId   String   @map("customer_id") @db.Uuid
+  technicianId String?  @map("technician_id") @db.Uuid
+  satisfied    Boolean
+  stars        Int      @db.SmallInt
+  /// From: onTime, polite, clean, fair, explained, fixed.
+  tags         String[] @default([])
+  comment      String   @default("")
+  createdAt    DateTime @map("created_at") @db.Timestamptz(6)
+
+  booking    Booking     @relation(fields: [bookingId], references: [id])
+  customer   User        @relation(fields: [customerId], references: [id])
+  technician Technician? @relation(fields: [technicianId], references: [userId])
+
+  @@index([technicianId, createdAt(sort: Desc)])
+  @@map("ratings")
 }

@@ -1,18 +1,31 @@
 // Booking rows -> openapi.yaml Booking, as the customer sees it.
-import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Technician, User } from '@prisma/client';
+import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Rating, Technician, User } from '@prisma/client';
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import { paiseToRupees } from '../../common/money';
 import type { AddressDto } from '../addresses/addresses.service';
 import { latestQuote, type QuoteDto, type QuoteRow, toQuoteDto } from './quote-view';
 
-export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User }) | null; quotes: QuoteRow[] };
+export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User }) | null; quotes: QuoteRow[]; rating: Rating | null };
 
 export const BOOKING_INCLUDE = {
   events: { orderBy: [{ at: 'asc' }, { id: 'asc' }] },
   payments: { orderBy: { createdAt: 'asc' } },
   technician: { include: { user: true } },
   quotes: { include: { lines: true }, orderBy: [{ which: 'asc' }, { version: 'asc' }] },
+  rating: true,
 } satisfies Prisma.BookingInclude;
+
+/** openapi.yaml Rating. */
+export interface RatingDto {
+  readonly satisfied: boolean;
+  readonly stars: number;
+  readonly tags: readonly string[];
+  readonly comment: string;
+  readonly at: number;
+}
+
+export const toRatingDto = (r: Rating | null): RatingDto | null =>
+  r ? { satisfied: r.satisfied, stars: r.stars, tags: r.tags, comment: r.comment, at: r.createdAt.getTime() } : null;
 
 /** openapi.yaml Technician: the assigned technician as the customer sees them. */
 export interface TechnicianDto {
@@ -65,7 +78,7 @@ export interface BookingDto {
   readonly quote: QuoteDto | null;
   readonly extraQuote: QuoteDto | null;
   readonly finalPayment: PaymentDto | null;
-  readonly rating: null;
+  readonly rating: RatingDto | null;
   readonly createdAt: number;
   readonly history: readonly { readonly status: BookingStatus; readonly at: number }[];
   readonly cancelReason: Exclude<CancelReason, 'UNPAID_EXPIRED' | 'UNFULFILLED_EXPIRED'> | null;
@@ -149,7 +162,7 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher): Promise<
     quote: visibleQuote(b.quotes, 'MAIN'),
     extraQuote: visibleQuote(b.quotes, 'EXTRA'),
     finalPayment: final ? payment(final) : null,
-    rating: null,
+    rating: toRatingDto(b.rating),
     createdAt: b.createdAt.getTime(),
     history: b.events.map((e) => ({ status: e.status, at: e.at.getTime() })),
     cancelReason: b.cancelReason && API_CANCEL_REASONS.has(b.cancelReason) ? (b.cancelReason as BookingDto['cancelReason']) : null,

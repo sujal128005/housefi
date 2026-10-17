@@ -273,3 +273,12 @@ The goal is none. Each entry links to the open question that will remove it.
   endpoint. An unknown action is `NOT_FOUND`.
 - **Schema:** `support_tickets` gains `resolved_by` and `resolution`, a CHECK that `resolved_at` is set exactly
   when `RESOLVED`, and a partial unique index (one open call-back per person and booking).
+
+## Rating and hardening (step 14)
+
+- **`POST /bookings/{id}/rating`:**
+  - `CONFLICT` unless the booking is `COMPLETED` / `CLOSED_NO_REPAIR`, or when it was already rated.
+  - `tags` must be from `onTime, polite, clean, fair, explained, fixed` (duplicates dropped).
+  - `comment` is trimmed, at most 500 characters.
+  - The response is the `Booking` with `rating` set. `Job.rating` and `TechProfile.rating` (average) follow.
+- **System support tickets** (`TRIP_OVERDUE`, `BILL_UNPAID`) name the booking's customer as `raised_by`.

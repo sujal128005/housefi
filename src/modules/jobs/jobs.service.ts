@@ -55,7 +55,9 @@ export class JobsService {
   async startTrip(technicianId: string, id: string): Promise<JobDto> {
     await this.core.mutateAssigned(technicianId, id, async (tx, b) => {
       if (b.status !== 'ASSIGNED') throw new AppError('CONFLICT');
-      await this.core.transition(tx, b, 'EN_ROUTE', { etaMin: await this.etaMinutes(tx, b.id, technicianId) }, this.tech(technicianId));
+      const etaMin = await this.etaMinutes(tx, b.id, technicianId);
+      // The ETA at the start is kept in the timeline: support is alerted when the trip runs 30 min past it.
+      await this.core.transition(tx, b, 'EN_ROUTE', { etaMin }, this.tech(technicianId), { etaMin });
       return { changed: true, result: undefined };
     });
     return this.core.getJob(technicianId, id);

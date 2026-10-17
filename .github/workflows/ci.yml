@@ -32,8 +32,8 @@ jobs:
       DATABASE_URL_TEST: postgresql://housefi:housefi@localhost:5432/housefi?schema=public
       REDIS_URL: redis://localhost:6379
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -42,5 +42,6 @@ jobs:
       - run: npm run typecheck
       - run: npm test -- --ci
       - run: npm run build
+      # Everything, dev tools included (a compromised test or build tool runs in CI with the repository).
       - name: Dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --audit-level=moderate

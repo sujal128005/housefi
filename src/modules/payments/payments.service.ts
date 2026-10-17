@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Payment, PaymentKind, PaymentMethod, Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
+import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { AppError } from '../../common/errors/app-error';
 import { paiseToRupees } from '../../common/money';
@@ -67,6 +68,7 @@ export class PaymentsService {
     private readonly core: BookingCore,
     @Inject(RAZORPAY_CLIENT) private readonly razorpay: RazorpayClient | null,
     private readonly dispatch: DispatchService,
+    private readonly audit: AuditService,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -79,8 +81,16 @@ export class PaymentsService {
 
   /** Marks a paid visit fee for refund (sent to Razorpay right after commit, and retried by the worker). */
   async refundVisitFee(tx: Prisma.TransactionClient, bookingId: string, at: Date): Promise<boolean> {
-    const r = await tx.payment.updateMany({ where: { bookingId, kind: 'VISIT', state: 'PAID' }, data: { state: 'REFUNDED', refundRequestedAt: at, settledAt: at } });
-    return r.count > 0;
+    const paid = await tx.payment.findMany({ where: { bookingId, kind: 'VISIT', state: 'PAID' }, select: { id: true, amountPaise: true } });
+    if (paid.length === 0) return false;
+    await tx.payment.updateMany({ where: { id: { in: paid.map((p) => p.id) } }, data: { state: 'REFUNDED', refundRequestedAt: at, settledAt: at } });
+    for (const p of paid) await this.auditRefund(tx, p.id, bookingId, p.amountPaise, 'visit fee: cancelled before the trip or unfulfilled');
+    return true;
+  }
+
+  /** Money going back to a customer is a privileged system action: audit_log records each refund decision. */
+  private async auditRefund(tx: Prisma.TransactionClient, paymentId: string, bookingId: string, amountPaise: bigint, reason: string): Promise<void> {
+    await this.audit.record({ actorType: 'SYSTEM', actorId: null, action: 'payment.refund', entity: 'payment', entityId: paymentId, before: { state: 'PAID' }, after: { state: 'REFUNDED', bookingId, amountPaise: amountPaise.toString(), reason } }, tx);
   }
 
   // ---------- customer ----------
@@ -288,6 +298,7 @@ export class PaymentsService {
         }
         // Paid for a booking that no longer needs it (cancelled or expired meanwhile, or paid twice): refund in full.
         await tx.payment.update({ where: { id: p.id }, data: { state: 'REFUNDED', refundRequestedAt: now } });
+        await this.auditRefund(tx, p.id, b.id, BigInt(rp.amount), `paid after the booking was ${b.status}`);
         this.log.warn(`payment ${p.id} arrived for booking ${b.code} in ${b.status}; refunding`);
         return { ...done, refund: true, outcome, changed: true };
       }

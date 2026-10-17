@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Locale, User } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
+import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { FieldCipher } from '../../common/crypto/field-cipher';
 import { AppError } from '../../common/errors/app-error';
@@ -32,6 +33,7 @@ export class UsersService {
     private readonly addresses: AddressesService,
     private readonly bookings: BookingsService,
     private readonly technicians: TechniciansService,
+    private readonly audit: AuditService,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -75,10 +77,13 @@ export class UsersService {
       // The inbox is the user's own data; devices would only receive pushes for a closed account.
       await tx.device.deleteMany({ where: { userId } });
       await tx.notification.deleteMany({ where: { userId } });
+      // Stars stay (the technician's average); the free-text comment is the customer's own words.
+      await tx.rating.updateMany({ where: { customerId: userId }, data: { comment: '' } });
       await tx.user.update({
         where: { id: userId },
         data: { status: 'DELETED', deletedAt: now, nameEnc: null, phoneEnc: new Uint8Array(0), phoneHash: new Uint8Array(randomBytes(32)) },
       });
+      await this.audit.record({ actorType: user.role === 'TECHNICIAN' ? 'TECHNICIAN' : 'CUSTOMER', actorId: userId, action: 'user.delete', entity: 'user', entityId: userId, before: { status: user.status }, after: { status: 'DELETED' } }, tx);
     });
     this.log.log(`account ${userId} deleted and anonymised`);
   }

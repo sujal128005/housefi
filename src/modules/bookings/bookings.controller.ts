@@ -7,7 +7,7 @@ import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { type AuthUser, CurrentUser, Roles } from '../auth/auth.guard';
 import { BookingUpdates } from './booking-updates';
 import type { BookingDto } from './booking-view';
-import { CancelBody, IdempotencyKey, ListQuery, NewBooking, RescheduleBody } from './bookings.schemas';
+import { CancelBody, IdempotencyKey, ListQuery, NewBooking, RatingInput, RescheduleBody } from './bookings.schemas';
 import { BookingsService } from './bookings.service';
 
 @Controller('bookings')
@@ -44,6 +44,12 @@ export class BookingsController {
   @HttpCode(200)
   cancel(@CurrentUser() user: AuthUser, @Param('bookingId') id: string, @Body(new ZodValidationPipe(CancelBody)) reason: z.infer<typeof CancelBody>): Promise<BookingDto> {
     return this.bookings.cancel(user.id, id, reason);
+  }
+
+  @Post(':bookingId/rating')
+  @HttpCode(200)
+  rate(@CurrentUser() user: AuthUser, @Param('bookingId') id: string, @Body(new ZodValidationPipe(RatingInput)) body: z.infer<typeof RatingInput>): Promise<BookingDto> {
+    return this.bookings.rate(user.id, id, body);
   }
 
   @Post(':bookingId/reschedule')

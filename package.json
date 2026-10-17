@@ -64,6 +64,7 @@
   },
   "overrides": {
     "fastify": "$fastify",
-    "deepmerge-ts": "8.0.2"
+    "deepmerge-ts": "8.0.2",
+    "argparse@1": "2.0.1"
   }
 }

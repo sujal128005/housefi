@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Booking, BookingStatus, OfferRejectReason, Prisma } from '@prisma/client';
+import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
@@ -44,6 +45,7 @@ export class DispatchService {
     private readonly prisma: PrismaService,
     private readonly core: BookingCore,
     private readonly notifier: Notifier,
+    private readonly audit: AuditService,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -195,6 +197,7 @@ export class DispatchService {
           await tx.technician.update({ where: { userId: offer.technicianId }, data: { online: false, missedOffersInRow: 0 } });
           await tx.$executeRaw`UPDATE technicians SET last_location = NULL, last_location_at = NULL, last_accuracy_m = NULL WHERE user_id = ${offer.technicianId}::uuid`;
           this.log.log(`technician ${offer.technicianId} missed ${MISSED_OFFERS_LIMIT} offers in a row; set offline`);
+          await this.audit.record({ actorType: 'SYSTEM', actorId: null, action: 'tech.set_offline', entity: 'technician', entityId: offer.technicianId, before: { online: true }, after: { online: false, reason: `missed ${MISSED_OFFERS_LIMIT} offers` } }, tx);
           // No NotificationKind for this yet (QUESTIONS.md #48); the app sees online: false in GET /tech/me.
         }
         return true;

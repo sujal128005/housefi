@@ -201,3 +201,10 @@ Found while reading the handoff and building. Each one says what the backend doe
     no notification kind for it (there is no `JOB_ASSIGNED`).
 57. **Ticket notes** are stored as plain text, like technician reports. They may hold personal details: encrypt them
     like addresses, or keep them readable for the support team?
+
+## Found in step 14 (hardening)
+
+58. **Retention:** the README suggests deleting addresses 3 years after the last booking. What periods apply to
+    addresses, bookings, tickets, audit_log and notifications? A sweep is easy to add once the numbers are agreed.
+59. **Ratings:** `women_rated` is still not computed (QUESTIONS.md #16). Should low ratings (1-2 stars, or "not
+    satisfied") also open a support ticket automatically?

@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-13 of 14 (`docs/STARTER-PROMPT.md`) are done:
+All 14 build steps (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -31,8 +31,17 @@ Build steps 1-13 of 14 (`docs/STARTER-PROMPT.md`) are done:
     behind an interface a model can replace.
 13. Support and coordinator: `POST /v1/support/tickets`, `/support/callback`; `GET /v1/coordinator/jobs`,
     `POST /v1/coordinator/jobs/{id}/assign`, `/actions/{action}`; `npm run support` and `npm run coordinators` (audited).
+14. Hardening: `POST /v1/bookings/{id}/rating`, audit_log on every status change and privileged action, the
+    trip-overdue and bill-unpaid watchdog, `npm audit` clean (dev included), CodeQL v4 + Dependabot, and
+    `test/journeys.e2e-spec.ts` (the full happy path and every failure path in STATE-MACHINE.md).
 
-Next is **step 14**: hardening (audit coverage, `npm audit`, CodeQL, full happy-path and failure-path e2e tests).
+**What is left** is outside the build order:
+- Contract endpoints: `POST /uploads/photos`, `/uploads/audio` (QUESTIONS.md #52) and `POST /bookings/{id}/call`
+  (Exotel, later).
+- The team's answers in `docs/QUESTIONS.md`, and the production setup (AWS Mumbai, live provider keys, alerting,
+  backups).
+- CI on PostgreSQL 16 has not run yet (no GitHub remote). Local tests use PGlite.
+- See "Security checklist status" below and `docs/LATER.md`.
 
 ## Run it locally
 
@@ -132,7 +141,7 @@ src/
                           GET /tech/earnings and the payout run
     ai/                   top-problems.ts (ranking), models.ts (photo / speech stand-ins), chat-rules.ts + chat.ts
                           (support assistant); swap implementations in ai.module.ts
-    support/              tickets and call-back requests; the queue for npm run support
+    support/              tickets and call-back requests; the queue for npm run support; support-watchdog.ts
     coordinator/          assign and act-on-behalf (acting-for.ts in bookings/), coordinator accounts
     notifications/        notifier.ts (the outbox every module writes to), booking-notices.ts (who hears about a
                           status change), push texts (en / te), Expo sender, delivery worker, inbox and devices API
@@ -490,3 +499,52 @@ configured"); everything else works.
 - **Fix for the command lines on Windows:** a script that started with `tsc` (a `.cmd` shim) caret-escaped the
   arguments after `--`, so `npm run coordinators -- add <phone> "Lakshmi Rao"` stored `^Lakshmi^ Rao^` (the same
   went for `tech correct` notes). The CLI scripts now run the compiler through `node`.
+
+## Decisions taken in step 14
+
+- **Rating** (`POST /bookings/{id}/rating`, needed to finish the happy path) works once on `COMPLETED` or
+  `CLOSED_NO_REPAIR`:
+  - Tags come from the README's six. The technician's `rating_avg` / `rating_count` are recomputed from all
+    their ratings in the same transaction.
+  - `Booking.rating` and `Job.rating` show it.
+  - Account deletion clears the customer's comment and keeps the stars.
+- **audit_log covers every status change.** `BookingCore.transition` writes `booking.status` (before, after, actor,
+  ids) in the transaction of the change, so no path can skip it. Also audited now:
+  - account deletion (`user.delete`);
+  - each refund decision (`payment.refund`, SYSTEM);
+  - setting a technician offline after 3 missed offers (`tech.set_offline`).
+
+  Already audited from earlier steps: verification, review auto-clear, payouts, coordinator actions and ticket
+  resolutions.
+- **Two STATE-MACHINE.md timeouts were missing** and are now `SupportWatchdog` (every minute). A trip 30 min past the
+  ETA given at the start (now kept in the `EN_ROUTE` event) opens a `TRIP_OVERDUE` ticket. A bill unpaid 24 h after
+  the repair opens `BILL_UNPAID`. Both are `HIGH` and opened once per booking, under the booking's row lock.
+- **`npm audit` reports 0 vulnerabilities, dev dependencies included.** The only advisory (`sprintf-js`, which has
+  no fixed version) came through `js-yaml@3 → argparse@1`, which js-yaml only uses for its own command line.
+  `overrides` pins `argparse@1` to 2.0.1. CI now fails on any moderate advisory, dev included.
+- **CI:** `actions/checkout@v5`, `setup-node@v5`, `codeql-action@v4` (v3 is being retired). Dependabot proposes npm and
+  Actions updates weekly, grouped.
+- **`test/journeys.e2e-spec.ts`:**
+  - The happy path uses real endpoints only. The customer reads the start code from their own booking, as in the app.
+  - Each failure path in STATE-MACHINE.md is covered, with timers on the test clock.
+  - Every journey checks that each status change has its audit row with the right actor. A mutation check (audit
+    write disabled) makes it fail.
+- **Logs** also redact free text (`note`, `comment`, `transcript`, `resolution`).
+
+## Security checklist status (README "must pass before any real user data")
+
+| Item | Status |
+| --- | --- |
+| TLS / HSTS | HSTS header (helmet, 1 year); TLS ends at the load balancer: configure it there |
+| PII encrypted per field, phone lookup by HMAC | Done (AES-256-GCM, KMS-wrapped keys in production); RDS encryption is an infrastructure setting |
+| OTP / refresh tokens hashed; codes encrypted, 5 attempts | Done |
+| RBAC + ownership, `NOT_FOUND` for others' data | Done on every endpoint (tests per module) |
+| Rate limits per IP / phone / user; idempotency keys | Done (bookings, payments) |
+| Payment state only from verified Razorpay signatures | Done |
+| Input validation on every field | Done; photo / audio types and sizes wait for uploads |
+| Signed photo URLs, private bucket, EXIF stripping | Not built: uploads are not in the build order (QUESTIONS.md #52) |
+| Logs without PII, tokens or codes | Done (redaction list + no bodies logged) |
+| Audit log for status changes and staff actions | Done (step 14) |
+| Secrets outside the repo | Done (.env only locally; production reads the environment: wire it to Secrets Manager / SSM) |
+| DPDP: data in India, deletion with anonymisation | Deletion done; India region and the retention policy are open (QUESTIONS.md #58) |
+| Dependabot, npm audit, CodeQL, no eval, helmet, CORS allow-list | Done |

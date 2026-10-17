@@ -1,9 +1,15 @@
+# Weekly dependency updates (security fixes arrive as they are published). Prisma and the PGlite test packages are
+# pinned on purpose (README "Decisions taken in step 1"): review those updates by hand.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
-    schedule: { interval: weekly }
-    open-pull-requests-limit: 5
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 10
+    groups:
+      nestjs: { patterns: ["@nestjs/*"] }
+      lint: { patterns: ["eslint*", "@eslint/*", "typescript-eslint", "prettier"] }
+      test: { patterns: ["jest", "@jest/*", "@swc/*", "supertest", "@types/supertest"] }
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly }
+    schedule: { interval: weekly, day: monday }
