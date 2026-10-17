@@ -65,3 +65,30 @@ The goal is none. Each entry links to the open question that will remove it.
   - `addresses.locality` is NOT NULL and derived from the street (QUESTIONS.md #9).
   - `addresses.updated_at` is added, plus a CHECK on the PIN format.
   - New table `slot_capacities` (QUESTIONS.md #10).
+
+## Bookings (step 5)
+
+- **`POST /bookings`**
+  - `Idempotency-Key` must be 8-64 characters of `A-Z a-z 0-9 _ . : -` (a UUID works). It is unique per
+    customer.
+  - A replay returns the original booking with 201. The same key with a different body is `CONFLICT`.
+- **Validation codes:**
+  - An unknown service, an issue from another service, or an address that isn't yours is `VALIDATION` on that
+    field.
+  - Photo and audio ids are `VALIDATION` until uploads exist (step 10).
+  - An instant booking outside 07:00-21:00 IST is `INSTANT_UNAVAILABLE`; a closed or full window is
+    `SLOT_UNAVAILABLE`.
+- **Fields not filled yet:** `technician`, `quote`, `extraQuote`, `rating` are null and `problem.photos` is
+  empty. Later steps fill them.
+- **`arrivalOtp`** is `""` until the visit fee is `PAID`, and again once it is refunded.
+- **`cancelReason`** is `null` when the system cancelled (unpaid after 30 min); the stored reason is
+  `UNPAID_EXPIRED` (QUESTIONS.md #4). Cancelling an already cancelled booking returns it unchanged (200).
+- **Lists:** `GET /bookings` returns at most 50 bookings, newest first. There is no paging yet.
+- **The stream** sends `retry: 3000`, one `booking` event right away and one per change (only when something
+  visible changed), plus a `: ping` comment every 25 s. Others' bookings get the normal `NOT_FOUND` body
+  before the stream opens.
+- **Schema differences from docs/schema.sql:**
+  - `bookings`: `idempotency_hash` is added; `idempotency_key` is NOT NULL.
+  - `bookings.technician_id`: no foreign key until the technicians table exists (step 7).
+  - `payments`: `settled_at` and `refund_requested_at` are added.
+  - CHECK constraints: the time mode matches the window, the code format, and reasons only in their status.

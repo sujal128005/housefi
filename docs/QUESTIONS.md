@@ -92,3 +92,14 @@ Found while reading the handoff and building. Each one says what the backend doe
     They pinpoint a home, so please confirm this matches your privacy notice. Rounding them (for example to
     about 100 m) would be an option.
 23. **Should addresses outside India be rejected?** Today any valid latitude and longitude is accepted.
+
+## Found in step 5 (bookings)
+
+24. **Booking codes have room for only 90,000 bookings.** `HF-` plus 5 digits gives 90,000 codes, and
+    collisions get frequent long before that. After repeated collisions the backend falls back to 6 digits. Is a
+    longer code fine for the app (e.g. `HF-123456`), or should codes use letters too?
+25. **A payment can arrive after the unpaid booking expired.** The 30-minute expiry can race with a slow
+    payment (Razorpay checkout still open). Step 6 will refund automatically when a payment is confirmed for a
+    booking that was already cancelled. Please confirm that's what you want, rather than reviving the booking.
+26. **Cancelling an unpaid booking needs no reason**, and cancelling twice returns the booking unchanged. Is that
+    fine for the app's retry logic?

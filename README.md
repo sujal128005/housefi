@@ -6,15 +6,17 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-4 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-5 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
 3. Users and catalog: `GET/PATCH/DELETE /v1/me`; `GET /v1/catalog/categories`, `/catalog/services`,
    `/catalog/services/{id}`, seeded from the app's catalog.
 4. Addresses and slots: `GET/POST/PUT/DELETE /v1/addresses` (encrypted, PostGIS point) and `GET /v1/slots`.
+5. Bookings: `POST /v1/bookings` (Idempotency-Key), `GET /v1/bookings[/{id}]`, `/cancel`, `/reschedule`,
+   `/stream` (Server-Sent Events); timeline, slot holding, unpaid bookings cancelled after 30 minutes.
 
-Next is **step 5**: bookings.
+Next is **step 6**: payments (Razorpay test mode).
 
 ## Run it locally
 
@@ -96,7 +98,10 @@ src/
     catalog/              public catalog endpoints, catalog.data.json (imported from the app), idempotent seed
     users/                GET/PATCH/DELETE /me (delete = anonymise); maps a user to the API's Customer shape
     addresses/            saved addresses: encrypted house/street/landmark, PostGIS point, soft delete that wipes
-    slots/                slot-rules.ts (IST windows, cutoff, 7 days) + per-area capacity
+    slots/                slot-rules.ts (IST windows, cutoff, 7 days) + per-area capacity and window holds
+    bookings/             booking-status.ts (the state machine), service (create, read, cancel, reschedule, expiry),
+                          booking-view.ts (rows -> API shape), booking-updates.ts (live-update bus), SSE stream
+    payments/             payment records (visit fee DUE, refund decisions); Razorpay in step 6
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
   cli/seed.ts             npm run db:seed
   common/money.ts         paise <-> whole rupees (refuses fractions)
@@ -173,3 +178,28 @@ docs/                     the app team's handoff + QUESTIONS.md, API-NOTES.md, L
   against capacity in step 5.
 - **Location is stored unencrypted** (needed for distance queries), like city and PIN code. House, street and
   landmark are encrypted. Deleting an address or the account wipes all of them, including the point.
+
+## Decisions taken in step 5
+
+- **One state machine.** `booking-status.ts` holds every transition from `STATE-MACHINE.md`. Each change runs
+  under a row lock (`SELECT ... FOR UPDATE`), is checked against that table (anything else is `CONFLICT`), bumps
+  `version` and writes a `booking_events` row, which is the timeline the app shows.
+- **Idempotent create.** `Idempotency-Key` is unique per customer.
+  - A retry with the same body returns the original booking.
+  - A different body with the same key is `CONFLICT`.
+  - Two identical requests at once still create one booking.
+- **Slots are held safely.** Creating or rescheduling takes a per-window advisory lock, then counts the bookings
+  holding that window. Three customers racing for the last place get one booking and two `SLOT_UNAVAILABLE`.
+- **Unpaid expiry is a sweep, not a delayed job.** Every instance checks once a minute, re-checking each booking
+  under its lock. Reads and actions also expire overdue bookings, so the app never sees one as still active.
+  Nothing is lost on restart, and it doesn't need Redis. BullMQ comes in with dispatch, where 45-second offer
+  timers need precision.
+- **Live updates:** `GET /bookings/{id}/stream` sends the full booking at once and after every change, with a
+  heartbeat every 25 s.
+  - Changes are signalled through Redis pub/sub, so every instance hears them, or in-process when Redis is down.
+  - The Redis path hasn't run yet (no Redis here); the in-process path is tested end to end.
+- **Refunds are recorded, not sent:** cancelling a paid booking before the trip marks the visit fee `REFUNDED` and
+  records the refund decision. No money can be taken yet; step 6 sends refunds to Razorpay.
+- **Account deletion:** refused (`CONFLICT`) while a paid booking is in progress. Unpaid bookings are cancelled,
+  and every booking is anonymised (address copy, notes, transcript, location), while codes, amounts and the
+  timeline are kept.

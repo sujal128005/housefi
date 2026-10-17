@@ -58,6 +58,7 @@ model User {
 
   refreshTokens RefreshToken[]
   addresses     Address[]
+  bookings      Booking[]
 
   @@unique([role, phoneHash])
   @@map("users")
@@ -156,6 +157,7 @@ model Service {
 
   category Category       @relation(fields: [categoryId], references: [id])
   issues   ServiceIssue[]
+  bookings Booking[]
 
   @@index([categoryId, sort])
   @@map("services")
@@ -220,4 +222,195 @@ model SlotCapacity {
 
   @@id([categoryId, pincode])
   @@map("slot_capacities")
+}
+
+// ---------- bookings ----------
+
+enum BookingMode {
+  INSTANT
+  SCHEDULED
+
+  @@map("booking_mode")
+}
+
+enum BookingStatus {
+  AWAITING_PAYMENT
+  PAYMENT_PENDING
+  MATCHING
+  MATCHING_DELAYED
+  UNFULFILLED
+  ASSIGNED
+  EN_ROUTE
+  ARRIVED
+  INSPECTING
+  QUOTE_SHARED
+  IN_PROGRESS
+  EXTRA_WORK
+  PAYMENT_DUE
+  COMPLETED
+  CLOSED_NO_REPAIR
+  CANCELLED
+
+  @@map("booking_status")
+}
+
+/// The first five come from the customer; the last two are set by the system (not sent to the app yet,
+/// docs/QUESTIONS.md #4).
+enum CancelReason {
+  PLANS_CHANGED
+  FIXED
+  TOO_LONG
+  MISTAKE
+  OTHER
+  UNPAID_EXPIRED
+  UNFULFILLED_EXPIRED
+
+  @@map("cancel_reason")
+}
+
+enum CloseReason {
+  CUSTOMER_DECLINED
+  CUSTOMER_UNAVAILABLE
+  CANNOT_COMPLETE
+
+  @@map("close_reason")
+}
+
+enum ActorType {
+  CUSTOMER
+  TECHNICIAN
+  COORDINATOR
+  ADMIN
+  SYSTEM
+
+  @@map("actor_type")
+}
+
+/// One booking = one job. The customer sees it as a Booking, the assigned technician as a Job (same id).
+model Booking {
+  id                 String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Short human code, "HF-48291".
+  code               String                                 @unique
+  customerId         String                                 @map("customer_id") @db.Uuid
+  serviceId          String                                 @map("service_id")
+  categoryId         CategoryId                             @map("category_id")
+  /// The full address at booking time (encrypted JSON), so later edits or deletion of the saved address
+  /// do not change the booking.
+  addressSnapshotEnc Bytes                                  @map("address_snapshot_enc")
+  /// Shown to offered technicians before they accept.
+  locality           String
+  city               String
+  pincode            String                                 @db.Char(6)
+  location           Unsupported("geography(Point, 4326)")?
+  issueIds           String[]                               @default([]) @map("issue_ids")
+  notes              String                                 @default("")
+  voiceTranscript    String?                                @map("voice_transcript")
+  voiceObjectKey     String?                                @map("voice_object_key")
+  voiceDurationSec   Int?                                   @map("voice_duration_sec")
+  timeMode           BookingMode                            @map("time_mode")
+  windowDate         DateTime?                              @map("window_date") @db.Date
+  windowStartHour    Int?                                   @map("window_start_hour") @db.SmallInt
+  windowEndHour      Int?                                   @map("window_end_hour") @db.SmallInt
+  preferWomenRated   Boolean                                @default(false) @map("prefer_women_rated")
+  status             BookingStatus
+  /// The assigned technician (foreign key added with the technicians table, step 7).
+  technicianId       String?                                @map("technician_id") @db.Uuid
+  /// 4 digits the customer reads out at the door; encrypted because the customer must see it.
+  arrivalCodeEnc     Bytes                                  @map("arrival_code_enc")
+  startCodeAttempts  Int                                    @default(0) @map("start_code_attempts")
+  etaMin             Int?                                   @map("eta_min")
+  workStarted        Boolean                                @default(false) @map("work_started")
+  cancelReason       CancelReason?                          @map("cancel_reason")
+  closeReason        CloseReason?                           @map("close_reason")
+  idempotencyKey     String                                 @map("idempotency_key")
+  /// SHA-256 of the create request, so a reused Idempotency-Key with a different body is refused.
+  idempotencyHash    Bytes                                  @map("idempotency_hash")
+  /// Incremented on every change.
+  version            Int                                    @default(0)
+  createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  service  Service        @relation(fields: [serviceId], references: [id])
+  customer User           @relation(fields: [customerId], references: [id])
+  events   BookingEvent[]
+  payments Payment[]
+
+  @@unique([customerId, idempotencyKey])
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([technicianId, status])
+  @@index([status, windowDate])
+  @@index([categoryId, pincode, windowDate, windowStartHour])
+  @@map("bookings")
+}
+
+/// Timeline and audit of every status change.
+model BookingEvent {
+  id        BigInt        @id @default(autoincrement())
+  bookingId String        @map("booking_id") @db.Uuid
+  status    BookingStatus
+  actorType ActorType     @map("actor_type")
+  actorId   String?       @map("actor_id") @db.Uuid
+  meta      Json          @default("{}")
+  at        DateTime      @default(now()) @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId, at])
+  @@map("booking_events")
+}
+
+// ---------- payments (Razorpay arrives in step 6) ----------
+
+enum PaymentKind {
+  VISIT
+  FINAL
+
+  @@map("payment_kind")
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  NETBANKING
+  CASH
+
+  @@map("payment_method")
+}
+
+enum PaymentState {
+  DUE
+  PROCESSING
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+
+  @@map("payment_state")
+}
+
+model Payment {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId         String         @map("booking_id") @db.Uuid
+  kind              PaymentKind
+  amountPaise       BigInt         @map("amount_paise")
+  state             PaymentState   @default(DUE)
+  method            PaymentMethod?
+  /// 'RAZORPAY' | 'CASH'
+  provider          String?
+  providerOrderId   String?        @unique @map("provider_order_id")
+  providerPaymentId String?        @unique @map("provider_payment_id")
+  providerRefundId  String?        @map("provider_refund_id")
+  idempotencyKey    String?        @map("idempotency_key")
+  failureCode       String?        @map("failure_code")
+  /// When the payment was settled (paid, failed or refunded): Payment.at in the API.
+  settledAt         DateTime?      @map("settled_at") @db.Timestamptz(6)
+  /// Set when a refund was decided (cancellation before EN_ROUTE, unfulfilled); step 6 sends it to Razorpay.
+  refundRequestedAt DateTime?      @map("refund_requested_at") @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId, kind])
+  @@map("payments")
 }

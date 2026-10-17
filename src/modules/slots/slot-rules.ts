@@ -27,6 +27,11 @@ export function istDate(epochMs: number): string {
   return new Date(epochMs + IST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+/** The IST hour (0-23) of an instant. */
+export function istHour(epochMs: number): number {
+  return new Date(epochMs + IST_OFFSET_MS).getUTCHours();
+}
+
 /** True for a real calendar date written as YYYY-MM-DD. */
 export function isIsoDate(s: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
