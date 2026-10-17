@@ -8,7 +8,7 @@ import { type CustomerDto, UsersService } from '../users/users.service';
 import { OtpService, type VerifiedPhone } from './otp.service';
 import { type Session, SessionsService } from './sessions.service';
 
-/** openapi.yaml AuthResult: exactly one of customer / technician, matching the role. */
+/** openapi.yaml AuthResult: exactly one of customer / technician (or, an addition, coordinator), matching the role. */
 export interface AuthResultDto {
   readonly accessToken: string;
   readonly refreshToken: string;
@@ -16,6 +16,7 @@ export interface AuthResultDto {
   readonly isNew: boolean;
   readonly customer?: CustomerDto;
   readonly technician?: TechProfileDto;
+  readonly coordinator?: { readonly id: string; readonly name: string };
 }
 
 @Injectable()
@@ -56,6 +57,8 @@ export class AuthService {
     const where = { role_phoneHash: { role, phoneHash } };
     const existing = await this.prisma.user.findUnique({ where });
     if (existing) return existing;
+    // Staff accounts are created by an admin (npm run coordinators), never by signing in.
+    if (role === 'COORDINATOR' || role === 'ADMIN') throw new AppError('UNAUTHENTICATED', {}, 'no such account');
     const phoneEnc = await this.cipher.encrypt('users.phone', phone);
     try {
       return await this.prisma.user.create({ data: { role, phoneHash, phoneEnc } });
@@ -72,6 +75,10 @@ export class AuthService {
       // New = no profile submitted yet.
       const technician = await this.technicians.profileOf(user);
       return { ...base, isNew: technician.verification === null, technician };
+    }
+    if (user.role === 'COORDINATOR') {
+      const name = user.nameEnc ? await this.cipher.decrypt('users.name', user.nameEnc) : '';
+      return { ...base, isNew: false, coordinator: { id: user.id, name } };
     }
     const customer = await this.users.toCustomer(user);
     return { ...base, isNew: customer.name === '', customer };

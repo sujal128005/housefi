@@ -7,6 +7,7 @@ import { paiseToRupees } from '../../common/money';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
+import { technicianActor } from '../bookings/acting-for';
 import { BookingCore, SYSTEM, UUID } from '../bookings/booking-core';
 import type { BookingDto } from '../bookings/booking-view';
 import { DispatchService } from '../dispatch/dispatch.service';
@@ -177,7 +178,7 @@ export class PaymentsService {
       if (b.status !== 'PAYMENT_DUE' || !latest || latest.method !== 'CASH' || latest.state !== 'PENDING') throw new AppError('CONFLICT');
       await tx.payment.update({ where: { id: latest.id }, data: { state: 'PAID', settledAt: this.core.now() } });
       // The transition writes the earnings, with the cash as a debit (earnings/ledger.ts).
-      await this.core.transition(tx, b, 'COMPLETED', {}, { type: 'TECHNICIAN', id: technicianId }, { paymentId: latest.id, cash: true });
+      await this.core.transition(tx, b, 'COMPLETED', {}, technicianActor(technicianId), { paymentId: latest.id, cash: true });
     });
     this.core.updates.publish(bookingId);
   }

@@ -712,18 +712,22 @@ enum TicketPriority {
   @@map("ticket_priority")
 }
 
-/// Problems for the support team: technician reports, locked start codes, and (step 13) customer tickets.
+/// Problems for the support team: technician reports, locked start codes, customer SOS / payment tickets and call-back
+/// requests. Handled with `npm run support` until the admin portal exists.
 model SupportTicket {
   id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   bookingId  String?        @map("booking_id") @db.Uuid
   raisedBy   String         @map("raised_by") @db.Uuid
-  /// TechIssue values, 'START_CODE_LOCKED', later 'UNSAFE', 'CALLBACK', 'PAYMENT_PROBLEM' from customers.
+  /// TechIssue values, 'START_CODE_LOCKED', and from POST /support/*: 'UNSAFE', 'PAYMENT_PROBLEM', 'OTHER', 'CALLBACK'.
   kind       String
   note       String         @default("")
   state      TicketState    @default(OPEN)
   priority   TicketPriority @default(NORMAL)
   createdAt  DateTime       @map("created_at") @db.Timestamptz(6)
   resolvedAt DateTime?      @map("resolved_at") @db.Timestamptz(6)
+  /// Who resolved it (null for the command line; who ran it is in audit_log) and what was done.
+  resolvedBy String?        @map("resolved_by") @db.Uuid
+  resolution String?
 
   booking Booking? @relation(fields: [bookingId], references: [id])
   raiser  User     @relation(fields: [raisedBy], references: [id])

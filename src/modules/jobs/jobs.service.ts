@@ -10,6 +10,7 @@ import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { type Actor, BookingCore, SYSTEM } from '../bookings/booking-core';
+import { technicianActor } from '../bookings/acting-for';
 import { TECH_ACTIVE } from '../bookings/booking-status';
 import type { BookingDto } from '../bookings/booking-view';
 import type { JobDto } from '../bookings/job-view';
@@ -290,8 +291,9 @@ export class JobsService {
     if (priority !== 'NORMAL') this.log.warn(`${priority} support ticket: ${kind} on booking ${bookingId}`);
   }
 
-  private tech(id: string) {
-    return { type: 'TECHNICIAN' as const, id };
+  /** The technician, or the coordinator acting for them (acting-for.ts). */
+  private tech(id: string): Actor {
+    return technicianActor(id);
   }
 }
 

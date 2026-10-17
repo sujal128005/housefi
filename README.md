@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-12 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-13 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -29,8 +29,10 @@ Build steps 1-12 of 14 (`docs/STARTER-PROMPT.md`) are done:
     `NotificationKind`, written with the change it announces, and Expo push (job offers high priority).
 12. AI (rule-based v1): `GET /v1/ai/top-problems`, `POST /v1/ai/classify-photo`, `/ai/transcribe`, `/ai/chat`, each
     behind an interface a model can replace.
+13. Support and coordinator: `POST /v1/support/tickets`, `/support/callback`; `GET /v1/coordinator/jobs`,
+    `POST /v1/coordinator/jobs/{id}/assign`, `/actions/{action}`; `npm run support` and `npm run coordinators` (audited).
 
-Next is **step 13**: support and coordinator (tickets, callback requests, coordinator assign / act on behalf).
+Next is **step 14**: hardening (audit coverage, `npm audit`, CodeQL, full happy-path and failure-path e2e tests).
 
 ## Run it locally
 
@@ -70,6 +72,8 @@ minute); the per-phone OTP limits live in Postgres and always apply.
 | `npm run db:seed` | Load `catalog.data.json` into the database; idempotent, run it on every deploy after `db:deploy` |
 | `npm run tech -- pending` / `approve <id\|phone>` / `correct <id\|phone> "<note>" ["<te>"]` | Review technician profiles (every decision goes to `audit_log`) |
 | `npm run payouts -- prepare` / `list [STATE]` / `paid <id> <ref>` / `failed <id>` | Monday payouts: create them, list them, record the transfer (audited) |
+| `npm run support -- open` / `resolve <id> "<what was done>"` | The support queue, most urgent first (audited) |
+| `npm run coordinators -- add <phone> "<name>"` / `link <tech> <coord>` / `unlink <tech>` / `block <coord>` / `list` | Coordinator accounts and the technicians they look after (audited) |
 | `npm run catalog:import` | Re-import the catalog from the app's `catalog.ts` (default `docs/app-contract/catalog.ts`) into `catalog.data.json` |
 
 ## Auth in short
@@ -128,6 +132,8 @@ src/
                           GET /tech/earnings and the payout run
     ai/                   top-problems.ts (ranking), models.ts (photo / speech stand-ins), chat-rules.ts + chat.ts
                           (support assistant); swap implementations in ai.module.ts
+    support/              tickets and call-back requests; the queue for npm run support
+    coordinator/          assign and act-on-behalf (acting-for.ts in bookings/), coordinator accounts
     notifications/        notifier.ts (the outbox every module writes to), booking-notices.ts (who hears about a
                           status change), push texts (en / te), Expo sender, delivery worker, inbox and devices API
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
@@ -136,6 +142,8 @@ src/
   cli/seed.ts            npm run db:seed
   cli/technicians.ts     npm run tech (verification from the command line)
   cli/payouts.ts         npm run payouts (weekly payouts from the command line)
+  cli/support.ts         npm run support (the support queue)
+  cli/coordinators.ts    npm run coordinators (coordinator accounts)
   common/money.ts         paise <-> whole rupees (refuses fractions)
 prisma/                   schema.prisma + committed migrations (models arrive feature by feature, from docs/schema.sql)
 scripts/                  setup.mjs (local secrets), test.mjs (test database + Jest), import-catalog.mjs,
@@ -451,3 +459,34 @@ configured"); everything else works.
     for a person, a cancellation the app cannot do, or anything it does not understand.
   - It is stateless: `conversationId` is echoed, or a new one is started. Messages are not logged or stored.
 - **Rate limits:** chat 30 per minute; photo and voice 20 per minute.
+
+## Decisions taken in step 13
+
+- **Coordinators sign in like everyone else** (`POST /auth/otp/request` with `role: COORDINATOR`, an addition to
+  the contract), but only into accounts an admin made with `npm run coordinators -- add`. Signing in never creates
+  one. An unknown or blocked number gets the same answer and no SMS: nothing to sign in to, and no SMS spend on
+  guesses. The auth result carries `coordinator: { id, name }`.
+- **A coordinator looks after linked technicians** (`technicians.coordinator_id`, set with `npm run coordinators --
+  link`). They can assign to, and act for, only those technicians. Anything else is `NOT_FOUND`.
+- **Assign** takes a `MATCHING` / `MATCHING_DELAYED` booking. The technician must be approved (`NOT_VERIFIED`),
+  have the category skill, and be free (`CONFLICT`). Being online is not required: a technician without a phone
+  never is. Any open offer is withdrawn. The customer gets `TECH_ASSIGNED` as usual.
+- **Act on behalf** runs the technician's own job actions unchanged, with the same body and rules, inside an
+  AsyncLocalStorage context (`bookings/acting-for.ts`). Every status change and timeline event records
+  `actorType = COORDINATOR` with the coordinator's id. Every attempt also gets an `audit_log` row with its outcome
+  (a wrong start code included). The technician still earns the job.
+- **`GET /coordinator/jobs`** (an addition) lists bookings waiting for a technician (area only, like an offer) and
+  the active jobs of the coordinator's technicians.
+- **Support tickets** (`POST /support/tickets`) come from customers and technicians, about their own booking or none.
+  Priority by kind:
+  - `UNSAFE` (the SOS "alert team") is `URGENT`, and an error is logged for alerting (QUESTIONS.md #55).
+  - `PAYMENT_PROBLEM` (the v1 dispute flow) is `HIGH`.
+  - `OTHER` is `NORMAL`.
+- **"Call me back"** (`POST /support/callback`, body optional) keeps one open request per person and booking (partial
+  unique index). Asking again returns the same ticket and adds the new reason. It is `HIGH` for a booking in
+  progress.
+- **The support queue** is `npm run support` until the admin portal exists. `open` lists tickets most urgent first.
+  `resolve` records what was done and who did it (`resolution`, `resolved_by`, audit).
+- **Fix for the command lines on Windows:** a script that started with `tsc` (a `.cmd` shim) caret-escaped the
+  arguments after `--`, so `npm run coordinators -- add <phone> "Lakshmi Rao"` stored `^Lakshmi^ Rao^` (the same
+  went for `tech correct` notes). The CLI scripts now run the compiler through `node`.

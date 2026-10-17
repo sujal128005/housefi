@@ -188,3 +188,16 @@ Found while reading the handoff and building. Each one says what the backend doe
     `photoId` / `audioId` cannot be checked against a real upload yet. Which step should add S3 pre-signed uploads?
 53. **Support chat wording and keywords** (`src/modules/ai/chat-rules.ts`), especially the Telugu and the safety
     advice (112), need review by the support team.
+
+## Found in step 13 (support and coordinator)
+
+54. **Onboarding technicians without a phone:** a profile is submitted from the technician app (`PUT /tech/profile`).
+    Who creates the profile for a technician with `phoneType = NONE`: the coordinator (a new endpoint), or an admin?
+    Today a coordinator can only be linked to a technician that already has one.
+55. **Paging the safety team:** an `UNSAFE` ticket is stored as `URGENT` and logged as an error (for log-based
+    alerting). Should it also SMS or call an on-call number? Who is on call?
+56. **Coordinator scope:** coordinators act only for technicians linked to them. Should a coordinator also be able
+    to assign bookings to technicians who have a smartphone (a manual dispatch override)? That technician would get
+    no notification kind for it (there is no `JOB_ASSIGNED`).
+57. **Ticket notes** are stored as plain text, like technician reports. They may hold personal details: encrypt them
+    like addresses, or keep them readable for the support team?

@@ -19,11 +19,13 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsc -p tsconfig.build.json && node dist/cli/seed.js",
+    "db:seed": "node node_modules/typescript/bin/tsc -p tsconfig.build.json && node dist/cli/seed.js",
     "db:local": "node scripts/local-db.mjs",
     "catalog:import": "node scripts/import-catalog.mjs",
-    "tech": "tsc -p tsconfig.build.json && node dist/cli/technicians.js",
-    "payouts": "tsc -p tsconfig.build.json && node dist/cli/payouts.js",
+    "tech": "node node_modules/typescript/bin/tsc -p tsconfig.build.json && node dist/cli/technicians.js",
+    "payouts": "node node_modules/typescript/bin/tsc -p tsconfig.build.json && node dist/cli/payouts.js",
+    "coordinators": "node node_modules/typescript/bin/tsc -p tsconfig.build.json && node dist/cli/coordinators.js",
+    "support": "node node_modules/typescript/bin/tsc -p tsconfig.build.json && node dist/cli/support.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {

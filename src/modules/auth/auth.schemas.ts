@@ -4,7 +4,8 @@ import { z } from 'zod';
 export const OtpRequestBody = z.object({
   /** 10-digit Indian mobile, without +91. */
   phone: z.string().regex(/^[6-9][0-9]{9}$/),
-  role: z.enum(['CUSTOMER', 'TECHNICIAN']),
+  /** COORDINATOR (an addition to the contract) only signs in to accounts made with `npm run coordinators`. */
+  role: z.enum(['CUSTOMER', 'TECHNICIAN', 'COORDINATOR']),
 });
 
 export const OtpVerifyBody = z.object({

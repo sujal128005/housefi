@@ -254,3 +254,22 @@ The goal is none. Each entry links to the open question that will remove it.
 - **`POST /ai/transcribe`:** always `{ text: "" }`. An unknown `serviceId` is `VALIDATION`.
 - **`POST /ai/chat`:** `conversationId` is always returned (a new one when none is sent); no history is kept.
   The `suggestions` are ready-to-send messages in the request's `locale`.
+
+## Support and coordinator (step 13)
+
+- **Additions:**
+  - `POST /auth/otp/request` accepts `role: COORDINATOR`, for accounts made by an admin only. The auth result then
+    has `coordinator: { id, name }` instead of `customer` / `technician`.
+  - `GET /coordinator/jobs` returns `{ searching: [{ id, code, serviceId, categoryId, status, area, pincode, time,
+    searchingSince }], assigned: Job[] }`.
+- **`POST /support/tickets` and `/support/callback`** are for customers and technicians (`NOT_FOUND` for a
+  booking that is not theirs, and for a coordinator). Both return `201 { ticketId }`. A repeated call-back request
+  returns the same `ticketId` while it is open.
+- **`POST /coordinator/jobs/{id}/assign`:**
+  - `NOT_FOUND` for a technician who is not linked to the caller.
+  - `NOT_VERIFIED` for a technician who is not approved.
+  - `CONFLICT` when the technician lacks the skill or is busy, or the booking is not searching.
+- **`POST /coordinator/jobs/{id}/actions/{action}`:** the body is validated per action, as on the technician's
+  endpoint. An unknown action is `NOT_FOUND`.
+- **Schema:** `support_tickets` gains `resolved_by` and `resolution`, a CHECK that `resolved_at` is set exactly
+  when `RESOLVED`, and a partial unique index (one open call-back per person and booking).

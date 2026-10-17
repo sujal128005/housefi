@@ -217,6 +217,7 @@ export interface SignedIn {
   readonly isNew: boolean;
   readonly customer?: { readonly id: string; readonly phone: string; readonly name: string };
   readonly technician?: { readonly id: string; readonly phone: string; readonly name: string };
+  readonly coordinator?: { readonly id: string; readonly name: string };
 }
 
 export const TECH_PROFILE = {
@@ -248,7 +249,7 @@ export async function createTechnician(
 }
 
 /** Requests a code, reads it from the fake SMS sender and verifies it. */
-export async function signIn(t: TestApp, phone = '9876543210', role: 'CUSTOMER' | 'TECHNICIAN' = 'CUSTOMER'): Promise<SignedIn> {
+export async function signIn(t: TestApp, phone = '9876543210', role: 'CUSTOMER' | 'TECHNICIAN' | 'COORDINATOR' = 'CUSTOMER'): Promise<SignedIn> {
   const http = request(t.app.getHttpServer());
   const challenge = await http.post('/v1/auth/otp/request').send({ phone, role }).expect(200);
   const res = await request(t.app.getHttpServer())

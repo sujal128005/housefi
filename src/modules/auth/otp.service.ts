@@ -46,7 +46,7 @@ export class OtpService {
   ) {}
 
   /** Creates a challenge and sends the code. Older open challenges for the same phone and role stop working. */
-  async request(phone: string, role: 'CUSTOMER' | 'TECHNICIAN', ip: string | null): Promise<OtpChallengeDto> {
+  async request(phone: string, role: 'CUSTOMER' | 'TECHNICIAN' | 'COORDINATOR', ip: string | null): Promise<OtpChallengeDto> {
     const phoneHash = this.hashing.phone(phone);
     const now = this.clock.now();
     const id = randomUUID();
@@ -79,6 +79,11 @@ export class OtpService {
       });
     });
 
+    // Coordinator accounts are made by an admin, never by signing in: an unknown number gets the same answer but no
+    // SMS (nothing to sign in to, and no SMS spend on guesses).
+    if (role === 'COORDINATOR' && !(await this.prisma.user.findFirst({ where: { role, phoneHash, status: 'ACTIVE' }, select: { id: true } }))) {
+      return { challengeId: id, phone, resendAfterSec: this.config.OTP_RESEND_AFTER_SEC, expiresAt, demoCode: null };
+    }
     try {
       await this.sms.sendOtp(phone, code);
     } catch (err) {
