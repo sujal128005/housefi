@@ -65,7 +65,7 @@ export class UsersService {
     const user = await this.active(userId);
     const now = new Date(this.clock.now());
     await this.prisma.$transaction(async (tx) => {
-      if (user.role === 'CUSTOMER') await this.bookings.anonymiseForDeletion(tx, userId, now);
+      if (user.role === 'CUSTOMER') await this.bookings.anonymiseForDeletion(tx, userId);
       await tx.otpChallenge.deleteMany({ where: { phoneHash: user.phoneHash, role: user.role } });
       await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
       await this.addresses.wipeAll(tx, userId);

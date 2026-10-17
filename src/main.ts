@@ -21,7 +21,11 @@ async function main(): Promise<void> {
     throw err;
   }
 
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule.forRoot(config), createAdapter(config), { bufferLogs: true });
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule.forRoot(config), createAdapter(config), {
+    bufferLogs: true,
+    // The Razorpay webhook signature is computed over the exact bytes received.
+    rawBody: true,
+  });
   await configureApp(app, config);
   await app.listen(config.PORT, '0.0.0.0');
 }

@@ -103,3 +103,14 @@ Found while reading the handoff and building. Each one says what the backend doe
     booking that was already cancelled. Please confirm that's what you want, rather than reviving the booking.
 26. **Cancelling an unpaid booking needs no reason**, and cancelling twice returns the booking unchanged. Is that
     fine for the app's retry logic?
+
+## Found in step 6 (payments)
+
+27. **Razorpay test keys** (key id, key secret, webhook secret) are needed to try payments for real. Everything is
+    tested against a fake Razorpay so far. Who owns the Razorpay account?
+28. **Capture setting:** the backend captures `authorized` payments itself, so it works whether or not automatic
+    capture is enabled on the Razorpay account. Should automatic capture be on (recommended)?
+29. **Refund speed:** refunds are requested at `normal` speed (5-7 working days, free). Should instant refunds be
+    used for the ₹49 visit fee? They cost a fee.
+30. **Failed refunds** (`refund.failed`) are flagged `REFUND_FAILED` and logged. Until support tickets exist
+    (step 13), someone has to check for them. Who should be alerted?

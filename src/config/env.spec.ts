@@ -103,6 +103,12 @@ describe('parseEnv', () => {
     expect(found).toEqual(expect.arrayContaining([expect.stringMatching(/^OTP_PEPPER_B64: /), expect.stringMatching(/^PHONE_HASH_KEY_B64: /)]));
   });
 
+  it('allows only Razorpay test keys outside production', () => {
+    expect(problems({ NODE_ENV: 'test', RAZORPAY_KEY_ID: 'rzp_live_abc' })).toEqual(['RAZORPAY_KEY_ID: must be a test key (rzp_test_...) outside production']);
+    expect(problems({ NODE_ENV: 'test', RAZORPAY_KEY_ID: 'rzp_test_abc' })).toEqual([]);
+    expect(problems({ ...production, RAZORPAY_KEY_ID: 'rzp_live_abc' })).toEqual([]);
+  });
+
   it('refuses to print sign-in codes to the log in production', () => {
     expect(problems({ ...production, SMS_PROVIDER: 'console' })).toEqual(['SMS_PROVIDER: must be msg91 in production']);
   });

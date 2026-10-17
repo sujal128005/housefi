@@ -13,6 +13,7 @@ import { MemoryRateLimitStore } from '../src/common/rate-limit/rate-limit.store'
 import { type Env, parseEnv } from '../src/config/env';
 import { configureApp, createAdapter } from '../src/http';
 import { SMS_SENDER, type SmsSender } from '../src/modules/auth/sms';
+import { RAZORPAY_CLIENT, RazorpayError, type RazorpayClient, type RzpOrder, type RzpPayment, type RzpPaymentStatus, type RzpRefund } from '../src/modules/payments/razorpay.client';
 
 const keys = generateKeyPairSync('ed25519', {
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
@@ -27,6 +28,9 @@ export const TEST_SECRETS = {
   TOKEN_PEPPER_B64: randomBytes(32).toString('base64'),
   PHONE_HASH_KEY_B64: randomBytes(32).toString('base64'),
   LOCAL_DATA_KEY_B64: randomBytes(32).toString('base64'),
+  RAZORPAY_KEY_ID: 'rzp_test_housefi',
+  RAZORPAY_KEY_SECRET: randomBytes(16).toString('hex'),
+  RAZORPAY_WEBHOOK_SECRET: randomBytes(16).toString('hex'),
 };
 
 export function testEnv(overrides: NodeJS.ProcessEnv = {}): Env {
@@ -73,8 +77,69 @@ export class FakeSms implements SmsSender {
   }
 }
 
+/** In-memory Razorpay: orders, payments in any status, captures and refunds (which can be made to fail). */
+export class FakeRazorpay implements RazorpayClient {
+  readonly orders = new Map<string, RzpOrder & { receipt: string; notes: Record<string, string> }>();
+  readonly payments = new Map<string, RzpPayment>();
+  readonly captures: string[] = [];
+  readonly refunds: { id: string; paymentId: string; amount: number }[] = [];
+  failOrders = false;
+  failRefunds = false;
+  private n = 0;
+
+  reset(): void {
+    this.orders.clear();
+    this.payments.clear();
+    this.captures.length = 0;
+    this.refunds.length = 0;
+    this.failOrders = false;
+    this.failRefunds = false;
+  }
+
+  async createOrder(input: { amountPaise: number; receipt: string; notes: Record<string, string> }): Promise<RzpOrder> {
+    if (this.failOrders) throw new RazorpayError(503, 'SERVER_ERROR');
+    const order = { id: `order_${++this.n}`, amount: input.amountPaise, currency: 'INR', receipt: input.receipt, notes: input.notes };
+    this.orders.set(order.id, order);
+    return order;
+  }
+
+  /** The customer pays (or tries to) in the checkout sheet. */
+  pay(orderId: string, status: RzpPaymentStatus = 'captured', over: Partial<RzpPayment> = {}): RzpPayment {
+    const order = this.orders.get(orderId);
+    if (!order) throw new Error(`no order ${orderId}`);
+    const p: RzpPayment = { id: `pay_${++this.n}`, order_id: orderId, amount: order.amount, currency: 'INR', status, method: 'upi', ...over };
+    this.payments.set(p.id, p);
+    return p;
+  }
+
+  async fetchPayment(id: string): Promise<RzpPayment> {
+    const p = this.payments.get(id);
+    if (!p) throw new RazorpayError(400, 'BAD_REQUEST_ERROR');
+    return p;
+  }
+
+  async fetchOrderPayments(orderId: string): Promise<RzpPayment[]> {
+    return [...this.payments.values()].filter((p) => p.order_id === orderId);
+  }
+
+  async capture(id: string, amountPaise: number): Promise<RzpPayment> {
+    const p = await this.fetchPayment(id);
+    const captured = { ...p, status: 'captured' as const, amount: amountPaise };
+    this.payments.set(id, captured);
+    this.captures.push(id);
+    return captured;
+  }
+
+  async refund(paymentId: string, input: { amountPaise: number }): Promise<RzpRefund> {
+    if (this.failRefunds) throw new RazorpayError(503, 'SERVER_ERROR');
+    const r = { id: `rfnd_${++this.n}`, paymentId, amount: input.amountPaise };
+    this.refunds.push(r);
+    return { id: r.id, payment_id: paymentId, amount: input.amountPaise, status: 'processed' };
+  }
+}
+
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
 }
 
 export interface TestApp {
@@ -84,6 +149,7 @@ export interface TestApp {
   readonly sms: FakeSms;
   /** Per-IP counters; clear between tests, since every test request comes from 127.0.0.1. */
   readonly rateLimits: MemoryRateLimitStore;
+  readonly razorpay: FakeRazorpay;
   close(): Promise<void>;
 }
 
@@ -96,20 +162,23 @@ export async function buildTestApp(opts: {
   const clock = new TestClock();
   const sms = new FakeSms();
   const rateLimits = new MemoryRateLimitStore();
+  const razorpay = new FakeRazorpay();
   let builder = Test.createTestingModule({ imports: [AppModule.forRoot(config)], controllers: opts.controllers ?? [] })
     .overrideProvider(CLOCK)
     .useValue(clock)
     .overrideProvider(SMS_SENDER)
     .useValue(sms)
     .overrideProvider(RATE_LIMIT_STORE)
-    .useValue(rateLimits);
+    .useValue(rateLimits)
+    .overrideProvider(RAZORPAY_CLIENT)
+    .useValue(razorpay);
   if (opts.prisma) builder = builder.overrideProvider(PrismaService).useValue(opts.prisma);
   const moduleRef = await builder.compile();
-  const app = moduleRef.createNestApplication<NestFastifyApplication>(createAdapter(config));
+  const app = moduleRef.createNestApplication<NestFastifyApplication>(createAdapter(config), { rawBody: true });
   await configureApp(app, config);
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  return { app, prisma: app.get(PrismaService), clock, sms, rateLimits, close: () => app.close() };
+  return { app, prisma: app.get(PrismaService), clock, sms, rateLimits, razorpay, close: () => app.close() };
 }
 
 export interface SignedIn {

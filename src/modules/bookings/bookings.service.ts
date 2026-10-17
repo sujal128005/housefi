@@ -1,30 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { type ActorType, type Booking, type BookingStatus, type CancelReason, Prisma } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import { type CancelReason, Prisma } from '@prisma/client';
 import { createHash, randomInt } from 'node:crypto';
 import { type Clock, InjectClock } from '../../common/clock';
 import { FieldCipher } from '../../common/crypto/field-cipher';
 import { digestsEqual } from '../../common/crypto/hashing';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
-import { InjectConfig } from '../../config/config.module';
-import type { Env } from '../../config/env';
 import { type AddressDto, AddressesService } from '../addresses/addresses.service';
 import { PaymentsService } from '../payments/payments.service';
 import { SlotsService } from '../slots/slots.service';
-import { ACTIVE_STATUSES, CANCELLABLE, canTransition, REFUND_ON_CANCEL, RESCHEDULABLE } from './booking-status';
-import { BookingUpdates } from './booking-updates';
-import { BOOKING_INCLUDE, type BookingDto, type BookingRow, toBookingDto } from './booking-view';
+import { type Actor, BookingCore } from './booking-core';
+import { ACTIVE_STATUSES, CANCELLABLE, REFUND_ON_CANCEL, RESCHEDULABLE } from './booking-status';
+import { BOOKING_INCLUDE, type BookingDto, type BookingRow } from './booking-view';
 import type { NewBooking, VisitTime } from './bookings.schemas';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** Lists return the newest bookings first, at most this many. */
-export const LIST_LIMIT = 50;
 const CODE_ATTEMPTS = 10;
-
-interface Actor {
-  readonly type: ActorType;
-  readonly id: string | null;
-}
 
 export interface CreateResult {
   readonly booking: BookingDto;
@@ -44,18 +34,16 @@ function isUniqueViolation(e: unknown): e is Prisma.PrismaClientKnownRequestErro
   return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
 }
 
+/** The customer's booking actions. Shared mechanics (locks, transitions, reads, expiry) live in BookingCore. */
 @Injectable()
 export class BookingsService {
-  private readonly log = new Logger(BookingsService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly cipher: FieldCipher,
     private readonly addresses: AddressesService,
     private readonly slots: SlotsService,
     private readonly payments: PaymentsService,
-    private readonly updates: BookingUpdates,
-    @InjectConfig() private readonly config: Env,
+    private readonly core: BookingCore,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -116,10 +104,10 @@ export class BookingsService {
           });
           await tx.$executeRaw`UPDATE bookings SET location = (SELECT location FROM addresses WHERE id = ${address.id}::uuid) WHERE id = ${b.id}::uuid`;
           await this.payments.createDue(tx, b.id, 'VISIT', service.visitFeePaise);
-          await this.event(tx, b.id, 'AWAITING_PAYMENT', actor, now);
+          await this.core.event(tx, b.id, 'AWAITING_PAYMENT', actor);
           return b.id;
         });
-        return { booking: await this.get(customerId, id), created: true };
+        return { booking: await this.core.get(customerId, id), created: true };
       } catch (e) {
         if (!isUniqueViolation(e)) throw e;
         const target = String(e.meta?.target ?? '');
@@ -136,32 +124,12 @@ export class BookingsService {
 
   // ---------- read ----------
 
-  async get(customerId: string, id: string): Promise<BookingDto> {
-    if (!UUID.test(id)) throw new AppError('NOT_FOUND');
-    let row = await this.prisma.booking.findFirst({ where: { id, customerId }, include: BOOKING_INCLUDE });
-    if (!row) throw new AppError('NOT_FOUND');
-    if (this.isOverdueUnpaid(row)) {
-      await this.expireOne(row.id);
-      row = await this.prisma.booking.findFirstOrThrow({ where: { id, customerId }, include: BOOKING_INCLUDE });
-    }
-    return toBookingDto(row, this.cipher);
+  get(customerId: string, id: string): Promise<BookingDto> {
+    return this.core.get(customerId, id);
   }
 
-  async list(customerId: string, scope: 'active' | 'past' | 'all'): Promise<BookingDto[]> {
-    // Unpaid bookings past their 30 minutes are expired first, so nobody sees one as still active.
-    const overdue = await this.prisma.booking.findMany({
-      where: { customerId, status: 'AWAITING_PAYMENT', createdAt: { lte: this.unpaidCutoff() } },
-      select: { id: true },
-    });
-    for (const b of overdue) await this.expireOne(b.id);
-    const status = scope === 'active' ? { in: [...ACTIVE_STATUSES] } : scope === 'past' ? { notIn: [...ACTIVE_STATUSES] } : undefined;
-    const rows = await this.prisma.booking.findMany({
-      where: { customerId, ...(status ? { status } : {}) },
-      orderBy: { createdAt: 'desc' },
-      take: LIST_LIMIT,
-      include: BOOKING_INCLUDE,
-    });
-    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher)));
+  list(customerId: string, scope: 'active' | 'past' | 'all'): Promise<BookingDto[]> {
+    return this.core.list(customerId, scope);
   }
 
   // ---------- customer actions ----------
@@ -171,43 +139,34 @@ export class BookingsService {
    * travelling. Cancelling an already cancelled booking returns it unchanged (safe to retry).
    */
   async cancel(customerId: string, id: string, reason: CancelReason | null): Promise<BookingDto> {
-    await this.mutate(customerId, id, async (tx, b, now) => {
-      if (b.status === 'CANCELLED') return false;
+    const refunded = await this.core.mutateOwned(customerId, id, async (tx, b) => {
+      if (b.status === 'CANCELLED') return { changed: false, result: false };
       if (!CANCELLABLE.includes(b.status)) throw new AppError('CONFLICT');
       const refund = REFUND_ON_CANCEL.includes(b.status);
-      await this.transition(tx, b, 'CANCELLED', { cancelReason: reason, etaMin: null }, { type: 'CUSTOMER', id: customerId }, now, { refund });
-      if (refund) await this.payments.refundVisitFee(tx, b.id, now);
+      await this.core.transition(tx, b, 'CANCELLED', { cancelReason: reason, etaMin: null }, { type: 'CUSTOMER', id: customerId }, { refund });
+      const marked = refund ? await this.payments.refundVisitFee(tx, b.id, this.core.now()) : false;
       // Step 8: withdraw open offers / free the assigned technician (JOB_CANCELLED).
-      return true;
+      return { changed: true, result: marked };
     });
-    return this.get(customerId, id);
+    if (refunded) this.payments.sendRefundsSoon(id);
+    return this.core.get(customerId, id);
   }
 
   /** New time for a booking still searching, unfulfilled or assigned: it goes back to MATCHING. */
   async reschedule(customerId: string, id: string, time: VisitTime): Promise<BookingDto> {
-    await this.mutate(customerId, id, async (tx, b, now) => {
+    await this.core.mutateOwned(customerId, id, async (tx, b) => {
       if (!RESCHEDULABLE.includes(b.status)) throw new AppError('CONFLICT');
       await this.slots.hold(tx, { categoryId: b.categoryId, pincode: b.pincode }, time, b.id);
       // Step 8: the previously assigned technician is released and told.
-      await this.transition(tx, b, 'MATCHING', { ...windowFields(time), technicianId: null, etaMin: null }, { type: 'CUSTOMER', id: customerId }, now, { rescheduled: true });
-      return true;
+      await this.core.transition(tx, b, 'MATCHING', { ...windowFields(time), technicianId: null, etaMin: null }, { type: 'CUSTOMER', id: customerId }, { rescheduled: true });
+      return { changed: true, result: undefined };
     });
-    return this.get(customerId, id);
+    return this.core.get(customerId, id);
   }
 
-  // ---------- system ----------
-
-  /** Cancels unpaid bookings older than UNPAID_BOOKING_EXPIRY_MIN (releasing their slot). Returns how many. */
-  async expireUnpaid(batch = 100): Promise<number> {
-    const due = await this.prisma.booking.findMany({
-      where: { status: 'AWAITING_PAYMENT', createdAt: { lte: this.unpaidCutoff() } },
-      orderBy: { createdAt: 'asc' },
-      take: batch,
-      select: { id: true },
-    });
-    let expired = 0;
-    for (const b of due) if (await this.expireOne(b.id)) expired++;
-    return expired;
+  /** Cancels unpaid bookings past UNPAID_BOOKING_EXPIRY_MIN. */
+  expireUnpaid(batch?: number): Promise<number> {
+    return this.core.expireUnpaid(batch);
   }
 
   /**
@@ -216,14 +175,14 @@ export class BookingsService {
    * snapshot, notes, voice transcript and location are wiped. Codes, amounts, statuses and the timeline stay for
    * accounting and the technicians' earnings.
    */
-  async anonymiseForDeletion(tx: Prisma.TransactionClient, customerId: string, now: Date): Promise<void> {
+  async anonymiseForDeletion(tx: Prisma.TransactionClient, customerId: string): Promise<void> {
     const underWay = await tx.booking.count({
       where: { customerId, status: { in: ACTIVE_STATUSES.filter((s) => s !== 'AWAITING_PAYMENT') } },
     });
     if (underWay > 0) throw new AppError('CONFLICT', {}, 'a booking is still in progress');
     const unpaid = await tx.booking.findMany({ where: { customerId, status: 'AWAITING_PAYMENT' } });
     for (const b of unpaid) {
-      await this.transition(tx, b, 'CANCELLED', { cancelReason: 'OTHER' }, { type: 'CUSTOMER', id: customerId }, now, { reason: 'account deleted' });
+      await this.core.transition(tx, b, 'CANCELLED', { cancelReason: 'OTHER' }, { type: 'CUSTOMER', id: customerId }, { reason: 'account deleted' });
     }
     await tx.booking.updateMany({
       where: { customerId },
@@ -234,78 +193,13 @@ export class BookingsService {
 
   // ---------- internals ----------
 
-  private async expireOne(bookingId: string): Promise<boolean> {
-    const changed = await this.prisma.$transaction(async (tx) => {
-      const b = await this.lock(tx, bookingId);
-      // Re-checked under the lock: the customer may have paid or cancelled meanwhile.
-      if (!b || !this.isOverdueUnpaid(b)) return false;
-      await this.transition(tx, b, 'CANCELLED', { cancelReason: 'UNPAID_EXPIRED' }, { type: 'SYSTEM', id: null }, new Date(this.clock.now()), {
-        reason: 'unpaid',
-      });
-      return true;
-    });
-    if (changed) this.updates.publish(bookingId);
-    return changed;
-  }
-
-  /** Locks the customer's booking row, runs `fn`, and publishes a live update if `fn` changed something. */
-  private async mutate(
-    customerId: string,
-    id: string,
-    fn: (tx: Prisma.TransactionClient, b: Booking, now: Date) => Promise<boolean>,
-  ): Promise<void> {
-    if (!UUID.test(id)) throw new AppError('NOT_FOUND');
-    const before = await this.prisma.booking.findFirst({ where: { id, customerId }, select: { status: true, createdAt: true } });
-    if (!before) throw new AppError('NOT_FOUND');
-    // An unpaid booking past its time is expired first, so the action sees CANCELLED.
-    if (this.isOverdueUnpaid(before)) await this.expireOne(id);
-    const changed = await this.prisma.$transaction(async (tx) => {
-      const b = await this.lock(tx, id);
-      if (!b || b.customerId !== customerId) throw new AppError('NOT_FOUND');
-      return fn(tx, b, new Date(this.clock.now()));
-    });
-    if (changed) this.updates.publish(id);
-  }
-
-  /** SELECT ... FOR UPDATE: concurrent actions on one booking run one after another. */
-  private async lock(tx: Prisma.TransactionClient, id: string): Promise<Booking | null> {
-    await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${id}::uuid FOR UPDATE`;
-    return tx.booking.findUnique({ where: { id } });
-  }
-
-  private async transition(
-    tx: Prisma.TransactionClient,
-    b: Booking,
-    to: BookingStatus,
-    data: Prisma.BookingUpdateInput,
-    actor: Actor,
-    now: Date,
-    meta: Prisma.InputJsonObject = {},
-  ): Promise<void> {
-    if (!canTransition(b.status, to)) throw new AppError('CONFLICT');
-    await tx.booking.update({ where: { id: b.id }, data: { ...data, status: to, version: { increment: 1 } } });
-    await this.event(tx, b.id, to, actor, now, { from: b.status, ...meta });
-  }
-
-  private async event(tx: Prisma.TransactionClient, bookingId: string, status: BookingStatus, actor: Actor, at: Date, meta: Prisma.InputJsonObject = {}) {
-    await tx.bookingEvent.create({ data: { bookingId, status, actorType: actor.type, actorId: actor.id, meta, at } });
-  }
-
-  private unpaidCutoff(): Date {
-    return new Date(this.clock.now() - this.config.UNPAID_BOOKING_EXPIRY_MIN * 60_000);
-  }
-
-  private isOverdueUnpaid(b: Pick<Booking, 'status' | 'createdAt'>): boolean {
-    return b.status === 'AWAITING_PAYMENT' && b.createdAt <= this.unpaidCutoff();
-  }
-
   private findByKey(customerId: string, idempotencyKey: string): Promise<BookingRow | null> {
     return this.prisma.booking.findUnique({ where: { customerId_idempotencyKey: { customerId, idempotencyKey } }, include: BOOKING_INCLUDE });
   }
 
   private async replay(existing: BookingRow, requestHash: Uint8Array): Promise<CreateResult> {
     if (!digestsEqual(existing.idempotencyHash, requestHash)) throw new AppError('CONFLICT', {}, 'Idempotency-Key reused with a different request');
-    return { booking: await this.get(existing.customerId, existing.id), created: false };
+    return { booking: await this.core.get(existing.customerId, existing.id), created: false };
   }
 
   private async ownedAddress(customerId: string, addressId: string): Promise<AddressDto> {

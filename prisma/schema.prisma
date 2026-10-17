@@ -359,7 +359,7 @@ model BookingEvent {
   @@map("booking_events")
 }
 
-// ---------- payments (Razorpay arrives in step 6) ----------
+// ---------- payments (Razorpay) ----------
 
 enum PaymentKind {
   VISIT
@@ -402,10 +402,16 @@ model Payment {
   providerRefundId  String?        @map("provider_refund_id")
   idempotencyKey    String?        @map("idempotency_key")
   failureCode       String?        @map("failure_code")
+  /// When the Razorpay order was created (the customer opened the payment sheet).
+  orderedAt         DateTime?      @map("ordered_at") @db.Timestamptz(6)
+  /// When Razorpay was last asked about this payment (reconciliation).
+  lastCheckedAt     DateTime?      @map("last_checked_at") @db.Timestamptz(6)
   /// When the payment was settled (paid, failed or refunded): Payment.at in the API.
   settledAt         DateTime?      @map("settled_at") @db.Timestamptz(6)
-  /// Set when a refund was decided (cancellation before EN_ROUTE, unfulfilled); step 6 sends it to Razorpay.
+  /// Set when a refund was decided (cancellation before EN_ROUTE, unfulfilled, payment after cancellation).
   refundRequestedAt DateTime?      @map("refund_requested_at") @db.Timestamptz(6)
+  /// Razorpay confirmed the refund (refund.processed webhook).
+  refundProcessedAt DateTime?      @map("refund_processed_at") @db.Timestamptz(6)
   createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -413,4 +419,16 @@ model Payment {
 
   @@index([bookingId, kind])
   @@map("payments")
+}
+
+/// Razorpay webhook deliveries, stored once per event id (deduplication). The payload keeps only ids, amounts and
+/// statuses: Razorpay sends the payer's email, phone and payment details, which are dropped before storing.
+model PaymentWebhookEvent {
+  providerEventId String    @id @map("provider_event_id")
+  event           String
+  payload         Json
+  receivedAt      DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  @@map("payment_webhook_events")
 }

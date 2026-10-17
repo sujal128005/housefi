@@ -3,14 +3,14 @@ import { AddressesModule } from '../addresses/addresses.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { SlotsModule } from '../slots/slots.module';
 import { BookingExpiryWorker } from './booking-expiry.worker';
-import { BookingUpdates } from './booking-updates';
+import { BookingCoreModule } from './booking-core.module';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 
 @Module({
-  imports: [AddressesModule, SlotsModule, PaymentsModule],
+  imports: [BookingCoreModule, AddressesModule, SlotsModule, PaymentsModule],
   controllers: [BookingsController],
-  providers: [BookingsService, BookingUpdates, BookingExpiryWorker],
-  exports: [BookingsService, BookingUpdates],
+  providers: [BookingsService, BookingExpiryWorker],
+  exports: [BookingsService],
 })
 export class BookingsModule {}

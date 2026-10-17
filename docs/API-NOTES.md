@@ -92,3 +92,33 @@ The goal is none. Each entry links to the open question that will remove it.
   - `bookings.technician_id`: no foreign key until the technicians table exists (step 7).
   - `payments`: `settled_at` and `refund_requested_at` are added.
   - CHECK constraints: the time mode matches the window, the code format, and reasons only in their status.
+
+## Payments (step 6)
+
+- **`POST /bookings/{id}/payments`** returns 200 with a `PaymentOrder`, or, for `CASH` (bill only), the
+  `Booking` with `finalPayment` `PENDING`/`CASH`.
+  - `Idempotency-Key` is required, as on booking creation.
+  - `CASH` for the visit fee is `VALIDATION` on `method`.
+  - The wrong booking status, a payment still `PENDING` at the bank, or one already paid is `CONFLICT`.
+  - Razorpay being unavailable, or no keys configured, is `INTERNAL`.
+- **`POST /payments/{id}/verify`**
+  - A wrong signature, or a payment from another order, is `PAYMENT_FAILED` (402) and changes nothing.
+  - Otherwise the result is Razorpay's status: `PAID`, `PENDING` or `FAILED`. A late payment that is being
+    refunded reports `PAID`, with the booking showing `REFUNDED`.
+- **Statuses:**
+  - Visit fee `PENDING` moves the booking to `PAYMENT_PENDING`. `FAILED` moves it back to
+    `AWAITING_PAYMENT`, and the customer can pay again with a new order.
+  - Bill `PAID` moves the booking to `COMPLETED`.
+- **`visitPayment` / `finalPayment`:**
+  - The latest attempt is shown.
+  - `txnId` is the Razorpay payment id.
+  - `method` is what the customer actually used (UPI, card or netbanking), else what they picked.
+  - `PROCESSING` means the checkout sheet is open.
+- **`POST /webhooks/razorpay`**
+  - Public; authenticated by `X-Razorpay-Signature` over the raw body (`UNAUTHENTICATED` otherwise).
+  - Deduplicated by `X-Razorpay-Event-Id`.
+  - Answers `{ "status": "ok" }`. A processing error answers 500, so Razorpay retries.
+- **Schema differences from docs/schema.sql:**
+  - `payments` gains `ordered_at`, `last_checked_at` and `refund_processed_at`.
+  - `payment_webhook_events.payload` stores a redacted copy (ids, amounts, statuses).
+  - New partial indexes for reconciliation and refunds still to send.

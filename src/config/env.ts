@@ -140,6 +140,10 @@ export const envSchema = z
         ctx.addIssue({ code: 'custom', path: ['PUBLIC_BASE_URL'], message: 'must be https:// in production' });
       }
     }
+    // Live Razorpay keys move real money: only production may use them.
+    if (e.NODE_ENV !== 'production' && e.RAZORPAY_KEY_ID !== undefined && !e.RAZORPAY_KEY_ID.startsWith('rzp_test_')) {
+      ctx.addIssue({ code: 'custom', path: ['RAZORPAY_KEY_ID'], message: 'must be a test key (rzp_test_...) outside production' });
+    }
     if (e.MATCHING_GIVE_UP_AFTER_MIN <= e.MATCHING_DELAYED_AFTER_MIN) {
       ctx.addIssue({ code: 'custom', path: ['MATCHING_GIVE_UP_AFTER_MIN'], message: 'must be greater than MATCHING_DELAYED_AFTER_MIN' });
     }

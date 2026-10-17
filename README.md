@@ -6,7 +6,7 @@ The contract, product rules and build plan are in [`docs/`](docs/README.md), cop
 
 ## Status
 
-Build steps 1-5 of 14 (`docs/STARTER-PROMPT.md`) are done:
+Build steps 1-6 of 14 (`docs/STARTER-PROMPT.md`) are done:
 
 1. Scaffold: config, logging, errors, security headers, CORS, rate limiting, health checks.
 2. Auth: `POST /v1/auth/otp/request`, `/otp/verify`, `/refresh`, `/logout` for customers and technicians.
@@ -15,8 +15,10 @@ Build steps 1-5 of 14 (`docs/STARTER-PROMPT.md`) are done:
 4. Addresses and slots: `GET/POST/PUT/DELETE /v1/addresses` (encrypted, PostGIS point) and `GET /v1/slots`.
 5. Bookings: `POST /v1/bookings` (Idempotency-Key), `GET /v1/bookings[/{id}]`, `/cancel`, `/reschedule`,
    `/stream` (Server-Sent Events); timeline, slot holding, unpaid bookings cancelled after 30 minutes.
+6. Payments: `POST /v1/bookings/{id}/payments` (Razorpay order, or cash for the bill), `POST /v1/payments/{id}/verify`,
+   `POST /v1/webhooks/razorpay`; refunds, reconciliation, cash confirmation (service; endpoint with step 9).
 
-Next is **step 6**: payments (Razorpay test mode).
+Next is **step 7**: technicians (profile, verification, availability, location).
 
 ## Run it locally
 
@@ -99,9 +101,11 @@ src/
     users/                GET/PATCH/DELETE /me (delete = anonymise); maps a user to the API's Customer shape
     addresses/            saved addresses: encrypted house/street/landmark, PostGIS point, soft delete that wipes
     slots/                slot-rules.ts (IST windows, cutoff, 7 days) + per-area capacity and window holds
-    bookings/             booking-status.ts (the state machine), service (create, read, cancel, reschedule, expiry),
+    bookings/             booking-status.ts (the state machine), booking-core.ts (locks, transitions, reads, expiry;
+                          shared with payments and later steps), service (create, cancel, reschedule),
                           booking-view.ts (rows -> API shape), booking-updates.ts (live-update bus), SSE stream
-    payments/             payment records (visit fee DUE, refund decisions); Razorpay in step 6
+    payments/             Razorpay client + signatures, start / verify / settle, webhooks (deduplicated, redacted),
+                          refunds (claimed, retried), reconciliation and cash confirmation; worker every minute
     health/               GET /v1/health (liveness), GET /v1/health/ready (database + Redis)
   cli/seed.ts             npm run db:seed
   common/money.ts         paise <-> whole rupees (refuses fractions)
@@ -203,3 +207,47 @@ docs/                     the app team's handoff + QUESTIONS.md, API-NOTES.md, L
 - **Account deletion:** refused (`CONFLICT`) while a paid booking is in progress. Unpaid bookings are cancelled,
   and every booking is anonymised (address copy, notes, transcript, location), while codes, amounts and the
   timeline are kept.
+
+## Payments: trying it with Razorpay test mode
+
+Put your Razorpay **test** keys in `.env` (Dashboard -> Settings -> API Keys; webhook secret under Webhooks).
+The config refuses live keys (`rzp_live_...`) outside production.
+
+```
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
+```
+
+Point a test-mode webhook at `https://<public-url>/v1/webhooks/razorpay` with the events `payment.authorized`,
+`payment.captured`, `payment.failed`, `order.paid`, `refund.processed` and `refund.failed`. Locally, a tunnel
+(e.g. ngrok) gives the public URL. Without keys, the payment endpoints answer `INTERNAL` ("payments not
+configured"); everything else works.
+
+## Decisions taken in step 6
+
+- **Razorpay decides, not the app.**
+  - A payment becomes `PAID` only after Razorpay says it is captured: on verify (after the signature check) we
+    fetch the payment, and webhooks are signature-checked over the raw body.
+  - `authorized` payments are captured by us.
+  - A captured amount or currency that doesn't match is held as `PENDING` for review, never marked paid.
+- **Every money path is idempotent.**
+  - Starting a payment takes an `Idempotency-Key`. Reopening the sheet within 15 minutes reuses the same order.
+  - Webhooks are processed once per event id.
+  - Settling an already settled payment is a no-op.
+  - Refunds are claimed before sending, so two workers can't both send one.
+- **Late or double payments are refunded automatically:** a payment for a booking that was cancelled, expired or
+  already paid is refunded in full (QUESTIONS.md #25).
+- **Nothing gets stuck:**
+  - A worker re-checks `PENDING` payments (bank confirming) every 10 minutes, as `STATE-MACHINE.md` asks.
+  - It checks orders older than 15 minutes that never reported back, for when the app closed after paying.
+  - It abandons orders with no payment after 24 hours.
+  - An opened-then-abandoned checkout never blocks the unpaid expiry. An unpaid booking isn't expired while the
+    customer has had the payment sheet open within the last 15 minutes.
+- **Stored webhooks keep no payer details:** Razorpay includes the payer's email, phone and UPI id. Only ids,
+  amounts and statuses are stored.
+- **`booking-core.ts`:** locks, transitions, reads and expiry moved out of `BookingsService` so payments (and
+  later dispatch and jobs) can move bookings without circular imports.
+- **Cash:** the customer picks cash for the bill (`PENDING`, method `CASH`); `PaymentsService.confirmCash`
+  completes the booking for the assigned technician. Its HTTP endpoint (`POST /tech/jobs/{id}/confirm-cash`)
+  arrives with the technician job API (step 9), which defines the `Job` response.
