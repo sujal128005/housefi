@@ -1,8 +1,10 @@
 name: Backend
 
 on:
+  # Pull requests run the checks; pushes only on the main branch (iOS builds use macOS runners, which count 10x
+  # against GitHub's free minutes on a private repository).
   push:
-    branches: ['**']
+    branches: [path1/customer-booking, main]
     paths: ['backend/**', '.github/workflows/backend.yml']
   pull_request:
     paths: ['backend/**', '.github/workflows/backend.yml']
