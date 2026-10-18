@@ -1,0 +1,1153 @@
+// Housefi database. Models are added feature by feature (auth, catalog, bookings, ...), each with a committed
+// migration, following docs/schema.sql. Money is stored in paise (BigInt); the API speaks whole rupees.
+// Columns ending in Enc hold AES-256-GCM envelope ciphertext (src/common/crypto); Hash columns hold HMAC-SHA256.
+// PostGIS: geography(Point, 4326) columns are Unsupported for Prisma and are read / written with raw SQL.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ---------- enums (mirror the app's src/domain/types.ts) ----------
+
+enum UserRole {
+  CUSTOMER
+  TECHNICIAN
+  COORDINATOR
+  ADMIN
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DELETED
+
+  @@map("user_status")
+}
+
+enum Locale {
+  en
+  te
+
+  @@map("locale")
+}
+
+// ---------- identity ----------
+
+/// One row per account. The same phone may hold one CUSTOMER and one TECHNICIAN account (separate users).
+model User {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role      UserRole
+  phoneEnc  Bytes      @map("phone_enc")
+  /// HMAC(phone) for lookup; the phone itself is only stored encrypted.
+  phoneHash Bytes      @map("phone_hash")
+  nameEnc   Bytes?     @map("name_enc")
+  locale    Locale     @default(en)
+  status    UserStatus @default(ACTIVE)
+  /// A team demo account (DEMO_PHONES): its bookings are simulated and kept apart from real ones.
+  isDemo    Boolean    @default(false) @map("is_demo")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  refreshTokens RefreshToken[]
+  addresses     Address[]
+  devices       Device[]
+  ratingsGiven  Rating[]
+  uploads       Upload[]
+  notifications Notification[]
+  bookings      Booking[]
+  technician    Technician?     @relation("TechnicianUser")
+  tickets       SupportTicket[]
+  coordinated   Technician[]    @relation("TechnicianCoordinator")
+
+  @@unique([role, phoneHash])
+  @@map("users")
+}
+
+/// One SMS code. The code is stored only as HMAC(pepper, challengeId:code).
+model OtpChallenge {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phoneHash  Bytes     @map("phone_hash")
+  /// Encrypted phone, needed to create the account on success (not in docs/schema.sql; see docs/API-NOTES.md).
+  phoneEnc   Bytes     @map("phone_enc")
+  role       UserRole
+  codeHash   Bytes     @map("code_hash")
+  attempts   Int       @default(0)
+  /// False for team demo numbers (no SMS). The service-wide SMS budget counts the true ones.
+  sendsSms   Boolean   @default(true) @map("sends_sms")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  ip         String?   @db.Inet
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([phoneHash, createdAt(sort: Desc)])
+  @@map("otp_challenges")
+}
+
+/// Progressive sign-in lock per phone number after wrong codes (OTP_LOCK_STEPS). Deleted on a correct code, except
+/// after the final step: then only support unlocks it (npm run support -- unlock <phone>, audited).
+model OtpLockout {
+  phoneHash     Bytes     @id @map("phone_hash")
+  /// Lock steps reached so far (0 = none).
+  level         Int       @default(0) @db.SmallInt
+  /// Wrong codes counted towards the next step.
+  failures      Int       @default(0)
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(6)
+  lastFailureAt DateTime  @map("last_failure_at") @db.Timestamptz(6)
+
+  @@map("otp_lockouts")
+}
+
+/// Refresh tokens, stored only as HMAC(pepper, token). Each sign-in starts a family; every refresh replaces the
+/// token with a new one in the same family. Presenting a used or revoked token revokes the whole family.
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  familyId  String    @map("family_id") @db.Uuid
+  tokenHash Bytes     @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  device    String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ---------- catalog (seeded from the app's src/data/catalog.ts: npm run catalog:import, then npm run db:seed) ----------
+
+enum CategoryId {
+  PLUMBING
+  ELECTRICAL
+  AC
+  APPLIANCE
+  CLEANING
+  CARPENTRY
+
+  @@map("category_id")
+}
+
+model Category {
+  id        CategoryId @id
+  nameEn    String     @map("name_en")
+  nameTe    String     @map("name_te")
+  taglineEn String     @map("tagline_en")
+  taglineTe String     @map("tagline_te")
+  /// Which artwork the app shows (tap, bulb, snowflake, tv, sponge, saw).
+  art       String
+  /// Background tint name used by the app (not in docs/schema.sql; the API's Category requires it).
+  wash      String
+  sort      Int
+
+  services Service[]
+
+  @@map("categories")
+}
+
+model Service {
+  id                    String     @id
+  categoryId            CategoryId @map("category_id")
+  nameEn                String     @map("name_en")
+  nameTe                String     @map("name_te")
+  descriptionEn         String     @map("description_en")
+  descriptionTe         String     @map("description_te")
+  visitFeePaise         BigInt     @default(4900) @map("visit_fee_paise")
+  /// Typical minimum repair (labour + materials); the price check's lower bound.
+  repairFromPaise       BigInt     @map("repair_from_paise")
+  /// Typical maximum repair; quotes above 1.5x this go to review.
+  repairTypicalMaxPaise BigInt     @map("repair_typical_max_paise")
+  durationMin           Int        @map("duration_min")
+  durationMax           Int        @map("duration_max")
+  /// Shown on the service page. Demo values from the app catalog until real ratings exist.
+  rating                Float
+  reviews               Int
+  keywords              String[]   @default([])
+  popular               Boolean    @default(false)
+  /// Services removed from the catalog are deactivated, never deleted (bookings keep referring to them).
+  active                Boolean    @default(true)
+  sort                  Int
+
+  category Category       @relation(fields: [categoryId], references: [id])
+  issues   ServiceIssue[]
+  bookings Booking[]
+
+  @@index([categoryId, sort])
+  @@map("services")
+}
+
+model ServiceIssue {
+  id        String @id
+  serviceId String @map("service_id")
+  nameEn    String @map("name_en")
+  nameTe    String @map("name_te")
+  sort      Int
+
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@index([serviceId, sort])
+  @@map("service_issues")
+}
+
+// ---------- customers ----------
+
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+
+  @@map("address_label")
+}
+
+/// Saved addresses. House, street and landmark are encrypted; city, PIN and the coarse locality stay readable because
+/// offers show the area to technicians before they accept. Deleting wipes the personal fields (soft delete).
+model Address {
+  id          String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String                                 @map("user_id") @db.Uuid
+  label       AddressLabel
+  houseEnc    Bytes                                  @map("house_enc")
+  streetEnc   Bytes                                  @map("street_enc")
+  landmarkEnc Bytes?                                 @map("landmark_enc")
+  /// Coarse area shown in job offers ("Banjara Hills"); derived from the street until the app sends one.
+  locality    String
+  city        String
+  pincode     String                                 @db.Char(6)
+  /// From the phone's GPS when the customer used "my current location".
+  location    Unsupported("geography(Point, 4326)")?
+  createdAt   DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?                              @map("deleted_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ---------- visit slots ----------
+
+/// Per-area capacity overrides: bookings allowed per 2-hour window for one category in one PIN area.
+/// Areas without a row use SLOT_CAPACITY_PER_WINDOW.
+model SlotCapacity {
+  categoryId   CategoryId @map("category_id")
+  pincode      String     @db.Char(6)
+  maxPerWindow Int        @map("max_per_window")
+
+  @@id([categoryId, pincode])
+  @@map("slot_capacities")
+}
+
+// ---------- bookings ----------
+
+enum BookingMode {
+  INSTANT
+  SCHEDULED
+
+  @@map("booking_mode")
+}
+
+enum BookingStatus {
+  AWAITING_PAYMENT
+  PAYMENT_PENDING
+  MATCHING
+  MATCHING_DELAYED
+  UNFULFILLED
+  ASSIGNED
+  EN_ROUTE
+  ARRIVED
+  INSPECTING
+  QUOTE_SHARED
+  IN_PROGRESS
+  EXTRA_WORK
+  PAYMENT_DUE
+  COMPLETED
+  CLOSED_NO_REPAIR
+  CANCELLED
+
+  @@map("booking_status")
+}
+
+/// The first five come from the customer; the last two are set by the system (not sent to the app yet,
+/// docs/QUESTIONS.md #4).
+enum CancelReason {
+  PLANS_CHANGED
+  FIXED
+  TOO_LONG
+  MISTAKE
+  OTHER
+  UNPAID_EXPIRED
+  UNFULFILLED_EXPIRED
+
+  @@map("cancel_reason")
+}
+
+enum CloseReason {
+  CUSTOMER_DECLINED
+  CUSTOMER_UNAVAILABLE
+  CANNOT_COMPLETE
+
+  @@map("close_reason")
+}
+
+enum ActorType {
+  CUSTOMER
+  TECHNICIAN
+  COORDINATOR
+  ADMIN
+  SYSTEM
+
+  @@map("actor_type")
+}
+
+/// One booking = one job. The customer sees it as a Booking, the assigned technician as a Job (same id).
+model Booking {
+  id                 String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Short human code, "HF-48291".
+  code               String                                 @unique
+  customerId         String                                 @map("customer_id") @db.Uuid
+  serviceId          String                                 @map("service_id")
+  categoryId         CategoryId                             @map("category_id")
+  /// The full address at booking time (encrypted JSON), so later edits or deletion of the saved address
+  /// do not change the booking.
+  addressSnapshotEnc Bytes                                  @map("address_snapshot_enc")
+  /// Shown to offered technicians before they accept.
+  locality           String
+  city               String
+  pincode            String                                 @db.Char(6)
+  location           Unsupported("geography(Point, 4326)")?
+  issueIds           String[]                               @default([]) @map("issue_ids")
+  notes              String                                 @default("")
+  voiceTranscript    String?                                @map("voice_transcript")
+  voiceObjectKey     String?                                @map("voice_object_key")
+  voiceDurationSec   Int?                                   @map("voice_duration_sec")
+  timeMode           BookingMode                            @map("time_mode")
+  windowDate         DateTime?                              @map("window_date") @db.Date
+  windowStartHour    Int?                                   @map("window_start_hour") @db.SmallInt
+  windowEndHour      Int?                                   @map("window_end_hour") @db.SmallInt
+  preferWomenRated   Boolean                                @default(false) @map("prefer_women_rated")
+  /// Made by a team demo account: simulated payments, demo technicians only, no payouts.
+  isDemo             Boolean                                @default(false) @map("is_demo")
+  status             BookingStatus
+  /// The assigned technician.
+  technicianId       String?                                @map("technician_id") @db.Uuid
+  /// 4 digits the customer reads out at the door; encrypted because the customer must see it.
+  arrivalCodeEnc     Bytes                                  @map("arrival_code_enc")
+  startCodeAttempts  Int                                    @default(0) @map("start_code_attempts")
+  etaMin             Int?                                   @map("eta_min")
+  /// When the current search for a technician started (MATCHING_DELAYED after 10 min, UNFULFILLED after 30).
+  matchingStartedAt  DateTime?                              @map("matching_started_at") @db.Timestamptz(6)
+  /// When the current technician accepted (instant visits are reassigned if the trip has not started 10 min later).
+  assignedAt         DateTime?                              @map("assigned_at") @db.Timestamptz(6)
+  workStarted        Boolean                                @default(false) @map("work_started")
+  cancelReason       CancelReason?                          @map("cancel_reason")
+  closeReason        CloseReason?                           @map("close_reason")
+  idempotencyKey     String                                 @map("idempotency_key")
+  /// SHA-256 of the create request, so a reused Idempotency-Key with a different body is refused.
+  idempotencyHash    Bytes                                  @map("idempotency_hash")
+  /// Incremented on every change.
+  version            Int                                    @default(0)
+  createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  service       Service             @relation(fields: [serviceId], references: [id])
+  customer      User                @relation(fields: [customerId], references: [id])
+  technician    Technician?         @relation(fields: [technicianId], references: [userId])
+  events        BookingEvent[]
+  payments      Payment[]
+  offers        JobOffer[]
+  quotes        Quote[]
+  tickets       SupportTicket[]
+  ledger        EarningsLedger[]
+  rating        Rating?
+  reminders     BookingReminder[]
+  uploads       Upload[]
+  notifications Notification[]
+  queueEntry    DispatchQueueEntry?
+  callGrants    CallGrant[]
+
+  @@unique([customerId, idempotencyKey])
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([technicianId, status])
+  @@index([status, windowDate])
+  @@index([categoryId, pincode, windowDate, windowStartHour])
+  @@map("bookings")
+}
+
+/// Timeline and audit of every status change.
+/// Reminders already sent (each once per booking and key).
+model BookingReminder {
+  bookingId String   @map("booking_id") @db.Uuid
+  /// PAY, SOON, QUOTE:<event id>, RATE
+  key       String
+  sentAt    DateTime @map("sent_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@id([bookingId, key])
+  @@map("booking_reminders")
+}
+
+model BookingEvent {
+  id        BigInt        @id @default(autoincrement())
+  bookingId String        @map("booking_id") @db.Uuid
+  status    BookingStatus
+  actorType ActorType     @map("actor_type")
+  actorId   String?       @map("actor_id") @db.Uuid
+  meta      Json          @default("{}")
+  at        DateTime      @default(now()) @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId, at])
+  @@map("booking_events")
+}
+
+// ---------- payments (Razorpay) ----------
+
+enum PaymentKind {
+  VISIT
+  FINAL
+
+  @@map("payment_kind")
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  NETBANKING
+  CASH
+
+  @@map("payment_method")
+}
+
+enum PaymentState {
+  DUE
+  PROCESSING
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+
+  @@map("payment_state")
+}
+
+model Payment {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId         String         @map("booking_id") @db.Uuid
+  kind              PaymentKind
+  amountPaise       BigInt         @map("amount_paise")
+  state             PaymentState   @default(DUE)
+  method            PaymentMethod?
+  /// 'RAZORPAY' | 'CASH'
+  provider          String?
+  providerOrderId   String?        @unique @map("provider_order_id")
+  providerPaymentId String?        @unique @map("provider_payment_id")
+  providerRefundId  String?        @map("provider_refund_id")
+  idempotencyKey    String?        @map("idempotency_key")
+  failureCode       String?        @map("failure_code")
+  /// When the Razorpay order was created (the customer opened the payment sheet).
+  orderedAt         DateTime?      @map("ordered_at") @db.Timestamptz(6)
+  /// When Razorpay was last asked about this payment (reconciliation).
+  lastCheckedAt     DateTime?      @map("last_checked_at") @db.Timestamptz(6)
+  /// When the payment was settled (paid, failed or refunded): Payment.at in the API.
+  settledAt         DateTime?      @map("settled_at") @db.Timestamptz(6)
+  /// Set when a refund was decided (cancellation before EN_ROUTE, unfulfilled, payment after cancellation).
+  refundRequestedAt DateTime?      @map("refund_requested_at") @db.Timestamptz(6)
+  /// Razorpay confirmed the refund (refund.processed webhook).
+  refundProcessedAt DateTime?      @map("refund_processed_at") @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId, kind])
+  @@map("payments")
+}
+
+/// Razorpay webhook deliveries, stored once per event id (deduplication). The payload keeps only ids, amounts and
+/// statuses: Razorpay sends the payer's email, phone and payment details, which are dropped before storing.
+model PaymentWebhookEvent {
+  providerEventId String    @id @map("provider_event_id")
+  event           String
+  payload         Json
+  receivedAt      DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  @@map("payment_webhook_events")
+}
+
+// ---------- technicians ----------
+
+enum Gender {
+  M
+  F
+
+  @@map("gender")
+}
+
+enum Verification {
+  PENDING
+  APPROVED
+  NEEDS_CORRECTION
+  /// Not accepted (e.g. the identity check failed).
+  REJECTED
+  /// Was approved; access withdrawn. The QR verification page shows "not active".
+  SUSPENDED
+
+  @@map("verification")
+}
+
+enum TechPhotoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("tech_photo_status")
+}
+
+enum PhoneType {
+  SMARTPHONE
+  KEYPAD
+  NONE
+
+  @@map("phone_type")
+}
+
+/// A technician's work profile (the name lives on users, shared with /me). Created by the first PUT /tech/profile.
+model Technician {
+  userId             String                                 @id @map("user_id") @db.Uuid
+  gender             Gender
+  experienceYears    Int                                    @map("experience_years")
+  city               String
+  pincode            String                                 @db.Char(6)
+  /// Localities they cover, free text.
+  areas              String
+  /// Vehicle and registration number, encrypted (customers see it only for their assigned technician).
+  vehicleEnc         Bytes                                  @map("vehicle_enc")
+  phoneType          PhoneType                              @default(SMARTPHONE) @map("phone_type")
+  /// For technicians without a smartphone (coordinator-assisted jobs, step 13).
+  coordinatorId      String?                                @map("coordinator_id") @db.Uuid
+  verification       Verification
+  correctionNoteEn   String?                                @map("correction_note_en")
+  correctionNoteTe   String?                                @map("correction_note_te")
+  online             Boolean                                @default(false)
+  missedOffersInRow  Int                                    @default(0) @map("missed_offers_in_row")
+  ratingAvg          Decimal?                               @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount        Int                                    @default(0) @map("rating_count")
+  womenRated         Boolean                                @default(false) @map("women_rated")
+  jobsDone           Int                                    @default(0) @map("jobs_done")
+  /// Only while online or on a job; cleared when going offline.
+  lastLocation       Unsupported("geography(Point, 4326)")? @map("last_location")
+  lastLocationAt     DateTime?                              @map("last_location_at") @db.Timestamptz(6)
+  lastAccuracyM      Int?                                   @map("last_accuracy_m")
+  submittedAt        DateTime                               @map("submitted_at") @db.Timestamptz(6)
+  verifiedAt         DateTime?                              @map("verified_at") @db.Timestamptz(6)
+  /// Permanent Housefi Technician ID (N9-HF-T-XXXXXX): random, unique, never reused. Not a credential.
+  techCode           String?                                @unique @map("tech_code")
+  /// Legal name as on the identity document; locked after the first submission (corrections through support).
+  legalNameEnc       Bytes?                                 @map("legal_name_enc")
+  photoUploadId      String?                                @unique @map("photo_upload_id") @db.Uuid
+  photoStatus        TechPhotoStatus                        @default(PENDING) @map("photo_status")
+  /// QR verification token: SHA-256 for lookup, encrypted so the ID card shows the same link until it is re-issued.
+  verifyTokenHash    Bytes?                                 @unique @map("verify_token_hash")
+  verifyTokenEnc     Bytes?                                 @map("verify_token_enc")
+  correctionKind     String?                                @map("correction_kind")
+  correctionNote     String?                                @map("correction_note")
+  correctionAt       DateTime?                              @map("correction_at") @db.Timestamptz(6)
+  /// Aadhaar Secure QR (offline verification). Never the Aadhaar number: only its last 4 digits.
+  aadhaarLast4       String?                                @map("aadhaar_last4") @db.Char(4)
+  aadhaarYearOfBirth Int?                                   @map("aadhaar_year_of_birth") @db.SmallInt
+  aadhaarGender      String?                                @map("aadhaar_gender") @db.Char(1)
+  aadhaarNameMatch   Boolean?                               @map("aadhaar_name_match")
+  /// HMAC of name, birth date, gender and last 4 digits: one person, one technician account.
+  aadhaarFingerprint Bytes?                                 @unique @map("aadhaar_fingerprint")
+  aadhaarVerifiedAt  DateTime?                              @map("aadhaar_verified_at") @db.Timestamptz(6)
+  /// 4-digit PIN for accepting jobs by phone (keypad phones), stored only as an HMAC.
+  ivrPinHash         Bytes?                                 @map("ivr_pin_hash")
+  ivrConsentAt       DateTime?                              @map("ivr_consent_at") @db.Timestamptz(6)
+  /// Agreed calling hours (IST), e.g. 8 to 20.
+  callHoursStart     Int?                                   @map("call_hours_start") @db.SmallInt
+  callHoursEnd       Int?                                   @map("call_hours_end") @db.SmallInt
+  /// APP, IVR, COORDINATOR or SYSTEM: who last set online / offline.
+  availabilitySource String?                                @map("availability_source")
+  createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user        User              @relation("TechnicianUser", fields: [userId], references: [id])
+  photoUpload Upload?           @relation("TechnicianPhoto", fields: [photoUploadId], references: [id], onDelete: SetNull)
+  coordinator User?             @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
+  skills      TechnicianSkill[]
+  bookings    Booking[]
+  offers      JobOffer[]
+  ledger      EarningsLedger[]
+  payouts     Payout[]
+  ratings     Rating[]
+
+  @@index([pincode, online, verification])
+  @@index([verification, submittedAt])
+  @@map("technicians")
+}
+
+model TechnicianSkill {
+  technicianId String     @map("technician_id") @db.Uuid
+  categoryId   CategoryId @map("category_id")
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+
+  @@id([technicianId, categoryId])
+  @@map("technician_skills")
+}
+
+// ---------- audit ----------
+
+/// Who did what, when, before and after: every verification decision now, every privileged action later.
+model AuditLog {
+  id        BigInt    @id @default(autoincrement())
+  actorType ActorType @map("actor_type")
+  actorId   String?   @map("actor_id") @db.Uuid
+  /// 'tech.approve', 'tech.request_correction', ...
+  action    String
+  entity    String
+  entityId  String    @map("entity_id")
+  before    Json?
+  after     Json?
+  ip        String?   @db.Inet
+  requestId String?   @map("request_id")
+  at        DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([entity, entityId, at])
+  @@map("audit_log")
+}
+
+// ---------- dispatch ----------
+
+enum OfferState {
+  OPEN
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  WITHDRAWN
+
+  @@map("offer_state")
+}
+
+enum OfferChannel {
+  APP
+  SMS
+  IVR
+  COORDINATOR
+
+  @@map("offer_channel")
+}
+
+enum OfferRejectReason {
+  TOO_FAR
+  BUSY
+  NOT_MY_SKILL
+  OTHER
+
+  @@map("offer_reject")
+}
+
+/// A job offered to one technician at a time. At most one OPEN offer per booking and per technician (partial
+/// unique indexes in the migration).
+model JobOffer {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId    String             @map("booking_id") @db.Uuid
+  technicianId String             @map("technician_id") @db.Uuid
+  state        OfferState         @default(OPEN)
+  channel      OfferChannel       @default(APP)
+  rejectReason OfferRejectReason? @map("reject_reason")
+  /// Straight-line distance from the technician's last location, when both points are known.
+  distanceM    Int?               @map("distance_m")
+  createdAt    DateTime           @map("created_at") @db.Timestamptz(6)
+  expiresAt    DateTime           @map("expires_at") @db.Timestamptz(6)
+  respondedAt  DateTime?          @map("responded_at") @db.Timestamptz(6)
+
+  booking    Booking    @relation(fields: [bookingId], references: [id])
+  technician Technician @relation(fields: [technicianId], references: [userId])
+
+  callAttempts OfferCallAttempt[]
+
+  @@index([bookingId, technicianId])
+  @@index([technicianId, state, respondedAt])
+  @@index([state, expiresAt])
+  @@map("job_offers")
+}
+
+/// Which PIN codes neighbour which (dispatch v1 matches the booking's PIN and its neighbours). Store both directions.
+model ServiceAreaPincode {
+  pincode     String @db.Char(6)
+  nearPincode String @map("near_pincode") @db.Char(6)
+
+  @@id([pincode, nearPincode])
+  @@map("service_area_pincodes")
+}
+
+// ---------- quotes ----------
+
+enum QuoteWhich {
+  MAIN
+  EXTRA
+
+  @@map("quote_which")
+}
+
+enum QuoteLineKind {
+  LABOUR
+  MATERIAL
+
+  @@map("quote_line_kind")
+}
+
+enum QuoteReview {
+  CHECKING
+  FAIR
+  UNDER_REVIEW
+  CLEARED
+
+  @@map("quote_review")
+}
+
+enum QuoteDecision {
+  PENDING
+  APPROVED
+  REVISION_REQUESTED
+  REJECTED
+
+  @@map("quote_decision")
+}
+
+/// The repair quote (MAIN) or extra work found during the repair (EXTRA). Each revision is a new version; old
+/// versions are kept (superseded) for audit.
+model Quote {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId       String        @map("booking_id") @db.Uuid
+  which           QuoteWhich
+  version         Int
+  /// What the technician found (their own words).
+  diagnosis       String
+  labourPaise     BigInt        @map("labour_paise")
+  materialPaise   BigInt        @map("material_paise")
+  totalPaise      BigInt        @map("total_paise")
+  review          QuoteReview   @default(CHECKING)
+  /// The service's usual range at the time of the quote (price check).
+  typicalMinPaise BigInt        @map("typical_min_paise")
+  typicalMaxPaise BigInt        @map("typical_max_paise")
+  decision        QuoteDecision @default(PENDING)
+  createdBy       String        @map("created_by") @db.Uuid
+  /// Null while reviews are cleared automatically (no reviewers yet).
+  reviewedBy      String?       @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?     @map("reviewed_at") @db.Timestamptz(6)
+  createdAt       DateTime      @map("created_at") @db.Timestamptz(6)
+  decidedAt       DateTime?     @map("decided_at") @db.Timestamptz(6)
+  superseded      Boolean       @default(false)
+
+  booking Booking     @relation(fields: [bookingId], references: [id])
+  lines   QuoteLine[]
+
+  @@unique([bookingId, which, version])
+  @@index([review, createdAt])
+  @@map("quotes")
+}
+
+model QuoteLine {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quoteId   String        @map("quote_id") @db.Uuid
+  kind      QuoteLineKind
+  name      String
+  qty       Int
+  unitPaise BigInt        @map("unit_paise")
+  sort      Int
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, sort])
+  @@map("quote_lines")
+}
+
+// ---------- support ----------
+
+enum TicketState {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+
+  @@map("ticket_state")
+}
+
+enum TicketPriority {
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("ticket_priority")
+}
+
+/// Problems for the support team: technician reports, locked start codes, customer SOS / payment tickets and call-back
+/// requests. Handled with `npm run support` until the admin portal exists.
+model SupportTicket {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId  String?        @map("booking_id") @db.Uuid
+  raisedBy   String         @map("raised_by") @db.Uuid
+  /// TechIssue values, 'START_CODE_LOCKED', and from POST /support/*: 'UNSAFE', 'PAYMENT_PROBLEM', 'OTHER', 'CALLBACK'.
+  kind       String
+  note       String         @default("")
+  state      TicketState    @default(OPEN)
+  priority   TicketPriority @default(NORMAL)
+  createdAt  DateTime       @map("created_at") @db.Timestamptz(6)
+  resolvedAt DateTime?      @map("resolved_at") @db.Timestamptz(6)
+  /// Who resolved it (null for the command line; who ran it is in audit_log) and what was done.
+  resolvedBy String?        @map("resolved_by") @db.Uuid
+  resolution String?
+
+  booking Booking? @relation(fields: [bookingId], references: [id])
+  raiser  User     @relation(fields: [raisedBy], references: [id])
+
+  @@index([state, priority, createdAt])
+  @@index([bookingId])
+  @@map("support_tickets")
+}
+
+// ---------- earnings ----------
+
+enum LedgerType {
+  VISIT_SHARE
+  LABOUR_SHARE
+  MATERIAL_REIMBURSE
+  CASH_COLLECTED
+  ADJUSTMENT
+  PAYOUT
+
+  @@map("ledger_type")
+}
+
+enum PayoutState {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+
+  @@map("payout_state")
+}
+
+/// Append-only money owed to (credits, positive) or by (debits, negative) a technician. Never updated except to link
+/// an entry to the payout that settles it. Balances are always sums, never a stored running number.
+model EarningsLedger {
+  id           BigInt     @id @default(autoincrement())
+  technicianId String     @map("technician_id") @db.Uuid
+  bookingId    String?    @map("booking_id") @db.Uuid
+  type         LedgerType
+  amountPaise  BigInt     @map("amount_paise")
+  payoutId     String?    @map("payout_id") @db.Uuid
+  createdAt    DateTime   @map("created_at") @db.Timestamptz(6)
+
+  technician Technician @relation(fields: [technicianId], references: [userId])
+  booking    Booking?   @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  payout     Payout?    @relation(fields: [payoutId], references: [id], onDelete: Restrict)
+
+  @@index([technicianId, createdAt(sort: Desc)])
+  @@index([technicianId, payoutId])
+  @@map("earnings_ledger")
+}
+
+/// A weekly settlement: everything a technician earned minus cash they collected, up to the period end.
+model Payout {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  technicianId String      @map("technician_id") @db.Uuid
+  periodStart  DateTime    @map("period_start") @db.Date
+  periodEnd    DateTime    @map("period_end") @db.Date
+  amountPaise  BigInt      @map("amount_paise")
+  state        PayoutState @default(PENDING)
+  /// Bank / UPI transfer reference, entered when marked paid (RazorpayX payout id later).
+  providerRef  String?     @map("provider_ref")
+  createdAt    DateTime    @map("created_at") @db.Timestamptz(6)
+  paidAt       DateTime?   @map("paid_at") @db.Timestamptz(6)
+
+  technician Technician       @relation(fields: [technicianId], references: [userId])
+  entries    EarningsLedger[]
+
+  @@index([state, createdAt])
+  @@map("payouts")
+}
+
+// ---------- notifications ----------
+
+enum NotificationKind {
+  TECH_ASSIGNED
+  TECH_ON_THE_WAY
+  TECH_ARRIVED
+  QUOTE_READY
+  EXTRA_QUOTE
+  PAYMENT_DUE
+  BOOKING_COMPLETED
+  BOOKING_CANCELLED
+  NO_TECHNICIAN
+  JOB_OFFER
+  QUOTE_APPROVED
+  QUOTE_REVISION
+  QUOTE_DECLINED
+  EXTRA_APPROVED
+  EXTRA_DECLINED
+  PAYMENT_RECEIVED
+  JOB_CANCELLED
+  PROFILE_APPROVED
+  PROFILE_NEEDS_CORRECTION
+  PAY_REMINDER
+  BOOKING_REMINDER
+  JOB_REMINDER
+  QUOTE_REMINDER
+  RATE_REMINDER
+  PROFILE_SUSPENDED
+  PROFILE_REINSTATED
+  PROFILE_REJECTED
+
+  @@map("notification_kind")
+}
+
+enum PushState {
+  /// Waiting for the delivery worker.
+  PENDING
+  /// Claimed by a worker (reclaimed if it stays here too long).
+  SENDING
+  /// Accepted by the push service for at least one device.
+  SENT
+  /// Not sent: no live device, or too old to be useful (an expired offer).
+  SKIPPED
+  /// The push service kept failing.
+  FAILED
+
+  @@map("push_state")
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
+
+  @@map("device_platform")
+}
+
+/// A phone that receives push notifications for one account, from one sign-in session.
+model Device {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  pushToken  String         @unique @map("push_token")
+  platform   DevicePlatform
+  /// The refresh-token family it was registered from: pushes stop when that session ends (logout, revoked, expired).
+  sessionId  String         @map("session_id") @db.Uuid
+  lastSeenAt DateTime       @map("last_seen_at") @db.Timestamptz(6)
+  createdAt  DateTime       @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("devices")
+}
+
+/// The in-app inbox, and the outbox for push: rows are written in the transaction of the change they announce.
+model Notification {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Insertion order: breaks ties between notifications written in the same millisecond.
+  seq           BigInt           @default(autoincrement())
+  userId        String           @map("user_id") @db.Uuid
+  kind          NotificationKind
+  bookingId     String?          @map("booking_id") @db.Uuid
+  /// Values for the text (codes, amounts, ids): never names, phone numbers or addresses.
+  params        Json             @default("{}")
+  readAt        DateTime?        @map("read_at") @db.Timestamptz(6)
+  pushState     PushState        @default(PENDING) @map("push_state")
+  pushAttempts  Int              @default(0) @map("push_attempts")
+  pushClaimedAt DateTime?        @map("push_claimed_at") @db.Timestamptz(6)
+  pushedAt      DateTime?        @map("pushed_at") @db.Timestamptz(6)
+  /// SMS fallback (keypad phones) comes with two-way SMS later.
+  smsAt         DateTime?        @map("sms_at") @db.Timestamptz(6)
+  createdAt     DateTime         @map("created_at") @db.Timestamptz(6)
+
+  user    User     @relation(fields: [userId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc), seq(sort: Desc)])
+  @@map("notifications")
+}
+
+// ---------- ratings ----------
+
+/// The customer's rating of a finished visit (COMPLETED or CLOSED_NO_REPAIR), once per booking.
+model Rating {
+  bookingId    String   @id @map("booking_id") @db.Uuid
+  customerId   String   @map("customer_id") @db.Uuid
+  technicianId String?  @map("technician_id") @db.Uuid
+  satisfied    Boolean
+  stars        Int      @db.SmallInt
+  /// From: onTime, polite, clean, fair, explained, fixed.
+  tags         String[] @default([])
+  comment      String   @default("")
+  /// Self-declared "I'm a woman": only feeds the technician's women-rated badge. Never returned to anyone.
+  byWoman      Boolean  @default(false) @map("by_woman")
+  createdAt    DateTime @map("created_at") @db.Timestamptz(6)
+
+  booking    Booking     @relation(fields: [bookingId], references: [id])
+  customer   User        @relation(fields: [customerId], references: [id])
+  technician Technician? @relation(fields: [technicianId], references: [userId])
+
+  @@index([technicianId, createdAt(sort: Desc)])
+  @@map("ratings")
+}
+
+// ---------- uploads ----------
+
+enum UploadKind {
+  PHOTO
+  AUDIO
+
+  @@map("upload_kind")
+}
+
+enum UploadStage {
+  PROBLEM
+  INSPECTION
+  COMPLETION
+  /// A technician's registration photo (ID card).
+  PROFILE
+
+  @@map("upload_stage")
+}
+
+enum UploadState {
+  /// A signed PUT URL was handed out; the file may or may not be in the bucket yet.
+  PENDING
+  /// The file was checked (type, size, length) and, for photos, its location data removed.
+  READY
+  /// The file failed the checks; the object is deleted.
+  REJECTED
+
+  @@map("upload_state")
+}
+
+/// A photo or voice note in the private uploads bucket. The object key carries no personal data (u/<id>).
+model Upload {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId      String       @map("owner_id") @db.Uuid
+  kind         UploadKind
+  stage        UploadStage?
+  contentType  String       @map("content_type")
+  /// The exact size the signed URL allows (S3 refuses any other Content-Length).
+  bytes        Int
+  state        UploadState  @default(PENDING)
+  /// Seconds, for voice notes (from the file).
+  durationSec  Int?         @map("duration_sec")
+  /// Set once the upload is part of a booking; it can never move to another one.
+  bookingId    String?      @map("booking_id") @db.Uuid
+  rejectReason String?      @map("reject_reason")
+  createdAt    DateTime     @map("created_at") @db.Timestamptz(6)
+  /// The signed PUT URL stops working at this time.
+  urlExpiresAt DateTime     @map("url_expires_at") @db.Timestamptz(6)
+  verifiedAt   DateTime?    @map("verified_at") @db.Timestamptz(6)
+
+  owner     User        @relation(fields: [ownerId], references: [id])
+  booking   Booking?    @relation(fields: [bookingId], references: [id])
+  /// Set when this is a technician's registration photo (kept while it is in use).
+  profileOf Technician? @relation("TechnicianPhoto")
+
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@index([bookingId])
+  @@index([state, createdAt])
+  @@map("uploads")
+}
+
+// ---------- telephony (docs/TELEPHONY.md) ----------
+
+enum CallState {
+  REQUESTED
+  RINGING
+  ANSWERED
+  COMPLETED
+  NO_ANSWER
+  BUSY
+  FAILED
+  CANCELLED
+
+  @@map("call_state")
+}
+
+enum KeypadResult {
+  ACCEPT
+  REJECT
+  NONE
+  INVALID
+  PIN_FAILED
+  TOO_LATE
+
+  @@map("keypad_result")
+}
+
+/// One phone call made for a job offer. The call state never moves the offer by itself.
+model OfferCallAttempt {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  offerId        String        @map("offer_id") @db.Uuid
+  provider       String
+  providerCallId String?       @unique @map("provider_call_id")
+  state          CallState     @default(REQUESTED)
+  keypadResult   KeypadResult? @map("keypad_result")
+  pinAttempts    Int           @default(0) @map("pin_attempts") @db.SmallInt
+  requestedAt    DateTime      @map("requested_at") @db.Timestamptz(6)
+  answeredAt     DateTime?     @map("answered_at") @db.Timestamptz(6)
+  endedAt        DateTime?     @map("ended_at") @db.Timestamptz(6)
+  durationS      Int?          @map("duration_s")
+  failureReason  String?       @map("failure_reason")
+
+  offer JobOffer @relation(fields: [offerId], references: [id])
+
+  @@index([offerId], map: "offer_call_attempts_offer_idx")
+  @@map("offer_call_attempts")
+}
+
+/// Bookings waiting for a coordinator to assign them.
+model DispatchQueueEntry {
+  bookingId  String    @id @map("booking_id") @db.Uuid
+  reason     String
+  enteredAt  DateTime  @map("entered_at") @db.Timestamptz(6)
+  claimedBy  String?   @map("claimed_by") @db.Uuid
+  claimedAt  DateTime? @map("claimed_at") @db.Timestamptz(6)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("dispatch_queue")
+}
+
+/// Masked calls: who may call whom through the Housefi number, for one booking, for a short time.
+model CallGrant {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  callerId  String   @map("caller_id") @db.Uuid
+  calleeId  String   @map("callee_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @map("created_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([callerId, expiresAt(sort: Desc)], map: "call_grants_caller_idx")
+  @@map("call_grants")
+}
+
+/// Provider callbacks already handled (providers retry).
+model TelephonyEvent {
+  eventId    String   @id @map("event_id")
+  receivedAt DateTime @map("received_at") @db.Timestamptz(6)
+
+  @@map("telephony_events")
+}

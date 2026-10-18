@@ -1,0 +1,141 @@
+{
+  "id": "bkg_2c91",
+  "code": "HF-48291",
+  "serviceId": "plumb-tap",
+  "categoryId": "PLUMBING",
+  "problem": {
+    "issueIds": [
+      "tap-leak"
+    ],
+    "notes": "Leaks more when the hot water is on",
+    "voiceNote": {
+      "durationSec": 7,
+      "transcript": "Water is leaking under the kitchen sink since yesterday.",
+      "simulated": true
+    },
+    "photos": [
+      {
+        "id": "ph_3b2"
+      }
+    ]
+  },
+  "address": {
+    "id": "adr_19c2",
+    "label": "HOME",
+    "house": "Flat 4B, Lake View",
+    "street": "Road No. 12, Banjara Hills",
+    "landmark": "Opp. City Park",
+    "city": "Hyderabad",
+    "pincode": "500034",
+    "lat": 17.4126,
+    "lng": 78.4482
+  },
+  "time": {
+    "mode": "INSTANT",
+    "window": null
+  },
+  "preferWomenRated": true,
+  "status": "QUOTE_SHARED",
+  "technician": {
+    "id": "tech_7f3a",
+    "name": {
+      "en": "Swathi Naidu",
+      "te": "స్వాతి నాయుడు"
+    },
+    "gender": "F",
+    "rating": 4.9,
+    "jobs": 214,
+    "years": 5,
+    "womenRated": true,
+    "vehicle": "Scooter · TS 08 CD 4521",
+    "maskedPhone": "+91 80471 10023",
+    "demo": true
+  },
+  "arrivalOtp": "4821",
+  "etaMin": null,
+  "visitPayment": {
+    "kind": "VISIT",
+    "amount": 49,
+    "state": "PAID",
+    "method": "UPI",
+    "txnId": "pay_NQ8x2kLm91",
+    "at": 1792152030000
+  },
+  "quote": {
+    "id": "qt_88e1",
+    "version": 1,
+    "lines": [
+      {
+        "kind": "LABOUR",
+        "name": {
+          "en": "Repair labour",
+          "te": "Repair labour"
+        },
+        "qty": 1,
+        "unitPrice": 120
+      },
+      {
+        "kind": "MATERIAL",
+        "name": {
+          "en": "Washer and sealant",
+          "te": "Washer and sealant"
+        },
+        "qty": 1,
+        "unitPrice": 200
+      }
+    ],
+    "labourTotal": 120,
+    "materialTotal": 200,
+    "total": 320,
+    "diagnosis": {
+      "en": "Worn-out washer and a loose joint under the sink.",
+      "te": "Worn-out washer and a loose joint under the sink."
+    },
+    "review": {
+      "state": "FAIR",
+      "typicalMin": 149,
+      "typicalMax": 600
+    },
+    "decision": "PENDING",
+    "at": 1792153500000
+  },
+  "extraQuote": null,
+  "finalPayment": null,
+  "rating": null,
+  "createdAt": 1792152000000,
+  "history": [
+    {
+      "status": "AWAITING_PAYMENT",
+      "at": 1792152000000
+    },
+    {
+      "status": "MATCHING",
+      "at": 1792152300000
+    },
+    {
+      "status": "ASSIGNED",
+      "at": 1792152600000
+    },
+    {
+      "status": "EN_ROUTE",
+      "at": 1792152900000
+    },
+    {
+      "status": "ARRIVED",
+      "at": 1792153200000
+    },
+    {
+      "status": "INSPECTING",
+      "at": 1792153500000
+    },
+    {
+      "status": "QUOTE_SHARED",
+      "at": 1792153800000
+    }
+  ],
+  "cancelReason": null,
+  "closeReason": null,
+  "workStarted": false,
+  "viaTechApp": true,
+  "demo": true
+}

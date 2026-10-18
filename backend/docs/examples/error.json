@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "OTP_INVALID",
+    "message": "wrong start code",
+    "attemptsLeft": 2,
+    "requestId": "req_01HF8..."
+  }
+}

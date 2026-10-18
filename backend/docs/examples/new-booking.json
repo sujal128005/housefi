@@ -1,0 +1,29 @@
+{
+  "serviceId": "plumb-tap",
+  "problem": {
+    "issueIds": [
+      "tap-leak"
+    ],
+    "notes": "Leaks more when the hot water is on",
+    "voiceNote": {
+      "durationSec": 7,
+      "transcript": "Water is leaking under the kitchen sink since yesterday.",
+      "audioId": "au_51e"
+    },
+    "photos": [
+      {
+        "id": "ph_3b2"
+      }
+    ]
+  },
+  "addressId": "adr_19c2",
+  "time": {
+    "mode": "SCHEDULED",
+    "window": {
+      "date": "2026-10-17",
+      "startHour": 10,
+      "endHour": 12
+    }
+  },
+  "preferWomenRated": true
+}

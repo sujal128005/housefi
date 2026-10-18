@@ -1,0 +1,95 @@
+# Housefi production on one server (DigitalOcean Droplet, Bangalore). Read docs/DEPLOY.md first.
+#
+#   docker compose -f deploy/docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# Recommended: DigitalOcean Managed PostgreSQL (PostGIS, daily backups, point-in-time restore) in DATABASE_URL.
+# Without it, start the "postgres" profile below: --profile local-db (then run deploy/backup.sh every night).
+# Only Caddy is reachable from the internet (ports 80/443); the API, Redis and Postgres stay on the private network.
+
+name: housefi
+
+services:
+  api:
+    build: { context: .., dockerfile: Dockerfile }
+    image: housefi-api:latest
+    restart: unless-stopped
+    env_file: ../.env.production
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      # Caddy is the one proxy in front of the API.
+      TRUST_PROXY: "1"
+    depends_on:
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    networks: [internal]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    deploy:
+      resources: { limits: { memory: 768m } }
+    logging: { driver: json-file, options: { max-size: "20m", max-file: "5" } }
+
+  # Applies database migrations, then exits. Runs before every start of the API.
+  migrate:
+    image: housefi-api:latest
+    build: { context: .., dockerfile: Dockerfile }
+    env_file: ../.env.production
+    environment: { NODE_ENV: production }
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    networks: [internal]
+    restart: "no"
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    # REDIS_PASSWORD from .env.production (--env-file); the same password is inside REDIS_URL. Only this one secret
+    # is given to the Redis container.
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction"]
+    environment: { REDIS_PASSWORD: "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.production}" }
+    volumes: [redis-data:/data]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # HTTPS for api.housefi.tech (certificates from Let's Encrypt, renewed automatically).
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [api]
+    networks: [internal]
+
+  # Only with --profile local-db (when not using Managed PostgreSQL).
+  postgres:
+    profiles: [local-db]
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: housefi
+      POSTGRES_USER: housefi
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-}"
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U housefi -d housefi"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+networks:
+  internal: {}
+
+volumes:
+  redis-data:
+  caddy-data:
+  caddy-config:
+  postgres-data:

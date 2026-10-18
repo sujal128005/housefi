@@ -1,0 +1,11 @@
+{
+  "id": "ntf_77",
+  "kind": "QUOTE_READY",
+  "bookingId": "bkg_2c91",
+  "params": {
+    "code": "HF-48291",
+    "amount": 320
+  },
+  "at": 1792153503000,
+  "read": false
+}

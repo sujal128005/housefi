@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # e2e tests run against this Postgres (npm test applies the migrations first).
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: housefi
+          POSTGRES_PASSWORD: housefi
+          POSTGRES_DB: housefi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U housefi -d housefi" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL_TEST: postgresql://housefi:housefi@localhost:5432/housefi?schema=public
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --ci
+      - run: npm run build
+      # Everything, dev tools included (a compromised test or build tool runs in CI with the repository).
+      - name: Dependency audit
+        run: npm audit --audit-level=moderate
