@@ -82,10 +82,19 @@ describe('job actions (e2e)', () => {
     expect((await booking()).etaMin).toBe(1);
     await placeTech(17.45, 78.5); // further away: the ETA follows the location updates
     await api().post('/v1/tech/location').set(as(tech.token)).send({ lat: 17.45, lng: 78.5 }).expect(204);
-    expect((await booking()).etaMin).toBeGreaterThan(20);
+    const onTheWay = await booking();
+    expect(onTheWay.etaMin).toBeGreaterThan(20);
+    // The customer sees the technician move, only while they travel and only from a recent point.
+    expect(onTheWay.technicianLocation).toEqual({ lat: 17.45, lng: 78.5, accuracyM: null, at: t.clock.now() });
+    t.clock.t += 11 * 60_000;
+    expect((await booking()).technicianLocation).toBeNull();
+    await api().post('/v1/tech/location').set(as(tech.token)).send({ lat: 17.45, lng: 78.5, accuracy: 12.4 }).expect(204);
+    expect((await booking()).technicianLocation).toMatchObject({ accuracyM: 12 });
 
     expect((await act('arrived').expect(200)).body.status).toBe('ARRIVED');
-    expect((await booking()).etaMin).toBeNull();
+    const arrived = await booking();
+    expect(arrived.etaMin).toBeNull();
+    expect(arrived.technicianLocation).toBeNull();
     expect((await act('verify-start-code', { code: await startCode() }).expect(200)).body.status).toBe('INSPECTING');
 
     const quoted = await act('quotes', QUOTE).expect(200);

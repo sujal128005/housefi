@@ -86,6 +86,19 @@ function statusLine(b: ChatBooking, f: ChatFacts): Bi {
   }
 }
 
+const DANGER_EN = ['spark', 'sparks', 'sparking', 'fire', 'smoke', 'gas', 'shock', 'electrocuted', 'burning', 'danger', 'dangerous', 'unsafe', 'emergency'];
+const DANGER_TE = ['మంట', 'నిప్పు', 'పొగ', 'గ్యాస్', 'షాక్', 'ప్రమాదం'];
+
+/** Sparks, gas, smoke, shocks…: always answered by the fixed safety message and a person, never by a model. */
+export function soundsDangerous(message: string): boolean {
+  return matcher(message)(DANGER_EN, DANGER_TE);
+}
+
+/** The customer asks for a person or complains: customer care is offered whatever else is said. */
+export function wantsPerson(message: string): boolean {
+  return matcher(message)(['person', 'human', 'agent', 'call', 'customer care', 'support team', 'complaint'], ['మనిషి', 'కాల్', 'ఫిర్యాదు']);
+}
+
 /** The assistant's answer to one message. */
 export function chatReply(message: string, locale: Locale, active: ChatBooking | null, facts: ChatFacts): ChatAnswer {
   const has = matcher(message);
@@ -95,7 +108,7 @@ export function chatReply(message: string, locale: Locale, active: ChatBooking |
   const v = { fee: facts.visitFee, min: facts.quoteMin };
 
   // Safety first: a person should take over at once.
-  if (has(['spark', 'sparks', 'sparking', 'fire', 'smoke', 'gas', 'shock', 'electrocuted', 'burning', 'danger', 'dangerous', 'unsafe', 'emergency'], ['మంట', 'నిప్పు', 'పొగ', 'గ్యాస్', 'షాక్', 'ప్రమాదం'])) {
+  if (soundsDangerous(message)) {
     return say(
       {
         en: 'If anyone is in danger, switch off the main power or gas if it is safe to do so, move away, and call 112. Tap "Call customer care" and we will help right away.',
@@ -105,7 +118,7 @@ export function chatReply(message: string, locale: Locale, active: ChatBooking |
       true,
     );
   }
-  if (has(['person', 'human', 'agent', 'call', 'customer care', 'support team', 'complaint'], ['మనిషి', 'కాల్', 'ఫిర్యాదు'])) {
+  if (wantsPerson(message)) {
     return say({ en: 'Sure, I can connect you to our support team. Tap "Call customer care" below.', te: 'సరే, మా సపోర్ట్ టీమ్‌కు కనెక్ట్ చేస్తాను. కింద "కస్టమర్ కేర్‌కు కాల్" నొక్కండి.' }, [], true);
   }
   if (has(['cancel', 'cancellation'], ['రద్దు'])) {

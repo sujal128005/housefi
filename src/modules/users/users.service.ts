@@ -53,8 +53,9 @@ export class UsersService {
 
   async update(userId: string, change: ProfileUpdate): Promise<CustomerDto> {
     const current = await this.active(userId);
-    // A technician's name is their verified legal name: it changes only through support (identity corrections).
-    if (change.name !== undefined && current.role === 'TECHNICIAN') {
+    // Once a technician's profile is submitted, their name is the legal name on the ID card: it changes only
+    // through support (identity corrections). Before that it can be set freely.
+    if (change.name !== undefined && current.role === 'TECHNICIAN' && (await this.legalNameLocked(userId))) {
       throw new AppError('CONFLICT', {}, 'a technician\'s legal name is locked; ask for a correction instead');
     }
     const data: { nameEnc?: Uint8Array<ArrayBuffer>; locale?: Locale } = {};
@@ -62,6 +63,11 @@ export class UsersService {
     if (change.locale !== undefined) data.locale = change.locale;
     const user = await this.prisma.user.update({ where: { id: userId }, data });
     return this.toCustomer(user);
+  }
+
+  private async legalNameLocked(userId: string): Promise<boolean> {
+    const tech = await this.prisma.technician.findUnique({ where: { userId }, select: { legalNameEnc: true } });
+    return !!tech?.legalNameEnc && tech.legalNameEnc.length > 0;
   }
 
   /**

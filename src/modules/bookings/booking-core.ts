@@ -16,12 +16,14 @@ import { transitionNotices } from '../notifications/booking-notices';
 import { Notifier } from '../notifications/notifier';
 import { ACTIVE_STATUSES, canTransition } from './booking-status';
 import { BookingUpdates } from './booking-updates';
-import { BOOKING_INCLUDE, type BookingDto, toBookingDto } from './booking-view';
+import { BOOKING_INCLUDE, type BookingDto, type TripLocationDto, toBookingDto } from './booking-view';
 import { JOB_INCLUDE, type JobDto, type JobViewOptions, toJobDto } from './job-view';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Lists return the newest bookings first, at most this many. */
 export const LIST_LIMIT = 50;
+/** An older technician location is not shown (the phone stopped sending: no signal, app closed). */
+export const TRIP_LOCATION_MAX_AGE_MS = 10 * 60_000;
 /** An unpaid booking is not expired while the customer is in the payment sheet (an order made this recently). */
 export const PAYMENT_ATTEMPT_GRACE_MIN = 15;
 
@@ -134,7 +136,9 @@ export class BookingCore {
     const row = await this.prisma.booking.findFirst({ where: { id, customerId }, select: { status: true, createdAt: true } });
     if (!row) throw new AppError('NOT_FOUND');
     if (this.isOverdueUnpaid(row)) await this.expireOne(id);
-    return toBookingDto(await this.prisma.booking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE }), this.cipher, this.media, this.maskedPhone());
+    const b = await this.prisma.booking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE });
+    const trips = await this.tripLocations([b]);
+    return toBookingDto(b, this.cipher, this.media, this.maskedPhone(), trips.get(b.id) ?? null);
   }
 
   async list(customerId: string, scope: 'active' | 'past' | 'all'): Promise<BookingDto[]> {
@@ -151,7 +155,23 @@ export class BookingCore {
       take: LIST_LIMIT,
       include: BOOKING_INCLUDE,
     });
-    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher, this.media, this.maskedPhone())));
+    const trips = await this.tripLocations(rows);
+    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher, this.media, this.maskedPhone(), trips.get(r.id) ?? null)));
+  }
+
+  /** The technician's latest point for bookings on the way (EN_ROUTE), when it is recent. */
+  private async tripLocations(rows: readonly { id: string; status: BookingStatus; technicianId: string | null }[]): Promise<Map<string, TripLocationDto>> {
+    const ids = rows.filter((r) => r.status === 'EN_ROUTE' && r.technicianId).map((r) => r.id);
+    if (ids.length === 0) return new Map();
+    const since = new Date(this.clock.now() - TRIP_LOCATION_MAX_AGE_MS);
+    const found = await this.prisma.$queryRaw<{ id: string; lat: number; lng: number; acc: number | null; at: Date }[]>`
+      SELECT b.id::text AS id, ST_Y(t.last_location::geometry) AS lat, ST_X(t.last_location::geometry) AS lng,
+        t.last_accuracy_m AS acc, t.last_location_at AS at
+      FROM bookings b JOIN technicians t ON t.user_id = b.technician_id
+      WHERE b.id = ANY(${ids}::uuid[]) AND b.status = 'EN_ROUTE'
+        AND t.last_location IS NOT NULL AND t.last_location_at >= ${since}`;
+    const round = (v: number) => Math.round(v * 1e5) / 1e5;
+    return new Map(found.map((r) => [r.id, { lat: round(Number(r.lat)), lng: round(Number(r.lng)), accuracyM: r.acc, at: r.at.getTime() }]));
   }
 
   // ---------- technician reads ----------

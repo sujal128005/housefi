@@ -371,6 +371,7 @@ model Booking {
   tickets       SupportTicket[]
   ledger        EarningsLedger[]
   rating        Rating?
+  reminders     BookingReminder[]
   uploads       Upload[]
   notifications Notification[]
   queueEntry    DispatchQueueEntry?
@@ -385,6 +386,19 @@ model Booking {
 }
 
 /// Timeline and audit of every status change.
+/// Reminders already sent (each once per booking and key).
+model BookingReminder {
+  bookingId String   @map("booking_id") @db.Uuid
+  /// PAY, SOON, QUOTE:<event id>, RATE
+  key       String
+  sentAt    DateTime @map("sent_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@id([bookingId, key])
+  @@map("booking_reminders")
+}
+
 model BookingEvent {
   id        BigInt        @id @default(autoincrement())
   bookingId String        @map("booking_id") @db.Uuid
@@ -891,6 +905,14 @@ enum NotificationKind {
   JOB_CANCELLED
   PROFILE_APPROVED
   PROFILE_NEEDS_CORRECTION
+  PAY_REMINDER
+  BOOKING_REMINDER
+  JOB_REMINDER
+  QUOTE_REMINDER
+  RATE_REMINDER
+  PROFILE_SUSPENDED
+  PROFILE_REINSTATED
+  PROFILE_REJECTED
 
   @@map("notification_kind")
 }

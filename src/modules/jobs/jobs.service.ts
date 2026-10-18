@@ -262,13 +262,12 @@ export class JobsService {
     return n;
   }
 
-  /** While a technician travels, their location updates refresh the customer's ETA. */
+  /** While a technician travels, each location update moves them on the customer's map and refreshes the ETA. */
   async refreshEta(technicianId: string): Promise<void> {
     const job = await this.prisma.booking.findFirst({ where: { technicianId, status: 'EN_ROUTE' }, select: { id: true, etaMin: true } });
     if (!job) return;
     const eta = await this.etaMinutes(this.prisma, job.id, technicianId);
-    if (eta === null || eta === job.etaMin) return;
-    await this.prisma.booking.updateMany({ where: { id: job.id, status: 'EN_ROUTE' }, data: { etaMin: eta } });
+    if (eta !== null && eta !== job.etaMin) await this.prisma.booking.updateMany({ where: { id: job.id, status: 'EN_ROUTE' }, data: { etaMin: eta } });
     this.core.updates.publish(job.id);
   }
 

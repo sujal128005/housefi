@@ -61,7 +61,7 @@ describe('parseEnv', () => {
     it('works for local development once "npm run setup" has filled the secrets', () => {
       const env = parseEnv({ ...example(), ...devSecrets });
       expect(env.NODE_ENV).toBe('development');
-      expect(env.CORS_ORIGINS).toEqual(['http://localhost:8081']);
+      expect(env.CORS_ORIGINS).toEqual(['http://localhost:8081', 'https://housefi.tech']);
     });
 
     it('points to "npm run setup" while the secrets are blank', () => {

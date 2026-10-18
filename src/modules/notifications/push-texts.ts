@@ -31,6 +31,14 @@ const EN: Texts = {
   JOB_CANCELLED: { title: 'Job cancelled', body: '{code} is no longer assigned to you.' },
   PROFILE_APPROVED: { title: 'Profile approved', body: 'You can go online and receive jobs.' },
   PROFILE_NEEDS_CORRECTION: { title: 'Profile needs changes', body: 'Open the app to see what to correct.' },
+  PAY_REMINDER: { title: 'Pay the visit fee', body: 'Booking {code} is cancelled in {minutes} min unless the visit fee is paid.' },
+  BOOKING_REMINDER: { title: 'Visit in about an hour', body: 'Your technician comes for {code} from {startHour}:00. Keep your start code ready.' },
+  JOB_REMINDER: { title: 'Job in about an hour', body: '{code} starts at {startHour}:00. Start the trip on time.' },
+  QUOTE_REMINDER: { title: 'Your technician is waiting', body: 'Please answer the quote for {code} in the app.' },
+  RATE_REMINDER: { title: 'How was the visit?', body: 'Rate your technician for {code}. It takes a few seconds.' },
+  PROFILE_SUSPENDED: { title: 'Account on hold', body: 'You will not get jobs for now. Contact your Housefi coordinator.' },
+  PROFILE_REINSTATED: { title: 'Account active again', body: 'You can go online and receive jobs.' },
+  PROFILE_REJECTED: { title: 'Registration not approved', body: 'Contact Housefi support for details.' },
 };
 
 const TE: Texts = {
@@ -53,6 +61,14 @@ const TE: Texts = {
   JOB_CANCELLED: { title: 'పని రద్దైంది', body: '{code} ఇకపై మీకు కేటాయించబడలేదు.' },
   PROFILE_APPROVED: { title: 'ప్రొఫైల్ ఆమోదించబడింది', body: 'మీరు ఆన్‌లైన్‌కు వెళ్లి పనులు పొందవచ్చు.' },
   PROFILE_NEEDS_CORRECTION: { title: 'ప్రొఫైల్‌లో మార్పులు అవసరం', body: 'ఏమి సరిచేయాలో యాప్‌లో చూడండి.' },
+  PAY_REMINDER: { title: 'విజిట్ ఫీజు చెల్లించండి', body: 'విజిట్ ఫీజు చెల్లించకపోతే {minutes} నిమిషాల్లో బుకింగ్ {code} రద్దవుతుంది.' },
+  BOOKING_REMINDER: { title: 'సుమారు గంటలో విజిట్', body: '{code} కోసం {startHour}:00 నుండి టెక్నీషియన్ వస్తారు. మీ స్టార్ట్ కోడ్ సిద్ధంగా ఉంచండి.' },
+  JOB_REMINDER: { title: 'సుమారు గంటలో పని', body: '{code} {startHour}:00 కు మొదలవుతుంది. సమయానికి బయలుదేరండి.' },
+  QUOTE_REMINDER: { title: 'టెక్నీషియన్ ఎదురుచూస్తున్నారు', body: '{code} కొటేషన్‌కు యాప్‌లో సమాధానం ఇవ్వండి.' },
+  RATE_REMINDER: { title: 'విజిట్ ఎలా ఉంది?', body: '{code} కోసం మీ టెక్నీషియన్‌కు రేటింగ్ ఇవ్వండి.' },
+  PROFILE_SUSPENDED: { title: 'ఖాతా నిలిపివేయబడింది', body: 'ప్రస్తుతం పనులు రావు. మీ Housefi కోఆర్డినేటర్‌ను సంప్రదించండి.' },
+  PROFILE_REINSTATED: { title: 'ఖాతా మళ్లీ యాక్టివ్', body: 'మీరు ఆన్‌లైన్‌కు వెళ్లి పనులు పొందవచ్చు.' },
+  PROFILE_REJECTED: { title: 'రిజిస్ట్రేషన్ ఆమోదించబడలేదు', body: 'వివరాల కోసం Housefi సపోర్ట్‌ను సంప్రదించండి.' },
 };
 
 /** Used when a value the main text needs is missing (no location yet, so no ETA). */

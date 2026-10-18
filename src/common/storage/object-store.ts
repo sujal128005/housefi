@@ -94,7 +94,7 @@ export class MediaUrls {
       provide: OBJECT_STORE,
       inject: [APP_CONFIG],
       useFactory: (c: Env): ObjectStore =>
-        new S3ObjectStore(c.S3_BUCKET_UPLOADS, { region: c.AWS_REGION, endpoint: c.S3_ENDPOINT, accessKeyId: c.S3_ACCESS_KEY_ID, secretAccessKey: c.S3_SECRET_ACCESS_KEY }),
+        new S3ObjectStore(c.S3_BUCKET_UPLOADS, { region: c.S3_REGION ?? c.AWS_REGION, endpoint: c.S3_ENDPOINT, accessKeyId: c.S3_ACCESS_KEY_ID, secretAccessKey: c.S3_SECRET_ACCESS_KEY }),
     },
     MediaUrls,
   ],

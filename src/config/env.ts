@@ -201,9 +201,20 @@ export const envSchema = z
     /** MSG91 template (DLT approved) for the job details SMS after a phone acceptance. Optional. */
     MSG91_JOB_TEMPLATE_ID: z.string().optional(),
 
+    /**
+     * The support chat and the problem-photo reader: "rules" (no model, the v1 behaviour) or "anthropic" (Claude, with
+     * the rules as the fallback whenever the model is slow, unavailable or declines).
+     */
+    AI_PROVIDER: z.enum(['rules', 'anthropic']).default('rules'),
     ANTHROPIC_API_KEY: z.string().optional(),
-    AI_CHAT_MODEL: z.string().default('claude-sonnet-5-5'),
-    SPEECH_TO_TEXT_PROVIDER: z.string().optional(),
+    AI_CHAT_MODEL: z.string().default('claude-opus-5-5'),
+    AI_VISION_MODEL: z.string().default('claude-opus-5-5'),
+    /** Per model call; past it the rules answer instead. */
+    AI_TIMEOUT_MS: int(15000, 2000, 60000),
+    /** Voice notes to text: "none" (the app keeps the audio) or "sarvam" (Sarvam AI, Telugu and English). */
+    SPEECH_TO_TEXT_PROVIDER: z.enum(['none', 'sarvam']).default('none'),
+    SARVAM_API_KEY: z.string().optional(),
+    SARVAM_STT_MODEL: z.string().default('saarika:v2.5'),
 
     /**
      * Where the QR code on a Technician ID card points; the token is appended. The default page on the Housefi website
@@ -254,6 +265,8 @@ export const envSchema = z
     if (e.DEMO_OTP_CODE !== undefined && weakCode(e.DEMO_OTP_CODE)) {
       ctx.addIssue({ code: 'custom', path: ['DEMO_OTP_CODE'], message: 'too easy to guess (repeated or sequential digits)' });
     }
+    if (e.AI_PROVIDER === 'anthropic') require('ANTHROPIC_API_KEY', 'when AI_PROVIDER=anthropic');
+    if (e.SPEECH_TO_TEXT_PROVIDER === 'sarvam') require('SARVAM_API_KEY', 'when SPEECH_TO_TEXT_PROVIDER=sarvam');
     if (e.TELEPHONY_PROVIDER === 'exotel') {
       for (const k of ['EXOTEL_SID', 'EXOTEL_API_KEY', 'EXOTEL_API_TOKEN', 'EXOTEL_CALLER_ID', 'EXOTEL_OFFER_FLOW_ID', 'EXOTEL_WEBHOOK_SECRET'] as const) {
         require(k, 'when TELEPHONY_PROVIDER=exotel');

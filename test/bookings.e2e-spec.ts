@@ -76,6 +76,7 @@ describe('bookings (e2e)', () => {
         technician: null,
         arrivalOtp: '',
         etaMin: null,
+        technicianLocation: null,
         visitPayment: { kind: 'VISIT', amount: 49, state: 'DUE', method: null, txnId: null, at: null },
         quote: null,
         extraQuote: null,

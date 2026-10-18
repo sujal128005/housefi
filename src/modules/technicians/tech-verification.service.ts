@@ -184,6 +184,9 @@ export class TechVerificationService {
       if (to !== 'APPROVED') {
         await tx.jobOffer.updateMany({ where: { technicianId, state: 'OPEN' }, data: { state: 'WITHDRAWN', respondedAt: new Date(this.clock.now()) } });
       }
+      // The reason stays in the audit log; the technician hears from their coordinator or support.
+      const kind = to === 'SUSPENDED' ? 'PROFILE_SUSPENDED' : to === 'REJECTED' ? 'PROFILE_REJECTED' : 'PROFILE_REINSTATED';
+      await this.notifier.enqueue(tx, [{ userId: technicianId, kind, bookingId: null, params: {} }]);
       await this.audit.record(
         { actorType: actor.type, actorId: actor.id, action, entity: 'technician', entityId: technicianId, before: { verification: before.verification }, after: { verification: to, reason: why, via: actor.via } },
         tx,

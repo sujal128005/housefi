@@ -69,7 +69,7 @@ describe('uploads (e2e)', () => {
       await api().post('/v1/uploads/photos').send({ contentType: 'image/jpeg', bytes: 10 }).expect(401);
       const tech = await createTechnician(t);
       expect((await ticket('photos', { contentType: 'image/png', bytes: 10 }, tech.token).expect(200)).body.id).toBeDefined();
-      expect((await t.prisma.upload.findFirstOrThrow({ where: { ownerId: tech.id } })).stage).toBe('INSPECTION');
+      expect((await t.prisma.upload.findFirstOrThrow({ where: { ownerId: tech.id, stage: { not: 'PROFILE' } } })).stage).toBe('INSPECTION');
       await ticket('photos', { contentType: 'image/png', bytes: 10, stage: 'PROBLEM' }, tech.token).expect(422);
       await ticket('audio', { contentType: 'audio/m4a', bytes: 10 }, tech.token).expect(404);
     });

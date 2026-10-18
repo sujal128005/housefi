@@ -103,6 +103,8 @@ export interface BookingDto {
   /** 4 digits once the visit fee is paid; "" before. */
   readonly arrivalOtp: string;
   readonly etaMin: number | null;
+  /** Where the technician is, only while on the way (EN_ROUTE) and only a recent point (at most 10 minutes old). */
+  readonly technicianLocation: TripLocationDto | null;
   readonly visitPayment: PaymentDto;
   /** The latest repair quote that passed the price check; null while none has. */
   readonly quote: QuoteDto | null;
@@ -117,6 +119,15 @@ export interface BookingDto {
   readonly viaTechApp: true;
   /** A team demo booking: simulated payments, demo technicians only. */
   readonly demo: boolean;
+}
+
+export interface TripLocationDto {
+  readonly lat: number;
+  readonly lng: number;
+  /** Metres, as reported by the phone; null when unknown. */
+  readonly accuracyM: number | null;
+  /** When the phone sent it (epoch ms). */
+  readonly at: number;
 }
 
 const API_CANCEL_REASONS = new Set<CancelReason>(['PLANS_CHANGED', 'FIXED', 'TOO_LONG', 'MISTAKE', 'OTHER']);
@@ -168,7 +179,7 @@ function visibleQuote(quotes: QuoteRow[], which: 'MAIN' | 'EXTRA'): QuoteDto | n
 
 export const EMPTY_ADDRESS: AddressDto = { id: '', label: 'OTHER', house: '', street: '', landmark: '', city: '', pincode: '' };
 
-export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: PhotoSigner, maskedPhone = ''): Promise<BookingDto> {
+export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: PhotoSigner, maskedPhone = '', trip: TripLocationDto | null = null): Promise<BookingDto> {
   const visit = latest(b.payments, 'VISIT');
   if (!visit) throw new Error(`booking ${b.id} has no visit payment`);
   const final = latest(b.payments, 'FINAL');
@@ -191,6 +202,7 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
     technician: b.technician ? await technicianDto(b.technician, cipher, media, maskedPhone) : null,
     arrivalOtp,
     etaMin: b.etaMin,
+    technicianLocation: b.status === 'EN_ROUTE' ? trip : null,
     visitPayment: payment(visit),
     quote: visibleQuote(b.quotes, 'MAIN'),
     extraQuote: visibleQuote(b.quotes, 'EXTRA'),

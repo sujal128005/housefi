@@ -203,7 +203,7 @@ export class FakePush implements PushSender {
 }
 
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE uploads, ratings, notifications, devices, earnings_ledger, payouts, support_tickets, quote_lines, quotes, job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, otp_lockouts, telephony_events, call_grants, dispatch_queue, offer_call_attempts, users, service_issues, services, categories RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE booking_reminders, uploads, ratings, notifications, devices, earnings_ledger, payouts, support_tickets, quote_lines, quotes, job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, otp_lockouts, telephony_events, call_grants, dispatch_queue, offer_call_attempts, users, service_issues, services, categories RESTART IDENTITY CASCADE');
 }
 
 export interface TestApp {
@@ -223,6 +223,8 @@ export async function buildTestApp(opts: {
   env?: NodeJS.ProcessEnv;
   controllers?: Type[];
   prisma?: unknown;
+  /** Extra provider overrides (token, value), e.g. a model client with a fake fetch. */
+  overrides?: readonly (readonly [unknown, unknown])[];
 } = {}): Promise<TestApp> {
   const config = testEnv(opts.env);
   const clock = new TestClock();
@@ -245,6 +247,7 @@ export async function buildTestApp(opts: {
     .overrideProvider(OBJECT_STORE)
     .useValue(store);
   if (opts.prisma) builder = builder.overrideProvider(PrismaService).useValue(opts.prisma);
+  for (const [token, value] of opts.overrides ?? []) builder = builder.overrideProvider(token).useValue(value);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication<NestFastifyApplication>(createAdapter(config), { rawBody: true });
   await configureApp(app, config);
