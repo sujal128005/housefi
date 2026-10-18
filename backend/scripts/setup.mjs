@@ -3,13 +3,16 @@
 // Never overwrites a value that is already set: changing the data key or phone key would make existing local data
 // unreadable. Prints variable names only, never values.
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { constants, copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 
 const ENV = '.env';
 
-if (!existsSync(ENV)) {
-  copyFileSync('.env.example', ENV);
+// Copies only when .env is missing, in one step (no check-then-copy gap).
+try {
+  copyFileSync('.env.example', ENV, constants.COPYFILE_EXCL);
   console.log('Created .env from .env.example');
+} catch (e) {
+  if (e.code !== 'EEXIST') throw e;
 }
 
 const { privateKey, publicKey } = generateKeyPairSync('ed25519', {

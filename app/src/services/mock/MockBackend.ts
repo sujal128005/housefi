@@ -146,7 +146,8 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 
 export function createMockBackend(opts: MockOptions): Backend {
   const now = opts.now ?? (() => Date.now());
-  const random = opts.random ?? Math.random;
+  // Ids and codes in the test double come from the platform's secure generator, like the real backend's.
+  const random = opts.random ?? (() => globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32);
   const randomBytes = opts.randomBytes ?? defaultRandomBytes;
   const [minLat, maxLat] = opts.latency ?? [300, 700];
   const pollMs = opts.pollMs ?? 1000;

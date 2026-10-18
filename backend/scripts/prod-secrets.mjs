@@ -9,7 +9,7 @@
 // Prints variable names only, never values. Never overwrites a value that is set: replacing the data keys or the
 // phone hash key would make stored data unreadable, and new JWT keys would sign everyone out.
 import { generateKeyPairSync, randomBytes, randomInt } from 'node:crypto';
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 
 const OUT = '.env.production';
 const b64 = (s) => Buffer.from(s).toString('base64');
@@ -49,8 +49,13 @@ function setAll(text, updates) {
 }
 
 if (process.argv.includes('--rotate-data-key')) {
-  if (!existsSync(OUT)) throw new Error(`${OUT} does not exist`);
-  const text = readFileSync(OUT, 'utf8');
+  let text;
+  try {
+    text = readFileSync(OUT, 'utf8');
+  } catch (e) {
+    if (e.code === 'ENOENT') throw new Error(`${OUT} does not exist`, { cause: e });
+    throw e;
+  }
   const current = parse(text).get('DATA_KEYS_B64') ?? '';
   const versions = current.split(',').filter(Boolean).map((e) => Number(e.split(':')[0]));
   const next = Math.max(0, ...versions) + 1;
@@ -59,11 +64,6 @@ if (process.argv.includes('--rotate-data-key')) {
   chmodSync(OUT, 0o600);
   console.log(`Added data key version ${next} and made it active. Older versions stay readable; keep them all.`);
   process.exit(0);
-}
-
-if (existsSync(OUT)) {
-  console.error(`${OUT} already exists. Nothing changed (it would replace keys your data depends on).`);
-  process.exit(1);
 }
 
 const { privateKey, publicKey } = generateKeyPairSync('ed25519', {
@@ -107,7 +107,14 @@ const production = {
 let text = readFileSync('.env.example', 'utf8')
   .replace(/^# Housefi backend environment\..*\n(#.*\n)*/, '# Housefi production secrets. Keep this file only on the server (chmod 600). Never commit it.\n');
 text = setAll(text, { ...production, ...generated });
-writeFileSync(OUT, text.endsWith('\n') ? text : `${text}\n`, { mode: 0o600 });
+// 'wx': create only; an existing file is never replaced (it holds keys your data depends on).
+try {
+  writeFileSync(OUT, text.endsWith('\n') ? text : `${text}\n`, { mode: 0o600, flag: 'wx' });
+} catch (e) {
+  if (e.code !== 'EEXIST') throw e;
+  console.error(`${OUT} already exists. Nothing changed (it would replace keys your data depends on).`);
+  process.exit(1);
+}
 chmodSync(OUT, 0o600);
 
 console.log(`Created ${OUT} (readable by you only) with: ${Object.keys(generated).join(', ')}.`);
