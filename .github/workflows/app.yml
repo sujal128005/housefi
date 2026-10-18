@@ -97,6 +97,9 @@ jobs:
     name: iOS simulator build
     runs-on: macos-26
     needs: checks
+    # macOS minutes count 10x on a private repository (one build is ~450 of the 2,000 free minutes a month), so this
+    # runs only when started by hand: Actions -> App -> Run workflow (do it before each App Store release).
+    if: github.event_name == 'workflow_dispatch'
     # A clean Release build compiles every native module from source; it took longer than an hour on the hosted runner.
     timeout-minutes: 120
     steps:

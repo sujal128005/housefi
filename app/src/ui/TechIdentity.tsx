@@ -9,7 +9,7 @@ import {
   addScreenshotListener, allowScreenCaptureAsync, disableAppSwitcherProtectionAsync, enableAppSwitcherProtectionAsync, preventScreenCaptureAsync,
 } from 'expo-screen-capture';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { AppState, Image, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Svg, { Path } from 'react-native-svg';
@@ -191,15 +191,24 @@ const CAPTURE_KEY = 'housefi-id-card';
  * If switching protection on fails (iOS: the window is not attached yet), it is retried rather than silently skipped.
  */
 export function IdCardShield({ children, onCaptureAttempt }: { readonly children: ReactNode; readonly onCaptureAttempt?: () => void }) {
+  // One key per card screen: if one card screen's blur ever lands after another's focus, it releases only its own key
+  // and the protection stays on for the card that is showing.
+  const captureKey = `${CAPTURE_KEY}-${useId()}`;
   useFocusEffect(useCallback(() => {
     if (Platform.OS === 'web') return undefined;
     let alive = true;
     let retry: ReturnType<typeof setTimeout> | undefined;
     const protect = (attempt: number) => {
-      preventScreenCaptureAsync(CAPTURE_KEY).catch((e: unknown) => {
+      // Never switch protection on after the card has left the screen (nothing would switch it off again).
+      if (!alive) return;
+      preventScreenCaptureAsync(captureKey).catch((e: unknown) => {
         if (__DEV__) console.warn('ID card capture protection could not be switched on yet', e);
-        // A failed attempt leaves nothing behind (the key is released), so trying again is safe.
-        if (alive && attempt < 3) retry = setTimeout(() => protect(attempt + 1), 400);
+        // A failed attempt leaves nothing behind (the key is released), so trying again is safe. Only one retry is
+        // pending at a time, so the cleanup below always cancels it.
+        if (alive && attempt < 3) {
+          if (retry) clearTimeout(retry);
+          retry = setTimeout(() => protect(attempt + 1), 400);
+        }
       });
     };
     protect(0);
@@ -216,9 +225,9 @@ export function IdCardShield({ children, onCaptureAttempt }: { readonly children
       appState.remove();
       sub?.remove();
       if (ios) void disableAppSwitcherProtectionAsync().catch(() => undefined);
-      void allowScreenCaptureAsync(CAPTURE_KEY).catch(() => undefined);
+      void allowScreenCaptureAsync(captureKey).catch(() => undefined);
     };
-  }, [onCaptureAttempt]));
+  }, [captureKey, onCaptureAttempt]));
   return <View style={[styles.flex, noSelect]}>{children}</View>;
 }
 

@@ -20,7 +20,10 @@ Detailed references: server `backend/docs/DEPLOY.md`, phone calls `backend/docs/
    → **Archive this repository**. From now on the backend lives in `housefi/backend/`.
 5. **Optional, nicer name:** housefi → Settings → General → Default branch → rename `path1/customer-booking` to
    `main` (GitHub moves everything for you).
-6. Check all three repositories are **Private** (Settings → General → bottom, "Danger zone").
+6. **Make `housefi` private:** Settings → General → bottom ("Danger zone") → Change visibility → Private. Do the same
+   for `backendwork`. Keep `housefi-website` public: it is the public website, and free GitHub Pages needs a public
+   repository. On a private repository the iOS build runs only when you start it (Actions → App → Run workflow),
+   because Mac build minutes count 10× against GitHub's free 2,000 minutes a month.
 
 ## Part 2. Accounts and keys (the "API" part)
 
