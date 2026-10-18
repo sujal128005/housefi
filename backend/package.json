@@ -50,7 +50,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@electric-sql/pglite-postgis": "0.2.8",
-    "@electric-sql/pglite-socket": "0.2.11",
+    "@electric-sql/pglite-socket": "0.2.13",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/testing": "^11.2.7",
