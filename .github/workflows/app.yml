@@ -27,8 +27,8 @@ jobs:
     name: Typecheck, tests, expo-doctor
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -44,13 +44,13 @@ jobs:
     needs: checks
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -85,9 +85,8 @@ jobs:
           working-directory: app
           script: |
             adb logcat -c
-            adb install -r android/app/build/outputs/apk/release/app-release.apk
-            node tools/launch-check.mjs ci-screens/launch
-      - uses: actions/upload-artifact@v4
+            node tools/launch-check.mjs ci-screens/launch android/app/build/outputs/apk/release/app-release.apk
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: android-app-screens
@@ -103,8 +102,8 @@ jobs:
     # A clean Release build compiles every native module from source; it took longer than an hour on the hosted runner.
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -139,7 +138,7 @@ jobs:
       - name: Show build errors
         if: failure()
         run: grep -nE "error:|BUILD FAILED|failed" ios-build.log | head -80 || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: ios-screens
