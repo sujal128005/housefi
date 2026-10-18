@@ -333,7 +333,8 @@ async function technician() {
   await typeInto({ id: 'phone-input' }, '9000000001');
   await hideKeyboard();
   await snap('tech-phone');
-  await tapUntil({ id: 'phone-send' }, { id: 'demo-sms' });
+  // As for the customer: the code can fill itself in and open the profile before the code screen is read.
+  await tapUntil({ id: 'phone-send' }, { anyOf: [{ id: 'demo-sms' }, { id: 'tech-setup' }] });
 
   step('technician profile');
   await waitFor({ id: 'tech-setup' }, 20000);
