@@ -59,7 +59,7 @@ async function main() {
   if (!(await exists({ id: 'tech-earnings' }))) throw new Error('the screen changed when the network came back');
   console.log(`  back online${sawBack ? ' ("Back online" shown)' : ' (offline strip gone; "Back online" already faded)'}`);
 
-  step('unexpected error: branded fallback, Try again recovers in place');
+  step('unexpected error: only the brand screen, Continue goes home');
   await open('demo');
   await waitFor({ id: 'demo-settings' });
   await scrollTo({ id: 'demo-crash' });
@@ -67,15 +67,7 @@ async function main() {
   await waitFor({ id: 'app-error' });
   assertNoTechnicalText();
   await snap('error-screen');
-  await tap({ id: 'app-error-retry' });
-  await waitFor({ id: 'demo-settings' });
-  await snap('error-retried');
-
-  step('unexpected error: Go to home');
-  await scrollTo({ id: 'demo-crash' });
-  await tap({ id: 'demo-crash' });
-  await waitFor({ id: 'app-error' });
-  await tap({ id: 'app-error-home' });
+  await tap({ id: 'app-error-continue' });
   await waitFor({ id: 'tech-home' }, 20000);
   await snap('error-home');
   console.log('recovery check passed');

@@ -13,7 +13,7 @@ import { useDraft } from '../../state/BookingDraft';
 import { radius, space } from '../../theme/tokens';
 import { Banner, Button, Card, ErrorView, Header, Screen, Skeleton, StatusPill, Txt } from '../../ui';
 import { ArrivalOtpCard } from '../../ui/BookingParts';
-import { Appear, Pop } from '../../ui/motion';
+import { Appear, Celebrate } from '../../ui/motion';
 import { visitTimeText } from '../../ui/present';
 import { feedback } from '../../services/feedback';
 
@@ -59,7 +59,7 @@ export default function Confirmed() {
       {paid ? (
         <>
           <View style={styles.art}>
-            <Pop><Art3D name="check" size={art} shadow /></Pop>
+            <Celebrate size={art}><Art3D name="check" size={art} shadow /></Celebrate>
           </View>
           <Appear>
             <Txt variant="title1" align="center" heading>{t('confirmed.title')}</Txt>

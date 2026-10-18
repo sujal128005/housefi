@@ -87,3 +87,50 @@ export function Pulse({ size, color, style }: { readonly size: number; readonly 
     />
   );
 }
+
+/** Brand confetti colours: the logo's cobalt, cyan and amber, plus the success green. */
+const BURST = ['#0A45F5', '#06BFF8', '#FFB21C', '#FF8A10', '#1FBF6A', '#5AA9FF'];
+
+/**
+ * Success moment: the content pops in while a ring opens and small pieces of confetti fly out once around it
+ * (booking confirmed, payment done, verified, job done). Everything runs on the native thread.
+ */
+export function Celebrate({ children, size, delay = 120, style }: { readonly children: ReactNode; readonly size: number; readonly delay?: number; readonly style?: StyleProp<ViewStyle> }) {
+  const reduce = useReducedMotion();
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduce) return;
+    Animated.timing(v, { toValue: 1, duration: 900, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [v, delay, reduce]);
+  const pieces = 14;
+  return (
+    <Animated.View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}>
+      {reduce ? null : (
+        <>
+          <Animated.View pointerEvents="none" style={{
+            position: 'absolute', width: size, height: size, borderRadius: size, borderWidth: 3, borderColor: '#1FBF6A',
+            opacity: v.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.6, 0] }),
+            transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.3] }) }],
+          }} />
+          {Array.from({ length: pieces }, (_, i) => {
+            const a = (i / pieces) * Math.PI * 2 + (i % 2 ? 0.18 : 0);
+            const reach = size * (i % 3 === 0 ? 0.72 : 0.6);
+            const dot = i % 3 === 0 ? 10 : 7;
+            return (
+              <Animated.View key={i} pointerEvents="none" style={{
+                position: 'absolute', width: i % 2 ? dot : dot * 1.8, height: dot, borderRadius: dot / 2, backgroundColor: BURST[i % BURST.length],
+                opacity: v.interpolate({ inputRange: [0, 0.1, 0.7, 1], outputRange: [0, 1, 1, 0] }),
+                transform: [
+                  { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(a) * reach] }) },
+                  { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(a) * reach + size * 0.08] }) },
+                  { rotate: v.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${(i % 2 ? 1 : -1) * 220}deg`] }) },
+                ],
+              }} />
+            );
+          })}
+        </>
+      )}
+      <Pop>{children}</Pop>
+    </Animated.View>
+  );
+}

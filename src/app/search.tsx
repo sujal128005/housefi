@@ -60,7 +60,7 @@ export default function Search() {
         </View>
       ) : null}
       {empty ? (
-        <EmptyState testID="search-empty" art={<Art3D name="no_results" size={110} float shadow />} title={t('search.emptyTitle', { q: q.trim() })} body={t('search.emptyBody')}
+        <EmptyState testID="search-empty" art={<Art3D name="no_results" size={120} float shadow />} title={t('search.emptyTitle', { q: q.trim() })} body={t('search.emptyBody')}
           action={t('catalog.all')} onAction={() => router.push('/services')} />
       ) : null}
       {res.categories.length > 0 ? (

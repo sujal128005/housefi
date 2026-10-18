@@ -42,7 +42,7 @@ export default function Bookings() {
       {q.data && list.length === 0 ? (
         <EmptyState
           testID="bookings-empty"
-          art={tab === 'ACTIVE' ? <Art3D name="calendar" size={120} float shadow /> : <Art3D name="package" size={110} float shadow />}
+          art={tab === 'ACTIVE' ? <Art3D name="calendar" size={120} float shadow /> : <Art3D name="package" size={120} float shadow />}
           title={tab === 'ACTIVE' ? t('bookings.emptyActive') : t('bookings.emptyPast')}
           body={t('bookings.emptyBody')}
           action={t('bookings.bookNow')}

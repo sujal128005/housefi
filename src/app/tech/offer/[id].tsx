@@ -6,6 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { categoryById, serviceById } from '../../../data/catalog';
 import type { JobOffer, OfferRejectReason } from '../../../domain/types';
+import { Anim3D } from '../../../illustrations/Anim3D';
 import { Art3D, serviceArt } from '../../../illustrations/Art3D';
 import { formatRupees } from '../../../i18n/format';
 import { useI18n } from '../../../i18n/I18n';
@@ -121,7 +122,7 @@ export default function OfferScreen() {
       {offer === undefined ? <Skeleton style={styles.skel} /> : null}
       {offer !== undefined && !open ? (
         <View style={styles.expired} testID="offer-expired">
-          <Art3D name="job_offer" size={120} float shadow />
+          <Art3D name="job_offer" size={132} float shadow />
           <Txt variant="title1" align="center" heading>{t('toffer.expired')}</Txt>
           <Txt variant="body" color="inkMuted" align="center">{t('toffer.expiredBody')}</Txt>
         </View>
@@ -129,6 +130,7 @@ export default function OfferScreen() {
       {offer && open ? (
         <>
           <Appear style={styles.top}>
+            <Anim3D name="ring" size={64} stage={false} testID="anim-ring" />
             <View style={styles.flex}>
               <Pill label={t('toffer.new')} tone="warning" icon="flash" />
               <Txt variant="title1" heading>{svc ? l(svc.name) : ''}</Txt>

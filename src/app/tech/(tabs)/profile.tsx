@@ -13,6 +13,7 @@ import { useI18n } from '../../../i18n/I18n';
 import { resetTo } from '../../../navigation';
 import { useBackend, useIsDemo } from '../../../services/ServicesProvider';
 import { feedback } from '../../../services/feedback';
+import { openWeb } from '../../../services/links';
 import { useAppState, useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, space } from '../../../theme/tokens';
 import { Banner, Button, Card, Chip, ConfirmSheet, DemoPill, Divider, ErrorBanner, Field, Icon, ListRow, NotInDemoSheet, Pill, Screen, Sheet, Txt, Wash, useToast } from '../../../ui';
@@ -148,6 +149,8 @@ export default function TechProfile() {
         }} />
         <Divider />
         <ListRow icon="document-text-outline" title={t('account.legal')} onPress={() => router.push('/legal')} />
+        <Divider />
+        <ListRow icon="globe-outline" title={t('links.website')} subtitle="housefi.tech" onPress={() => openWeb()} testID="tprofile-website" />
       </Card>
 
       <Card style={styles.list}>

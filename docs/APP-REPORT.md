@@ -76,7 +76,7 @@ would downgrade Expo by thirteen versions, so none were forced; re-check when Ex
 | Theme from the logo | Cobalt blue primary, cyan secondary, amber/orange highlights, ivory and white surfaces, deep navy text. Gradients only where they matter (Home header, main buttons, hero cards) |
 | Eye-catching icons instead of "3D keyboard" emoji | Your generated soft-3D illustrations: the 6 categories; each of the 21 services (tap, leak, drain, tank, fan, switch, wiring, light, AC service and repair, washer, fridge, RO, geyser, bathroom, kitchen, sofa, door, furniture, fittings) in booking cards, Confirm & pay, Home's top problems and the technician's jobs; every booking step (finding, assigned, on the way, arrived, inspecting, quote, repair, extra materials, payment, done); payment states (secure, success, pending, failed, cash, receipt); technician verification (pending, approved, needs correction), job offer, start code, earnings, trophy; technician and customer characters; language, OTP, photo, AI scan, voice, map, schedule; empty and no-results states. Each is cut into a rounded tile by `tools/illustrations/cut_tiles.py` |
 | Fonts | Anek Latin and Anek Telugu: one modern family for both scripts |
-| Better sounds | New interface sounds (Kenney, CC0, free for commercial use): confirm, notification, job-offer ring, cash, error, send, tap |
+| Better sounds | Housefi's own interface sounds, one soft glassy family synthesised for the app (`tools/sounds`): confirm, notification, job-offer ring, cash, error, send, pop |
 | All phones to tablets | Content is a centred column (max 680 pt), side margins and text size adjust to the screen, grids go from 3 to 4 columns on wide screens; iPad support on |
 
 ## Error handling, offline and recovery (this round)
@@ -84,7 +84,7 @@ would downgrade Expo by thirteen versions, so none were forced; re-check when Ex
 | Situation | What people see |
 |---|---|
 | App can't start (storage or sign-in check fails) | Branded screen (logo, "Housefi by Nexara9", tagline), a friendly line in English and Telugu, **Retry**. A slow start shows the same screen with a loader after 10 s instead of a frozen splash |
-| An unexpected error inside a screen | Branded "Something went wrong · your bookings and details are safe" in place of that screen only, with **Try again** (re-opens the same screen; the screens behind it and the tab bar stay) and **Go to home**. No code, stack trace or red developer screen in the release app; errors outside screens get the same screen |
+| An unexpected error anywhere | Only the Housefi brand screen (logo, by Nexara9, tagline, wave) with one **Continue** button that goes home. No error message, code, stack trace or red developer screen, in release and development builds alike (developers can bring React Native's error tools back with `EXPO_PUBLIC_DEV_ERRORS=1`; details always go to the console) |
 | Phone offline | A strip at the top, "You're offline · we'll keep what you've entered", over the current screen (nothing is reset); "Back online" when it returns |
 | A request fails | The screen stays with what it had; a message with **Retry**. Retrying Confirm & pay reuses the booking already created (no second booking), buttons lock while a request runs, and a booking that is already paid refuses a second payment. The real backend adds `Idempotency-Key` on booking and payment creation (in the backend contract) |
 | Session ended | "Your session has ended" with **Sign in again**; the booking draft is kept. If the sign-in check can't reach the server at start, the saved sign-in is kept and Retry is offered (it no longer signs people out) |
@@ -219,7 +219,7 @@ files. The app's demo backend implements the same contract and is their working 
 | Android release build (x86_64) | built |
 | Emulator journey, English | **passed**, 54 screenshots in `docs/screens/app/en/`: profile photo, Technician ID format, both ID cards (FLAG_SECURE asserted, screenshot decoded as blank, control after leaving), verification page, "I'm a woman" on the rating |
 | Emulator journey, Telugu | **passed**, 54 screenshots in `docs/screens/app/te/`, same checks |
-| Error handling on the emulator (`tools/recovery-check.mjs`) | **passed**: Wi-Fi and data off → offline strip over the current screen, back on → "Back online"; branded error screen with no technical text; Try again re-opens the same screen; Go to home goes home. Screenshots in `docs/screens/app/recovery/` |
+| Error handling on the emulator (`tools/recovery-check.mjs`) | **passed**: Wi-Fi and data off → offline strip over the current screen, back on → "Back online"; brand screen with no technical text; Continue goes home. Screenshots in `docs/screens/app/recovery/` |
 | GitHub Actions CI | **all green** on `c870b48` (run 38984534001): typecheck, 85 tests, expo-doctor; Android release build with both journeys (English, Telugu) and the error check on an Android 14 emulator; iOS simulator build. The earlier Android failures were the test driver (a number pad that stays open after ESCAPE on Android 14), not the app |
 
 Problems found and fixed while testing:

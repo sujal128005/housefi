@@ -7,6 +7,7 @@ import { StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { categoryById, serviceById } from '../../../data/catalog';
 import { DEMO_TIMING, isActive, START_CODE_ATTEMPTS } from '../../../domain/rules';
 import { quoteVisible, type Job, type TechIssue } from '../../../domain/types';
+import { Anim3D } from '../../../illustrations/Anim3D';
 import { Art3D, serviceArt, type ArtName } from '../../../illustrations/Art3D';
 import { TrackingMap } from '../../../illustrations/TrackingMap';
 import { formatRupees } from '../../../i18n/format';
@@ -21,7 +22,7 @@ import {
   type IconName,
 } from '../../../ui';
 import { PriceCheckPill, QuoteLines, QuoteSplit } from '../../../ui/BookingParts';
-import { Pop, Pulse, RideIn, useReducedMotion } from '../../../ui/motion';
+import { Celebrate, Pulse, RideIn, useReducedMotion } from '../../../ui/motion';
 import { PhotoThumb } from '../../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../../ui/present';
 import { InfoRow, MoneyRow, openDirections, TechStepper } from '../../../ui/TechParts';
@@ -185,18 +186,20 @@ export default function JobScreen() {
       {/* the stage: art, title, one line of guidance */}
       <View style={styles.hero} testID={`tj-${j.status}`}>
         {j.status === 'ASSIGNED' ? (
-          <View style={styles.ride}><RideIn distance={width}><Art3D name="scooter" size={130} shadow /></RideIn></View>
+          <View style={styles.ride}><RideIn distance={width}><Anim3D name="travel" size={150} stage={false} testID="anim-travel" /></RideIn></View>
         ) : j.status === 'EN_ROUTE' ? (
           <View style={styles.stack}>
             <View style={styles.map}><TrackingMap progress={travelProgress} width={width - GUTTER * 2} /></View>
             <Button label={t('tj.openDirections')} icon="navigate" variant="secondary" onPress={() => void directions()} testID="tj-directions" />
           </View>
         ) : stage.pulse ? (
-          <View style={styles.art}><Pulse size={170} color={colors.blue} /><Art3D name={stage.art} size={104} float /></View>
+          <View style={styles.art}><Pulse size={180} color={colors.blue} /><Art3D name={stage.art} size={120} float /></View>
         ) : j.status === 'COMPLETED' ? (
-          <View style={styles.art}><Pop><Art3D name="trophy" size={120} shadow /></Pop></View>
+          <View style={styles.art}><Celebrate size={150}><Art3D name="trophy" size={140} shadow /></Celebrate></View>
         ) : (
-          <View style={styles.art}><Art3D name={stage.art} size={110} float={live} shadow /></View>
+          <View style={styles.art}>
+            {stage.art === 'tools' ? <Anim3D name="working" size={150} testID="anim-working" /> : <Art3D name={stage.art} size={132} float={live} shadow />}
+          </View>
         )}
         <Txt variant="title2" align="center" heading accessibilityLiveRegion="polite" testID="tj-title">{t(stage.title, { name: j.customerName, amount: formatRupees(j.finalPayment?.amount ?? j.quote?.total ?? 0) })}</Txt>
         <Txt variant="callout" color="inkMuted" align="center">{t(stage.body, { name: j.customerName, amount: formatRupees(j.finalPayment?.amount ?? j.quote?.total ?? 0), earn: formatRupees(j.earning) })}</Txt>
@@ -448,7 +451,7 @@ const styles = StyleSheet.create({
   skelCard: { height: 180, borderRadius: radius.lg },
   hero: { gap: space.sm },
   art: { alignItems: 'center', justifyContent: 'center', minHeight: 150 },
-  ride: { height: 160, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  ride: { height: 180, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   map: { borderRadius: radius.xl, overflow: 'hidden' },
   stack: { gap: space.sm },
   codeCard: { gap: space.md },

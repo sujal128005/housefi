@@ -27,31 +27,31 @@ import { hydrateCatalog } from '../data/catalog';
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 // Dev-only noise from the emulator's dev-tools socket; it is not an app problem and its toast covers the footer.
 if (__DEV__) LogBox.ignoreLogs(['Cannot connect to Expo CLI']);
+// Installed before anything renders, so even an early error lands on the brand screen.
+installGlobalErrorHandler();
 
 function phoneLocale(): Locale {
   return getLocales()[0]?.languageCode === 'te' ? 'te' : 'en';
 }
 
 /**
- * Last resort: if the app shell itself fails (above every provider), show the brand and a Retry, never an error
- * message. Plain components only, since nothing else may be available here.
+ * Last resort: if the app shell itself fails (above every provider), show the brand screen and Retry, never an error.
+ * Plain components only, since nothing else may be available here.
  */
 export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 }} testID="root-error">
-      <Image source={require('../../assets/brand/housefi-logo.png')} style={{ width: 120, height: 120 }} />
-      <Text style={{ fontSize: 34, fontWeight: '800', color: colors.ink }}>Housefi</Text>
+      <Image source={require('../../assets/brand/housefi-logo.png')} style={{ width: 148, height: 148 }} />
+      <Text style={{ fontSize: 44, fontWeight: '800', color: colors.ink, letterSpacing: -0.8 }}>Housefi</Text>
       <Text style={{ fontSize: 15, color: colors.inkMuted }}>
         by{' '}
         <Text onPress={() => void Linking.openURL('https://nexara9.me/').catch(() => undefined)} accessibilityRole="link"
           style={{ color: '#A27A26', fontWeight: '800', letterSpacing: 4 }}>NEXARA9</Text>
       </Text>
       <Text style={{ fontSize: 17, color: colors.inkMuted }}>Home Help, Made Easy.</Text>
-      <Text style={{ fontSize: 16, color: colors.ink, textAlign: 'center', marginTop: 12 }}>Something went wrong. Your bookings and details are safe.</Text>
-      <Text style={{ fontSize: 15, color: colors.inkMuted, textAlign: 'center' }}>ఏదో పొరపాటు జరిగింది. మీ బుకింగ్‌లు, వివరాలు సురక్షితం.</Text>
       <Pressable onPress={() => void retry()} accessibilityRole="button" testID="root-error-retry"
-        style={{ marginTop: 12, minHeight: 52, minWidth: 220, borderRadius: 18, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
-        <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>Retry / మళ్ళీ ప్రయత్నించండి</Text>
+        style={{ marginTop: 28, minHeight: 56, alignSelf: 'stretch', borderRadius: 18, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+        <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>Continue / కొనసాగించండి  →</Text>
       </Pressable>
     </View>
   );
@@ -68,7 +68,6 @@ export default function RootLayout() {
     EXPO_PUBLIC_HOUSEFI_BACKEND: process.env.EXPO_PUBLIC_HOUSEFI_BACKEND,
     EXPO_PUBLIC_HOUSEFI_API_URL: process.env.EXPO_PUBLIC_HOUSEFI_API_URL,
   }), { store: deviceStore, randomBytes: getRandomBytes }), []);
-  useEffect(() => installGlobalErrorHandler(), []);
   // The service catalogue comes from the backend; the bundled list stays as the fallback if this fails.
   useEffect(() => {
     void Promise.all([backend.catalog.categories(), backend.catalog.services()])

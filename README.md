@@ -14,8 +14,8 @@ state machine, starter prompt).
 |---|---|---|
 | App framework | Expo SDK 57 / React Native 0.86 (TypeScript) | Real native Android and iOS apps (no WebView, no PWA); Expo generates the native projects (`android/`, `ios/` are not committed) |
 | Navigation | Expo Router (native stack + tabs) | File-based routes in `src/app` |
-| Brand and illustrations | Finalized Housefi logo (`assets/brand`, source of every app icon and the splash); Housefi's own soft-3D illustrations (`assets/illustrations`, 81 rounded-square WebP tiles cut from the generated sheets by `tools/illustrations/cut_tiles.py`); a few code-drawn tiles (Material Design Icons, Apache 2.0) where an illustration is still to come | One look across both apps; about 1.2 MB in total |
-| Sound & vibration | expo-audio with Kenney "Interface Sounds" (CC0) in `assets/sounds`, expo-haptics | Felt and heard at key moments; one switch turns both off |
+| Brand and icons | Finalized Housefi logo (`assets/brand`, source of every app icon and the splash); Housefi's 3D icon set (`assets/icons3d`, 88 transparent WebP icons rendered by `tools/icons3d` from three.js models in the same style as the Housefi website); code-drawn glossy tiles (Material Design Icons, Apache 2.0) only for names without a 3D icon | One look across the app and the website; about 1.8 MB in total |
+| Sound & vibration | expo-audio with Housefi's own interface sounds (`assets/sounds`, synthesised by `tools/sounds/make_sounds.py`), expo-haptics | One calm sound family, felt and heard at key moments; one switch turns both off |
 | Device | expo-location (address and language from location), expo-image-picker (problem photos) | |
 | Fonts | Anek Latin (English) and Anek Telugu (Telugu), one family for both scripts | OFL, bundled |
 | Technician ID card | expo-screen-capture (Android secure window, iOS capture protection), react-native-qrcode-svg (QR on the existing SVG library), expo-crypto (random IDs and tokens), expo-image-manipulator (480 px profile photos) | Native protection, no extra servers |

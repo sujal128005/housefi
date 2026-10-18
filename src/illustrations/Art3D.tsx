@@ -1,9 +1,8 @@
-// Housefi illustrations: Housefi's own soft-3D illustration tiles (assets/illustrations, one rounded-square WebP each,
-// cut from the generated sheets) for categories, services, steps, states and people, with an optional gentle float.
-// The AI assistant (chat bubbles) and SOS (warning) use existing tiles as stopgaps. Two pictures have no
-// illustration yet (technician offline, rating thumbs); they use the earlier code-drawn glossy tile (Material Design
-// Icons, Apache 2.0) until their illustrations arrive. Adding one later is a single line in IMG below; screens do not
-// change.
+// Housefi illustrations: the Housefi 3D icon set (assets/icons3d, one transparent 512 px WebP per name), rendered from
+// three.js models in the same style, palette and lighting as the Housefi website (generator: tools/icons3d). Large
+// pictures (96 pt and up) float freely with their own soft shadow; smaller ones sit on a soft brand tile so grids and
+// rows stay tidy; under 32 pt a simple symbol stands in. Names without a 3D icon fall back to the code-drawn glossy
+// tile (Material Design Icons, Apache 2.0). Adding an icon: model it in tools/icons3d, render, add one line to ICONS.
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, type ComponentProps } from 'react';
@@ -107,92 +106,99 @@ export const ART = {
   wrench: a('wrench', P.slate),
 } as const satisfies Record<string, ArtSpec>;
 
-/** The illustrations. Every name here wins over the code-drawn tile of the same name. */
-const IMG = {
-  alarm: require('../../assets/illustrations/alarm.webp'),
-  bell: require('../../assets/illustrations/bell.webp'),
-  bulb: require('../../assets/illustrations/bulb.webp'),
-  calendar: require('../../assets/illustrations/calendar.webp'),
-  call: require('../../assets/illustrations/call.webp'),
-  camera: require('../../assets/illustrations/camera.webp'),
-  card: require('../../assets/illustrations/card.webp'),
-  card_failed: require('../../assets/illustrations/card_failed.webp'),
-  cash: require('../../assets/illustrations/cash.webp'),
-  check: require('../../assets/illustrations/check.webp'),
-  clipboard: require('../../assets/illustrations/clipboard.webp'),
-  customer: require('../../assets/illustrations/customer.webp'),
-  earnings: require('../../assets/illustrations/earnings.webp'),
-  finding: require('../../assets/illustrations/finding.webp'),
-  globe: require('../../assets/illustrations/globe.webp'),
-  handshake: require('../../assets/illustrations/handshake.webp'),
-  hourglass: require('../../assets/illustrations/hourglass.webp'),
-  house: require('../../assets/illustrations/house.webp'),
-  house_garden: require('../../assets/illustrations/house_garden.webp'),
-  inspecting: require('../../assets/illustrations/inspecting.webp'),
-  job_offer: require('../../assets/illustrations/job_offer.webp'),
-  key: require('../../assets/illustrations/key.webp'),
-  magnifier: require('../../assets/illustrations/magnifier.webp'),
-  memo: require('../../assets/illustrations/memo.webp'),
-  mic: require('../../assets/illustrations/mic.webp'),
-  money: require('../../assets/illustrations/money.webp'),
-  no_results: require('../../assets/illustrations/no_results.webp'),
-  package: require('../../assets/illustrations/package.webp'),
-  party: require('../../assets/illustrations/party.webp'),
-  pay_due: require('../../assets/illustrations/pay_due.webp'),
-  pay_pending: require('../../assets/illustrations/pay_pending.webp'),
-  pay_success: require('../../assets/illustrations/pay_success.webp'),
-  pin: require('../../assets/illustrations/pin.webp'),
-  receipt: require('../../assets/illustrations/receipt.webp'),
-  refund: require('../../assets/illustrations/refund.webp'),
-  robot: require('../../assets/illustrations/robot.webp'),
-  rocket: require('../../assets/illustrations/rocket.webp'),
-  saw: require('../../assets/illustrations/saw.webp'),
-  scooter: require('../../assets/illustrations/scooter.webp'),
-  shield: require('../../assets/illustrations/shield.webp'),
-  sos: require('../../assets/illustrations/sos.webp'),
-  snowflake: require('../../assets/illustrations/snowflake.webp'),
-  spiral_calendar: require('../../assets/illustrations/spiral_calendar.webp'),
-  sponge: require('../../assets/illustrations/sponge.webp'),
-  star: require('../../assets/illustrations/star.webp'),
-  start_code: require('../../assets/illustrations/start_code.webp'),
-  svc_ac: require('../../assets/illustrations/svc_ac.webp'),
-  svc_ac_repair: require('../../assets/illustrations/svc_ac_repair.webp'),
-  svc_bath: require('../../assets/illustrations/svc_bath.webp'),
-  svc_carpentry: require('../../assets/illustrations/svc_carpentry.webp'),
-  svc_door: require('../../assets/illustrations/svc_door.webp'),
-  svc_drain: require('../../assets/illustrations/svc_drain.webp'),
-  svc_fan: require('../../assets/illustrations/svc_fan.webp'),
-  svc_fridge: require('../../assets/illustrations/svc_fridge.webp'),
-  svc_furniture: require('../../assets/illustrations/svc_furniture.webp'),
-  svc_geyser: require('../../assets/illustrations/svc_geyser.webp'),
-  svc_kitchen: require('../../assets/illustrations/svc_kitchen.webp'),
-  svc_leak: require('../../assets/illustrations/svc_leak.webp'),
-  svc_light: require('../../assets/illustrations/svc_light.webp'),
-  svc_ro: require('../../assets/illustrations/svc_ro.webp'),
-  svc_sofa: require('../../assets/illustrations/svc_sofa.webp'),
-  svc_switch: require('../../assets/illustrations/svc_switch.webp'),
-  svc_tank: require('../../assets/illustrations/svc_tank.webp'),
-  svc_tap: require('../../assets/illustrations/svc_tap.webp'),
-  svc_washer: require('../../assets/illustrations/svc_washer.webp'),
-  svc_wiring: require('../../assets/illustrations/svc_wiring.webp'),
-  tap: require('../../assets/illustrations/tap.webp'),
-  tech_done: require('../../assets/illustrations/tech_done.webp'),
-  tech_hero: require('../../assets/illustrations/tech_hero.webp'),
-  tech_man: require('../../assets/illustrations/tech_man.webp'),
-  tech_woman: require('../../assets/illustrations/tech_woman.webp'),
-  toolbox: require('../../assets/illustrations/toolbox.webp'),
-  tools: require('../../assets/illustrations/tools.webp'),
-  trophy: require('../../assets/illustrations/trophy.webp'),
-  tv: require('../../assets/illustrations/tv.webp'),
-  verify_fix: require('../../assets/illustrations/verify_fix.webp'),
-  verify_ok: require('../../assets/illustrations/verify_ok.webp'),
-  verify_pending: require('../../assets/illustrations/verify_pending.webp'),
-  wave: require('../../assets/illustrations/wave.webp'),
-  woman: require('../../assets/illustrations/woman.webp'),
-  world_map: require('../../assets/illustrations/world_map.webp'),
+/** The 3D icons. Every name here wins over the code-drawn tile of the same name. */
+const ICONS = {
+  alarm: require('../../assets/icons3d/alarm.webp'),
+  bell: require('../../assets/icons3d/bell.webp'),
+  bulb: require('../../assets/icons3d/bulb.webp'),
+  calendar: require('../../assets/icons3d/calendar.webp'),
+  call: require('../../assets/icons3d/call.webp'),
+  camera: require('../../assets/icons3d/camera.webp'),
+  card: require('../../assets/icons3d/card.webp'),
+  card_failed: require('../../assets/icons3d/card_failed.webp'),
+  cash: require('../../assets/icons3d/cash.webp'),
+  check: require('../../assets/icons3d/check.webp'),
+  clipboard: require('../../assets/icons3d/clipboard.webp'),
+  customer: require('../../assets/icons3d/customer.webp'),
+  earnings: require('../../assets/icons3d/earnings.webp'),
+  finding: require('../../assets/icons3d/finding.webp'),
+  globe: require('../../assets/icons3d/globe.webp'),
+  handshake: require('../../assets/icons3d/handshake.webp'),
+  hourglass: require('../../assets/icons3d/hourglass.webp'),
+  house: require('../../assets/icons3d/house.webp'),
+  house_garden: require('../../assets/icons3d/house_garden.webp'),
+  inspecting: require('../../assets/icons3d/inspecting.webp'),
+  job_offer: require('../../assets/icons3d/job_offer.webp'),
+  key: require('../../assets/icons3d/key.webp'),
+  magnifier: require('../../assets/icons3d/magnifier.webp'),
+  memo: require('../../assets/icons3d/memo.webp'),
+  mic: require('../../assets/icons3d/mic.webp'),
+  money: require('../../assets/icons3d/money.webp'),
+  moon: require('../../assets/icons3d/moon.webp'),
+  no_results: require('../../assets/icons3d/no_results.webp'),
+  package: require('../../assets/icons3d/package.webp'),
+  party: require('../../assets/icons3d/party.webp'),
+  pay_due: require('../../assets/icons3d/pay_due.webp'),
+  pay_pending: require('../../assets/icons3d/pay_pending.webp'),
+  pay_success: require('../../assets/icons3d/pay_success.webp'),
+  pin: require('../../assets/icons3d/pin.webp'),
+  plug: require('../../assets/icons3d/plug.webp'),
+  receipt: require('../../assets/icons3d/receipt.webp'),
+  refund: require('../../assets/icons3d/refund.webp'),
+  robot: require('../../assets/icons3d/robot.webp'),
+  rocket: require('../../assets/icons3d/rocket.webp'),
+  saw: require('../../assets/icons3d/saw.webp'),
+  scooter: require('../../assets/icons3d/scooter.webp'),
+  shield: require('../../assets/icons3d/shield.webp'),
+  snowflake: require('../../assets/icons3d/snowflake.webp'),
+  sos: require('../../assets/icons3d/sos.webp'),
+  sparkles: require('../../assets/icons3d/sparkles.webp'),
+  spiral_calendar: require('../../assets/icons3d/spiral_calendar.webp'),
+  sponge: require('../../assets/icons3d/sponge.webp'),
+  star: require('../../assets/icons3d/star.webp'),
+  start_code: require('../../assets/icons3d/start_code.webp'),
+  sun: require('../../assets/icons3d/sun.webp'),
+  sun_cloud: require('../../assets/icons3d/sun_cloud.webp'),
+  svc_ac: require('../../assets/icons3d/svc_ac.webp'),
+  svc_ac_repair: require('../../assets/icons3d/svc_ac_repair.webp'),
+  svc_bath: require('../../assets/icons3d/svc_bath.webp'),
+  svc_carpentry: require('../../assets/icons3d/svc_carpentry.webp'),
+  svc_door: require('../../assets/icons3d/svc_door.webp'),
+  svc_drain: require('../../assets/icons3d/svc_drain.webp'),
+  svc_fan: require('../../assets/icons3d/svc_fan.webp'),
+  svc_fridge: require('../../assets/icons3d/svc_fridge.webp'),
+  svc_furniture: require('../../assets/icons3d/svc_furniture.webp'),
+  svc_geyser: require('../../assets/icons3d/svc_geyser.webp'),
+  svc_kitchen: require('../../assets/icons3d/svc_kitchen.webp'),
+  svc_leak: require('../../assets/icons3d/svc_leak.webp'),
+  svc_light: require('../../assets/icons3d/svc_light.webp'),
+  svc_ro: require('../../assets/icons3d/svc_ro.webp'),
+  svc_sofa: require('../../assets/icons3d/svc_sofa.webp'),
+  svc_switch: require('../../assets/icons3d/svc_switch.webp'),
+  svc_tank: require('../../assets/icons3d/svc_tank.webp'),
+  svc_tap: require('../../assets/icons3d/svc_tap.webp'),
+  svc_washer: require('../../assets/icons3d/svc_washer.webp'),
+  svc_wiring: require('../../assets/icons3d/svc_wiring.webp'),
+  tap: require('../../assets/icons3d/tap.webp'),
+  tech_done: require('../../assets/icons3d/tech_done.webp'),
+  tech_hero: require('../../assets/icons3d/tech_hero.webp'),
+  tech_man: require('../../assets/icons3d/tech_man.webp'),
+  tech_woman: require('../../assets/icons3d/tech_woman.webp'),
+  thumbs_up: require('../../assets/icons3d/thumbs_up.webp'),
+  toilet: require('../../assets/icons3d/toilet.webp'),
+  toolbox: require('../../assets/icons3d/toolbox.webp'),
+  tools: require('../../assets/icons3d/tools.webp'),
+  trophy: require('../../assets/icons3d/trophy.webp'),
+  tv: require('../../assets/icons3d/tv.webp'),
+  verify_fix: require('../../assets/icons3d/verify_fix.webp'),
+  verify_ok: require('../../assets/icons3d/verify_ok.webp'),
+  verify_pending: require('../../assets/icons3d/verify_pending.webp'),
+  wave: require('../../assets/icons3d/wave.webp'),
+  woman: require('../../assets/icons3d/woman.webp'),
+  world_map: require('../../assets/icons3d/world_map.webp'),
 } as const satisfies Record<string, ImageSourcePropType>;
 
-export type ArtName = keyof typeof ART | keyof typeof IMG;
+export type ArtName = keyof typeof ART | keyof typeof ICONS;
 
 /** Symbols for the small, functional size (under 32 pt), where a detailed illustration would turn to blur. */
 const FLAT: Partial<Record<string, Glyph>> = {
@@ -265,7 +271,7 @@ export function Art3D({ name, size = 96, float = false, shadow = false, style, b
     loop.start();
     return () => loop.stop();
   }, [float, reduce, v]);
-  const img = (IMG as Record<string, ImageSourcePropType>)[name];
+  const icon = (ICONS as Record<string, ImageSourcePropType>)[name];
   const spec = (ART as Record<string, ArtSpec>)[name] ?? ART.sparkles;
   if (size < 32) {
     // Functional size: a simple symbol in a soft chip, not a shrunken illustration.
@@ -275,22 +281,30 @@ export function Art3D({ name, size = 96, float = false, shadow = false, style, b
       </View>
     );
   }
+  const lift = v.interpolate({ inputRange: [0, 1], outputRange: [0, -size * (icon ? 0.04 : 0.06)] });
+  if (icon && size >= FREE_FROM) {
+    // Hero size: the 3D object floats on the page with its own soft contact shadow (as on the website).
+    return (
+      <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {/* A soft brand-blue disc gives the floating object a stage (pale on light pages, a gentle glow on cobalt). */}
+        <View style={[styles.stage, { width: size * 0.92, height: size * 0.92, borderRadius: size }]} />
+        <Animated.View style={{ transform: [{ translateY: lift }] }}>
+          {/* Drawn larger than the box: the render keeps margin for its shadow. */}
+          <Image source={icon} style={{ width: size * FREE_SCALE, height: size * FREE_SCALE }} resizeMode="contain" />
+        </Animated.View>
+      </View>
+    );
+  }
   // Tiles sit a little inside the requested box so the glow and shadow have room.
-  const tile = Math.round(size * (img ? 0.9 : 0.78));
-  const lift = v.interpolate({ inputRange: [0, 1], outputRange: [0, -size * 0.06] });
+  const tile = Math.round(size * (icon ? 0.9 : 0.78));
   const shadowScale = v.interpolate({ inputRange: [0, 1], outputRange: [1, 0.85] });
-  const badgeSpec = badge && !img ? (ART as Record<string, ArtSpec>)[badge] : undefined;
+  const badgeSpec = badge && !icon ? (ART as Record<string, ArtSpec>)[badge] : undefined;
   return (
     <View style={[{ width: size, alignItems: 'center' }, style]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        {size >= 80 && !img ? <View style={[styles.glow, { width: size * 1.05, height: size * 1.05, borderRadius: size, backgroundColor: spec.palette[0] }]} /> : null}
+        {size >= 80 && !icon ? <View style={[styles.glow, { width: size * 1.05, height: size * 1.05, borderRadius: size, backgroundColor: spec.palette[0] }]} /> : null}
         <Animated.View style={{ transform: [{ translateY: lift }] }}>
-          {img ? (
-            // The illustration already carries its pastel tile; a soft shadow lifts it off the page.
-            <View style={[styles.imgTile, { width: tile, height: tile, borderRadius: tile * 0.24, shadowRadius: tile * 0.1, shadowOffset: { width: 0, height: tile * 0.06 }, elevation: Math.min(10, Math.round(tile / 12)) }]}>
-              <Image source={img} style={{ width: tile, height: tile, borderRadius: tile * 0.24 }} resizeMode="cover" />
-            </View>
-          ) : <Tile spec={spec} size={tile} />}
+          {icon ? <IconTile source={icon} size={tile} tint={TINTS[TINT_OF[name] ?? 'blue']} /> : <Tile spec={spec} size={tile} />}
           {badgeSpec ? (
             <View style={[styles.badge, { right: -tile * 0.16, bottom: -tile * 0.16 }]}>
               <Tile spec={badgeSpec} size={Math.round(tile * 0.46)} />
@@ -305,12 +319,51 @@ export function Art3D({ name, size = 96, float = false, shadow = false, style, b
   );
 }
 
+/** From this size up, 3D icons float freely instead of sitting on a tile. */
+const FREE_FROM = 96;
+const FREE_SCALE = 1.24;
+
+/** A 3D icon on the soft brand tile: white to the logo's pale blue, a light rim and a gentle shadow. */
+function IconTile({ source, size, tint }: { readonly source: ImageSourcePropType; readonly size: number; readonly tint: string }) {
+  const r = size * 0.28;
+  return (
+    <View style={[styles.iconTile, { width: size, height: size, borderRadius: r, shadowRadius: size * 0.12, shadowOffset: { width: 0, height: size * 0.07 }, elevation: Math.min(8, Math.round(size / 14)) }]}>
+      <LinearGradient colors={['#FFFFFF', tint]} start={{ x: 0.15, y: 0 }} end={{ x: 0.85, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: r }]} />
+      <View style={[StyleSheet.absoluteFill, { borderRadius: r, borderWidth: Math.max(1, size * 0.014), borderColor: 'rgba(255,255,255,0.9)' }]} />
+      <Image source={source} style={{ width: size * 1.02, height: size * 1.02 }} resizeMode="contain" />
+    </View>
+  );
+}
+
+/** Tile tints (bottom-right of the tile), from the app's washes: one per category, and by meaning for states. */
+const TINTS = {
+  blue: '#DCE7FF', sky: '#D2EFFC', amber: '#FFE9C2', mint: '#D3F3E4', lavender: '#E3E3FF', peach: '#FFE0CC', sunrise: '#FFE6CC', rose: '#FFDADC',
+} as const;
+
+const TINT_OF: Partial<Record<string, keyof typeof TINTS>> = {
+  // categories and their services
+  tap: 'sky', svc_tap: 'sky', svc_leak: 'sky', svc_drain: 'sky', svc_tank: 'sky',
+  bulb: 'amber', svc_fan: 'amber', svc_switch: 'amber', svc_wiring: 'amber', svc_light: 'amber', plug: 'amber',
+  snowflake: 'mint', svc_ac: 'mint', svc_ac_repair: 'mint',
+  tv: 'lavender', svc_washer: 'lavender', svc_fridge: 'lavender', svc_ro: 'lavender', svc_geyser: 'lavender',
+  sponge: 'peach', svc_bath: 'peach', svc_kitchen: 'peach', svc_sofa: 'peach', toilet: 'peach',
+  saw: 'sunrise', svc_door: 'sunrise', svc_furniture: 'sunrise', svc_carpentry: 'sunrise', tools: 'sunrise', toolbox: 'sunrise',
+  // money
+  cash: 'amber', money: 'amber', earnings: 'amber', pay_due: 'amber', pay_pending: 'amber', refund: 'amber', receipt: 'amber', trophy: 'amber', star: 'amber', sun: 'amber', sun_cloud: 'sky', key: 'amber',
+  // states
+  check: 'mint', pay_success: 'mint', verify_ok: 'mint', tech_done: 'mint', shield: 'mint', handshake: 'mint', party: 'mint',
+  card_failed: 'rose', no_results: 'rose', sos: 'rose', verify_fix: 'peach', verify_pending: 'amber', hourglass: 'amber', alarm: 'peach',
+  // people and places
+  customer: 'peach', woman: 'sky', wave: 'amber', globe: 'sky', world_map: 'sky', pin: 'rose', moon: 'lavender',
+};
+
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   tileShadow: { shadowOpacity: 0.35 },
   glow: { position: 'absolute', opacity: 0.16 },
   badge: { position: 'absolute' },
   flat: { backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
-  imgTile: { backgroundColor: '#FFFFFF', shadowColor: '#0A2A8F', shadowOpacity: 0.16 },
+  iconTile: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', shadowColor: '#0A2A8F', shadowOpacity: 0.14 },
+  stage: { position: 'absolute', backgroundColor: 'rgba(36, 85, 245, 0.09)' },
   shadow: { backgroundColor: 'rgba(42, 28, 174, 0.12)', marginTop: -2 },
 });

@@ -1,0 +1,16 @@
+{
+  "name": "housefi-icons3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Renders Housefi's 3D icon set (assets/icons3d) from three.js models, in the same style as the website.",
+  "scripts": {
+    "render": "node render.mjs",
+    "studio": "node serve.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1",
+    "sharp": "0.34.5",
+    "three": "0.186.1"
+  }
+}

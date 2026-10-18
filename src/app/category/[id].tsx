@@ -19,7 +19,7 @@ export default function CategoryScreen() {
   if (!cat) {
     return (
       <Screen header={<Header />}>
-        <EmptyState art={<Art3D name="package" size={110} />} title={t('error.generic')} action={t('common.back')} onAction={() => router.back()} />
+        <EmptyState art={<Art3D name="package" size={120} />} title={t('error.generic')} action={t('common.back')} onAction={() => router.back()} />
       </Screen>
     );
   }

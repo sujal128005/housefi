@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatPhone } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
+import { openWeb } from '../../services/links';
 import { useAppState, useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
 import { colors, GUTTER, radius, space } from '../../theme/tokens';
@@ -60,6 +61,8 @@ export default function Account() {
         }} />
         <Divider />
         <ListRow icon="document-text-outline" title={t('account.legal')} onPress={() => router.push('/legal')} />
+        <Divider />
+        <ListRow icon="globe-outline" title={t('links.website')} subtitle="housefi.tech" onPress={() => openWeb()} testID="account-website" />
       </Card>
 
       <Card style={styles.list}>

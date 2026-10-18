@@ -7,6 +7,7 @@ import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-
 import { categoryById, serviceById } from '../../data/catalog';
 import { canCancel, cancelRefundsVisitFee, canReschedule, DEMO_TIMING, isVisitLive, matchingStep, MAX_QUOTE_VERSIONS } from '../../domain/rules';
 import type { Booking, CancelReason } from '../../domain/types';
+import { Anim3D, type AnimName } from '../../illustrations/Anim3D';
 import { Art3D, type ArtName } from '../../illustrations/Art3D';
 import { TrackingMap } from '../../illustrations/TrackingMap';
 import { formatHour, formatRupees } from '../../i18n/format';
@@ -19,13 +20,16 @@ import {
   Banner, Button, Card, Chip, ConfirmSheet, Divider, ErrorBanner, ErrorView, Header, Icon, Screen, Sheet, Skeleton, Tap, Txt, useToast, type IconName,
 } from '../../ui';
 import { ArrivalOtpCard, BillCard, ProgressStepper, QuoteCard, SafetyRow, TechnicianCard } from '../../ui/BookingParts';
-import { Appear, Pop, Pulse, RideIn } from '../../ui/motion';
+import { Appear, Celebrate, Pulse } from '../../ui/motion';
 import { PhotoThumb } from '../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../ui/present';
 import { feedback } from '../../services/feedback';
 
 const STEPS: readonly StringKey[] = ['track.step.received', 'track.step.searching', 'track.step.availability', 'track.step.matching'];
 const REASONS: readonly CancelReason[] = ['PLANS_CHANGED', 'FIXED', 'TOO_LONG', 'MISTAKE', 'OTHER'];
+
+/** Statuses with a live 3D animation instead of a still picture. */
+const LIVE_ANIM: Partial<Record<Booking['status'], AnimName>> = { ARRIVED: 'arrived', IN_PROGRESS: 'working' };
 
 const HERO: Partial<Record<Booking['status'], { art: ArtName; title: StringKey; body: StringKey }>> = {
   AWAITING_PAYMENT: { art: 'card', title: 'hub.awaiting.title', body: 'hub.awaiting.body' },
@@ -145,15 +149,13 @@ export default function BookingHub() {
       <View style={styles.hero} testID={`status-${b.status}`}>
         {b.status === 'MATCHING' ? (
           <View style={styles.art}>
-            <Pulse size={190} color={colors.blue} />
-            <Art3D name="finding" size={120} float />
+            <Pulse size={200} color={colors.blue} />
+            <Anim3D name="finding" size={170} stage={false} testID="anim-finding" />
           </View>
         ) : null}
         {b.status === 'ASSIGNED' ? (
-          <View style={styles.ride}>
-            <RideIn distance={width}>
-              <Art3D name="scooter" size={140} shadow />
-            </RideIn>
+          <View style={styles.art}>
+            <Celebrate size={150}><Anim3D name="assigned" size={150} testID="anim-assigned" /></Celebrate>
           </View>
         ) : null}
         {b.status === 'EN_ROUTE' ? (
@@ -167,10 +169,15 @@ export default function BookingHub() {
         ) : null}
         {b.status === 'COMPLETED' ? (
           <View style={styles.art}>
-            <Pop><Art3D name="party" size={120} shadow /></Pop>
+            <Celebrate size={150}><Anim3D name="done" size={150} loops={1} testID="anim-done" /></Celebrate>
           </View>
         ) : null}
-        {hero ? <View style={styles.art}><Art3D name={hero.art} size={hero.art === 'handshake' ? 120 : 110} float={live} shadow /></View> : null}
+        {hero ? (
+          <View style={styles.art}>
+            {LIVE_ANIM[b.status] && !revising ? <Anim3D name={LIVE_ANIM[b.status]!} size={150} testID={`anim-${LIVE_ANIM[b.status]}`} />
+              : <Art3D name={hero.art} size={132} float={live} shadow />}
+          </View>
+        ) : null}
 
         <Txt variant="title2" align="center" heading accessibilityLiveRegion="polite" testID="status-title">
           {b.status === 'MATCHING' ? t('track.matching.title') : b.status === 'ASSIGNED' ? t('track.assigned.title') : b.status === 'EN_ROUTE' ? t('hub.enroute.title')
@@ -409,7 +416,6 @@ const styles = StyleSheet.create({
   skelCard: { height: 180, borderRadius: radius.lg },
   hero: { gap: space.sm },
   art: { alignItems: 'center', justifyContent: 'center', minHeight: 130 },
-  ride: { height: 170, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   map: { borderRadius: radius.xl, overflow: 'hidden' },
   eta: { position: 'absolute', left: space.md, bottom: space.md, backgroundColor: 'rgba(19,35,91,0.88)', borderRadius: radius.md, paddingHorizontal: space.md, paddingVertical: space.sm },
   steps: { gap: space.md },

@@ -23,7 +23,7 @@ export default function Addresses() {
       <LocateCard />
       {q.loading && !q.data ? <Skeleton style={styles.skel} /> : null}
       {q.error ? <ErrorView error={q.error} onRetry={q.reload} title={t('address.loadError')} /> : null}
-      {q.data && list.length === 0 ? <EmptyState art={<Art3D name="pin" size={100} float shadow />} title={t('address.empty')} /> : null}
+      {q.data && list.length === 0 ? <EmptyState art={<Art3D name="pin" size={120} float shadow />} title={t('address.empty')} /> : null}
       {list.map((a) => <AddressCard key={a.id} address={a} onEdit={() => router.push({ pathname: '/address/edit', params: { id: a.id } })} />)}
       <AddAddressCard label={t('address.add')} onPress={() => router.push('/address/edit')} />
     </Screen>

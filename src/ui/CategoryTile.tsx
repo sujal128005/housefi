@@ -11,7 +11,7 @@ export function CategoryTile({ category, onPress, size = 'md' }: { readonly cate
   const { l } = useI18n();
   return (
     <Tap onPress={onPress} haptic style={[styles.tile, size === 'lg' && styles.tileLg]} accessibilityLabel={l(category.name)} testID={`cat-${category.id}`}>
-      <Art3D name={category.art} size={size === 'lg' ? 84 : 64} />
+      <Art3D name={category.art} size={size === 'lg' ? 92 : 76} />
       <Txt variant={size === 'lg' ? 'bodyStrong' : 'label'} align="center" numberOfLines={2}>{l(category.name)}</Txt>
     </Tap>
   );
@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
 
 /** The picture for a row: the service's own illustration when a service is given, else the category's. */
 export function CategoryBadge({ category, serviceId, size = 52 }: { readonly category: Category; readonly serviceId?: string; readonly size?: number }) {
-  // The illustrations carry their own pastel tile, so no extra background box here.
+  // Art3D draws the brand tile itself; the margin trims its built-in breathing room.
   return <Art3D name={serviceArt(serviceId, category.art)} size={Math.round(size / 0.9)} style={{ margin: -size * 0.055 }} />;
 }
 

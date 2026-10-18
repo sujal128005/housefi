@@ -5,6 +5,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { colors, radius } from '../theme/tokens';
 import { useReducedMotion } from '../ui/motion';
+import { Anim3D } from './Anim3D';
 import { Art3D } from './Art3D';
 import { decorative } from './parts';
 
@@ -53,7 +54,7 @@ export function TrackingMap({ progress, width }: { readonly progress: number; re
 
   const done = pointAt(progress);
   const routePath = ROUTE.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]} ${p[1]}`).join(' ');
-  const bike = 54 * scale;
+  const bike = 64 * scale;
   return (
     <View style={[styles.wrap, { width, height }]}>
       <Svg width={width} height={height} viewBox={`0 0 ${W} ${H}`} {...decorative}>
@@ -83,7 +84,7 @@ export function TrackingMap({ progress, width }: { readonly progress: number; re
         top: Animated.subtract(Animated.multiply(pos.y, scale), bike * 0.85),
       }]}>
         <Animated.View style={{ transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }] }}>
-          <Art3D name="scooter" size={bike} />
+          <Anim3D name="travel" size={bike} stage={false} />
         </Animated.View>
       </Animated.View>
     </View>

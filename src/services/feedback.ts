@@ -1,7 +1,7 @@
 // Sounds and vibration for the moments that matter: a booking confirmed, a quote arriving, a new job offer ringing,
 // cash collected, an error. One call per moment: feedback('success'). Sounds respect the phone's silent switch (iOS) and
-// both can be turned off in Account / Profile ("Sounds & vibration"). Sounds: Kenney "Interface Sounds" (CC0,
-// assets/sounds/LICENSE-kenney-interface-sounds.txt), trimmed and levelled for the app.
+// both can be turned off in Account / Profile ("Sounds & vibration"). Sounds: Housefi's own, one soft glassy family in
+// E major, synthesised by tools/sounds/make_sounds.py (assets/sounds/README.md).
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { Platform, Vibration } from 'react-native';

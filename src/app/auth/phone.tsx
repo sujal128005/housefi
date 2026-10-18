@@ -57,7 +57,7 @@ export default function PhoneSignIn() {
       header={<Header />}
       footer={<Button label={t('auth.phone.send')} trailingIcon="arrow-forward" onPress={send} loading={busy} disabled={!phone} testID="phone-send" />}
     >
-      <View style={styles.art}><Art3D name={asTech ? 'tech_hero' : 'key'} size={110} float shadow /></View>
+      <View style={styles.art}><Art3D name={asTech ? 'tech_hero' : 'key'} size={120} float shadow /></View>
       {asTech ? <View style={styles.roleTag}><Pill label={t('auth.phone.asTech')} tone="info" icon="construct" /></View> : null}
       <Txt variant="title1" heading>{asTech ? t('auth.phone.titleTech') : t('auth.phone.title')}</Txt>
       <Field

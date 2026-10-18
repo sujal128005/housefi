@@ -13,7 +13,7 @@ import { useBackend, useIsDemo, useQuery } from '../services/ServicesProvider';
 import { useSession } from '../state/AppState';
 import { colors, radius, space } from '../theme/tokens';
 import { Banner, Button, Card, ErrorBanner, ErrorView, Header, Icon, RadioDot, Screen, Skeleton, Tap, Txt } from '../ui';
-import { Appear, Pop, Pulse } from '../ui/motion';
+import { Appear, Celebrate, Pulse } from '../ui/motion';
 import { PAY_METHODS } from '../ui/payMethods';
 import { feedback } from '../services/feedback';
 import { idempotencyKeys, outcomeUnknown } from '../state/idempotency';
@@ -191,8 +191,8 @@ export default function Pay() {
           {phase === 'PROCESSING' ? (
             <View style={styles.center} testID="pay-processing">
               <View style={styles.pulseBox}>
-                <Pulse size={170} color={colors.blue} />
-                <Art3D name="card" size={110} float />
+                <Pulse size={180} color={colors.blue} />
+                <Art3D name="card" size={120} float />
               </View>
               <ActivityIndicator color={colors.navy} />
               <Txt variant="title3" align="center">{t('pay.processing')}</Txt>
@@ -202,7 +202,7 @@ export default function Pay() {
 
           {phase === 'PAID' ? (
             <View style={styles.center} testID="pay-success">
-              <Pop><Art3D name="pay_success" size={120} shadow /></Pop>
+              <Celebrate size={150}><Art3D name="pay_success" size={132} shadow /></Celebrate>
               <Txt variant="title1" align="center" heading>{t('pay.success')}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{kind === 'VISIT' ? t('pay.successVisit') : t('pay.successFinal')}</Txt>
               <Card style={styles.receiptMini}>
@@ -216,7 +216,7 @@ export default function Pay() {
 
           {phase === 'PENDING' ? (
             <View style={styles.center} testID="pay-pending">
-              <Art3D name="pay_pending" size={110} float shadow />
+              <Art3D name="pay_pending" size={132} float shadow />
               <Txt variant="title2" align="center" heading>{t('pay.pending')}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{t('pay.pendingBody')}</Txt>
               <ActivityIndicator color={colors.warning} />
@@ -226,7 +226,7 @@ export default function Pay() {
 
           {phase === 'CASH' ? (
             <View style={styles.center} testID="pay-cash">
-              <Art3D name="cash" size={110} float shadow />
+              <Art3D name="cash" size={132} float shadow />
               <Txt variant="title2" align="center" heading>{t('pay.cashTitle', { amount: formatRupees(amount) })}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{t('pay.cashBody', { name: b.technician ? l(b.technician.name) : '' })}</Txt>
               <ActivityIndicator color={colors.warning} />
@@ -235,7 +235,7 @@ export default function Pay() {
 
           {phase === 'FAILED' ? (
             <View style={styles.center} testID="pay-failed">
-              <Art3D name="card_failed" size={110} />
+              <Art3D name="card_failed" size={132} />
               <Txt variant="title2" align="center" heading>{t('pay.failed')}</Txt>
               <Txt variant="callout" color="inkMuted" align="center">{t('pay.failedBody')}</Txt>
               {isDemo ? <Banner tone="demo" text={t('pay.demoFailed')} /> : null}

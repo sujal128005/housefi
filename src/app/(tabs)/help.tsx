@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n, type StringKey } from '../../i18n/I18n';
+import { openWeb } from '../../services/links';
 import { colors, GUTTER, radius, space } from '../../theme/tokens';
 import { Card, DemoPill, Divider, Icon, ListRow, NotInDemoSheet, Pill, Screen, Tap, Txt, Wash } from '../../ui';
 
@@ -60,6 +61,7 @@ export default function Help() {
         ))}
       </Card>
       <ListRow icon="document-text-outline" title={t('account.legal')} onPress={() => router.push('/legal')} testID="help-legal" />
+      <ListRow icon="globe-outline" title={t('links.website')} subtitle="housefi.tech" onPress={() => openWeb()} testID="help-website" />
       <NotInDemoSheet visible={call} title={t('help.contact')} onClose={() => setCall(false)} />
     </Screen>
   );

@@ -1,7 +1,9 @@
-// Six-digit code. Demo mode shows the code in a labelled "Demo SMS" card instead of sending a text message.
+// Six-digit code. The code is read from the SMS when the phone allows it (services/otpAutoRead) and fills itself in,
+// digit by digit; a correct code turns the boxes green before the next screen. Demo mode shows the code in a labelled
+// "Demo SMS" card instead of sending a text message.
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, StyleSheet, TextInput, View } from 'react-native';
 import { formatDuration, formatPhone } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
@@ -12,6 +14,8 @@ import { authFlow } from '../../state/authFlow';
 import { colors, radius, shadow, space } from '../../theme/tokens';
 import { Banner, Button, ErrorBanner, Header, Icon, Screen, Tap, Txt, useToast } from '../../ui';
 import { feedback } from '../../services/feedback';
+import { listenForOtp } from '../../services/otpAutoRead';
+import { Pop } from '../../ui/motion';
 
 const LENGTH = 6;
 
@@ -30,6 +34,12 @@ export default function Otp() {
   const [left, setLeft] = useState(challenge?.resendAfterSec ?? 0);
   const input = useRef<TextInput>(null);
   const shake = useRef(new Animated.Value(0)).current;
+  const [reading, setReading] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const stopListening = useRef<() => void>(() => undefined);
+
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   useEffect(() => {
     if (!challenge) router.replace('/auth/phone');
@@ -40,6 +50,24 @@ export default function Otp() {
     const id = setTimeout(() => setLeft((s) => s - 1), 1000);
     return () => clearTimeout(id);
   }, [left]);
+
+  /** Types the code in one digit at a time, then checks it. */
+  const fillIn = (c: string) => {
+    const digits = c.replace(/\D/g, '').slice(0, LENGTH);
+    timers.current.forEach(clearTimeout);
+    timers.current = Array.from({ length: digits.length }, (_, k) => setTimeout(() => {
+      setCode(digits.slice(0, k + 1));
+      feedback('select');
+      if (k === digits.length - 1 && digits.length === LENGTH) void verify(digits);
+    }, 70 * (k + 1)));
+  };
+
+  /** A short green moment, then the next screen. */
+  const succeed = (go: () => void) => {
+    setVerified(true);
+    feedback('success');
+    timers.current.push(setTimeout(go, 650));
+  };
 
   const doShake = () => {
     Animated.sequence([10, -10, 8, -8, 0].map((v) => Animated.timing(shake, { toValue: v, duration: 50, useNativeDriver: true }))).start();
@@ -54,18 +82,19 @@ export default function Otp() {
       if (asTech) {
         const { session, isNew } = await backend.tech.auth.verifyOtp(challenge.challengeId, value);
         authFlow.set(null);
-        feedback('success');
-        techSignIn(session);
         const v = session.profile.verification;
-        resetTo(isNew || v === null ? '/tech/setup' : v === 'APPROVED' ? '/tech/home' : '/tech/verification');
+        succeed(() => {
+          techSignIn(session);
+          resetTo(isNew || v === null ? '/tech/setup' : v === 'APPROVED' ? '/tech/home' : '/tech/verification');
+        });
         return;
       }
       const { session, isNewCustomer } = await backend.auth.verifyOtp(challenge.challengeId, value);
       authFlow.set(null);
-      feedback('success');
-      signIn(session);
-      if (isNewCustomer) resetTo('/auth/name');
-      else resetTo('/home');
+      succeed(() => {
+        signIn(session);
+        resetTo(isNewCustomer ? '/auth/name' : '/home');
+      });
     } catch (e) {
       setCode('');
       doShake();
@@ -101,11 +130,31 @@ export default function Otp() {
   };
 
   const onChange = (v: string) => {
+    if (verified) return;
+    stopListening.current();
+    timers.current.forEach(clearTimeout);
     const d = v.replace(/\D/g, '').slice(0, LENGTH);
     setCode(d);
     if (problem && !blocked) setProblem(null);
     if (d.length === LENGTH) void verify(d);
   };
+
+  // Listen for the SMS while the code is still needed; typing stops it.
+  useEffect(() => {
+    if (!challenge || blocked) return;
+    setReading(true);
+    const stop = listenForOtp((c) => {
+      setReading(false);
+      fillIn(c);
+    }, { demoCode: challenge.demoCode });
+    stopListening.current = () => {
+      stop();
+      setReading(false);
+    };
+    return stop;
+    // fillIn is stable for a given challenge
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge, blocked]);
 
   if (!challenge) return null;
   return (
@@ -113,7 +162,7 @@ export default function Otp() {
       testID="auth-otp"
       wash="sky"
       header={<Header />}
-      footer={<Button label={t('auth.otp.verify')} onPress={() => void verify(code)} loading={busy} disabled={code.length < LENGTH || blocked} testID="otp-verify" />}
+      footer={<Button label={t('auth.otp.verify')} onPress={() => void verify(code)} loading={busy || verified} disabled={code.length < LENGTH || blocked} testID="otp-verify" />}
     >
       {challenge.demoCode ? (
         <View style={styles.sms} testID="demo-sms">
@@ -122,7 +171,7 @@ export default function Otp() {
             <Txt variant="caption" color="demo">{t('common.demo')}</Txt>
             <Txt variant="callout" testID="demo-sms-text">{t('auth.otp.demoSms', { code: challenge.demoCode })}</Txt>
           </View>
-          <Tap onPress={() => onChange(challenge.demoCode ?? '')} style={styles.fill} accessibilityLabel={t('auth.otp.fill')} testID="demo-fill" disabled={blocked}>
+          <Tap onPress={() => { stopListening.current(); fillIn(challenge.demoCode ?? ''); }} style={styles.fill} accessibilityLabel={t('auth.otp.fill')} testID="demo-fill" disabled={blocked || verified}>
             <Txt variant="label" color="blue">{t('auth.otp.fill')}</Txt>
           </Tap>
         </View>
@@ -142,8 +191,8 @@ export default function Otp() {
             const ch = code[k] ?? '';
             const active = k === Math.min(code.length, LENGTH - 1) && !blocked;
             return (
-              <View key={k} style={[styles.box, active && styles.boxActive, problem && styles.boxError, ch !== '' && styles.boxFilled]}>
-                <Txt variant="title1" align="center">{ch}</Txt>
+              <View key={k} style={[styles.box, active && styles.boxActive, problem && styles.boxError, ch !== '' && styles.boxFilled, verified && styles.boxOk]}>
+                {ch !== '' ? <Pop><Txt variant="title1" align="center" color={verified ? 'success' : 'ink'}>{ch}</Txt></Pop> : null}
               </View>
             );
           })}
@@ -164,6 +213,17 @@ export default function Otp() {
         accessibilityLabel={t('auth.otp.title')}
       />
 
+      {verified ? (
+        <Pop style={styles.status}>
+          <Icon name="checkmark-circle" size={22} color="success" />
+          <Txt variant="label" color="success" testID="otp-verified">{t('auth.otp.verified')}</Txt>
+        </Pop>
+      ) : reading && code.length === 0 ? (
+        <View style={styles.status} testID="otp-reading">
+          <ActivityIndicator size="small" color={colors.blue} />
+          <Txt variant="callout" color="inkMuted">{t('auth.otp.reading')}</Txt>
+        </View>
+      ) : null}
       {problem ? <Banner tone="danger" text={problem} testID="otp-problem" /> : null}
       <ErrorBanner error={error} />
 
@@ -193,6 +253,8 @@ const styles = StyleSheet.create({
   boxActive: { borderColor: colors.blue },
   boxFilled: { borderColor: colors.navy },
   boxError: { borderColor: colors.danger },
+  boxOk: { borderColor: colors.success, backgroundColor: colors.successTint },
+  status: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, minHeight: 28 },
   hiddenInput: { position: 'absolute', opacity: 0, height: 1, width: 1 },
   resendRow: { alignItems: 'center' },
   resend: { flexDirection: 'row', alignItems: 'center', gap: space.xs, minHeight: 48, paddingHorizontal: space.md },

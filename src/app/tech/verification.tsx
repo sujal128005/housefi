@@ -12,7 +12,7 @@ import { useBackend } from '../../services/ServicesProvider';
 import { useAppState, useTechSession } from '../../state/AppState';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Card, Header, Icon, Screen, Txt } from '../../ui';
-import { Pop, Pulse } from '../../ui/motion';
+import { Celebrate, Pulse } from '../../ui/motion';
 import { VerificationPill } from '../../ui/TechIdentity';
 
 export default function Verification() {
@@ -69,7 +69,7 @@ export default function Verification() {
       <View style={styles.art} testID={`tverify-${v ?? 'NONE'}`}>
         {v === 'APPROVED' ? (
           <>
-            <Pop><Art3D name="verify_ok" size={140} shadow /></Pop>
+            <Celebrate size={150}><Art3D name="verify_ok" size={140} shadow /></Celebrate>
           </>
         ) : v === 'NEEDS_CORRECTION' || stopped ? <Art3D name="verify_fix" size={130} float shadow /> : (
           <>

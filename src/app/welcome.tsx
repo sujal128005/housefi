@@ -76,7 +76,7 @@ export default function Welcome() {
           <View key={s.title} style={[styles.slide, { width, height: pageH || undefined, paddingHorizontal: layout.gutter + 4 }]}>
             <View style={styles.column}>
               <View style={[styles.art, { height: artSize }]}>
-                <Art3D name={s.art} size={artSize * 0.72} float shadow badge={s.badge} />
+                <Art3D name={s.art} size={artSize * 0.84} float shadow badge={s.badge} />
               </View>
               <Txt variant="hero" heading>{t(s.title)}</Txt>
               <Txt variant="body" color="inkMuted" style={styles.body}>{t(s.body)}</Txt>

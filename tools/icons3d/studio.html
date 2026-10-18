@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Housefi 3D icon studio</title>
+<style>
+  @font-face { font-family: 'Anek Latin'; src: url('/node_modules/@expo-google-fonts/anek-latin/800ExtraBold/AnekLatin_800ExtraBold.ttf'); font-weight: 800; }
+  @font-face { font-family: 'Anek Latin'; src: url('/node_modules/@expo-google-fonts/anek-latin/600SemiBold/AnekLatin_600SemiBold.ttf'); font-weight: 600; }
+  @font-face { font-family: 'Anek Telugu'; src: url('/node_modules/@expo-google-fonts/anek-telugu/800ExtraBold/AnekTelugu_800ExtraBold.ttf'); font-weight: 800; }
+  body { margin: 0; background: #eef2fb; font-family: 'Anek Latin', sans-serif; }
+  canvas { display: block; width: 512px; height: 512px; background: repeating-conic-gradient(#e4e9f5 0 25%, #f4f6fb 0 50%) 0 / 32px 32px; }
+</style>
+<script type="importmap">
+  { "imports": { "three": "/tools/icons3d/node_modules/three/build/three.module.js", "three/addons/": "/tools/icons3d/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="c" width="1024" height="1024"></canvas>
+<script type="module" src="./src/studio.js"></script>
+</body>
+</html>

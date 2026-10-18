@@ -30,7 +30,7 @@ export default function VerifyTechnician() {
       {q.loading && !r ? <Skeleton style={styles.skel} /> : null}
       {q.error && !r ? (
         isApiError(q.error, 'NOT_FOUND')
-          ? <EmptyState testID="verify-not-found" art={<Art3D name="no_results" size={110} />} title={t('verify.notFound')} />
+          ? <EmptyState testID="verify-not-found" art={<Art3D name="no_results" size={120} />} title={t('verify.notFound')} />
           : <ErrorView error={q.error} onRetry={q.reload} />
       ) : null}
       {r ? (

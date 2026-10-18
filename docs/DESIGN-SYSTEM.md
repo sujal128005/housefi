@@ -53,16 +53,32 @@ gets taller lines.
 
 ## Pictures and icons
 
-- **Illustrations** (`src/illustrations/Art3D.tsx`, files in `assets/illustrations/`): Housefi's soft-3D tiles,
-  for categories, services, steps, states, people, empty and error screens. Sizes 40 pt and up. Only this style;
-  no stock icons, emoji or other illustration styles next to them.
-- Under 32 pt the same name draws a **simple symbol in a soft blue chip** automatically: small spots are
+- **3D icons** (`src/illustrations/Art3D.tsx`, files in `assets/icons3d/`): Housefi's 3D icon set, rendered from
+  three.js models in the same style, palette and lighting as the Housefi website (glossy soft-3D plastics, the logo's
+  cobalt, cyan, orange and yellow). 88 names: categories, the 21 services, steps, payments, states and people (the
+  technician avatar wears the cobalt Housefi cap and uniform with the logo). Only this style; no stock icons, emoji or
+  other illustration styles next to them.
+- **Sizes, by role.** Live and status heroes **132–170 pt** (booking and job status, payment, verification); empty
+  states and page heroes **120 pt**; welcome slides fill most of the picture area; feature cards **72–104 pt**;
+  category tiles **76 pt** (92 on the large grid); list rows **34–56 pt**; inline **under 32 pt**.
+- **96 pt and up** the object floats on the page with its own soft shadow over a pale brand disc. **32–95 pt** it
+  sits on the soft brand tile, tinted by meaning (sky = plumbing, amber = electrical and money, mint = AC and done,
+  rose = failed…). **Under 32 pt** the same name draws a **simple symbol in a soft blue chip**: small spots are
   functional, not decorative.
+- **Live 3D animations** (`src/illustrations/Anim3D.tsx`, sprite sheets in `assets/anim3d/`): the same models in
+  motion for the live moments: finding a technician, technician assigned, on the way (the scooter on the tracking
+  map), at the door, repair in progress, job done, a job offer ringing. Played on the native thread; still frame with
+  reduced motion. New ones: add to `tools/icons3d/src/anims.js` and run `npm run render -- anim_<name>` (writes the
+  sheet and `src/illustrations/anim3dSheets.ts`).
+- **States** always use the same round badge on the object: green check (done, approved, verified), red cross
+  (failed), amber clock (waiting), amber "!" (needs attention).
 - **Functional icons** (navigation, actions, row icons): Ionicons, one weight, `ink` / `navy`. Tab bar icons are
   outline when idle, filled when selected.
-- Each service shows its own illustration where a specific service is meant (`serviceArt(serviceId, …)`); the
-  category's illustration where only the category is known.
-- New illustrations: add the sheet tile in `tools/illustrations/cut_tiles.py` (MAP), run it, add one line to `IMG`.
+- Each service shows its own icon where a specific service is meant (`serviceArt(serviceId, …)`); the category's
+  icon where only the category is known.
+- New icons: model it in `tools/icons3d/src/icons/` (reuse the kit's materials and parts), run
+  `cd tools/icons3d && npm install && npm run render -- <name>`, check `tools/icons3d/preview/`, and add one line to
+  `ICONS` in `Art3D.tsx`.
 
 ## Components
 
@@ -78,10 +94,24 @@ gets taller lines.
 
 ## Motion
 
-Short and quiet: 140 / 240 / 420 ms. Screens slide in; success pops once; illustrations may float gently on hero
-states. Everything that moves stops when the phone asks for reduced motion.
+Short and quiet: 140 / 240 / 420 ms. Screens slide in; illustrations may float gently on hero states.
+
+- **Success** (`Celebrate` in `src/ui/motion.tsx`): the picture pops, a green ring opens and brand-coloured confetti
+  flies out once, with the success sound: booking confirmed, payment done, technician verified, job done. The OTP
+  boxes turn green before the next screen.
+- **Brand water** (`BrandWave`, maths in `src/ui/waveMath.ts`): Gerstner wave layers (crests sharpen, troughs
+  flatten, like real water) with the amber crest from the logo, and a perspective mesh of points and lines on the
+  water. Runs only while the brand screen shows, pauses in the background.
+- Everything that moves stops when the phone asks for reduced motion.
+
+## Sound
+
+One family of soft, glassy tones in E major, Housefi's own (`tools/sounds/make_sounds.py`): success (three rising
+notes), notify (two gentle notes), offer (a marimba ring), cash (coin taps), error (two rounded falling notes, never a
+buzzer), send, pop. Taps and selections are felt (haptics), not heard.
 
 ## Words
 
 Plain, friendly, short. Say what happens next ("We'll notify you"). Anything simulated says so ("Demo", "Simulated
-payment. No money was taken."). Never show codes, stack traces or internal IDs to people.
+payment. No money was taken."). Never show codes, stack traces or internal IDs to people: whatever goes wrong, the app shows the brand screen with
+one Continue button (`src/ui/Recovery.tsx`).

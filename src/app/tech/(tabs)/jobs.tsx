@@ -58,7 +58,7 @@ export default function TechJobs() {
       }} /> : null}
       {!jobs && !error ? <><Skeleton style={styles.skel} /><Skeleton style={styles.skel} /></> : null}
       {jobs && list.length === 0 ? (
-        <EmptyState art={<Art3D name={tab === 'ACTIVE' ? 'toolbox' : 'package'} size={110} float shadow />}
+        <EmptyState art={<Art3D name={tab === 'ACTIVE' ? 'toolbox' : 'package'} size={120} float shadow />}
           title={tab === 'ACTIVE' ? t('tjobs.emptyActive') : t('tjobs.emptyPast')} body={tab === 'ACTIVE' ? t('tjobs.emptyActiveBody') : undefined}
           action={tab === 'ACTIVE' ? t('tjobs.goHome') : undefined} onAction={() => router.push('/tech/home')} testID="tech-jobs-empty" />
       ) : null}

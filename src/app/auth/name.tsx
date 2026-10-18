@@ -46,7 +46,7 @@ export default function NameStep() {
       header={<Header back={editing} />}
       footer={<Button label={editing ? t('common.save') : t('common.continue')} onPress={save} loading={busy} disabled={name.trim().length === 0} testID="name-save" />}
     >
-      <View style={styles.art}><Art3D name="wave" size={110} float shadow /></View>
+      <View style={styles.art}><Art3D name="wave" size={120} float shadow /></View>
       <Txt variant="title1" heading>{t('auth.profile.title')}</Txt>
       <Txt variant="body" color="inkMuted">{t('auth.profile.body')}</Txt>
       <Field

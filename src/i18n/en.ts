@@ -57,6 +57,8 @@ export const en = {
   'auth.otp.change': 'Change number',
   'auth.otp.demoSms': 'Demo SMS · Your Housefi code is {code}',
   'auth.otp.fill': 'Fill',
+  'auth.otp.reading': 'Reading the code from your SMS…',
+  'auth.otp.verified': 'Number verified',
   'auth.otp.resendIn': 'Resend code in {time}',
   'auth.otp.resend': 'Resend code',
   'auth.otp.resent': 'New demo code sent',
@@ -74,6 +76,9 @@ export const en = {
   'legal.p1': 'Housefi connects you with independent home-service professionals.',
   'legal.p2': 'We use your phone number and address only to deliver the service you book.',
   'legal.p3': 'In this demo build, everything stays on your phone. Nothing is sent to a server.',
+  'links.website': 'Visit our website',
+  'links.terms': 'Terms of use',
+  'links.privacy': 'Privacy policy',
 
   'tab.home': 'Home',
   'tab.bookings': 'Bookings',
@@ -913,10 +918,7 @@ export const en = {
   'notif.PROFILE_NEEDS_CORRECTION': 'Please fix your profile details',
 
   // Recovery, offline, session.
-  'crash.title': 'Something went wrong',
-  'crash.body': 'Your bookings and details are safe. Try again, or go back to the home screen.',
-  'crash.retry': 'Try again',
-  'crash.home': 'Go to home',
+  'crash.continue': 'Continue',
   'offline.title': 'You\'re offline',
   'offline.body': 'We\'ll keep what you\'ve entered. Check your internet and try again.',
   'offline.back': 'Back online',

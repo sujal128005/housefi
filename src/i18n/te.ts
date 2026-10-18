@@ -57,6 +57,8 @@ export const te: Record<StringKey, string> = {
   'auth.otp.change': 'నంబర్ మార్చండి',
   'auth.otp.demoSms': 'డెమో SMS · మీ Housefi కోడ్ {code}',
   'auth.otp.fill': 'నింపండి',
+  'auth.otp.reading': 'మీ SMS నుండి కోడ్ చదువుతోంది…',
+  'auth.otp.verified': 'నంబర్ ధృవీకరించబడింది',
   'auth.otp.resendIn': '{time} లో మళ్ళీ పంపవచ్చు',
   'auth.otp.resend': 'కోడ్ మళ్ళీ పంపండి',
   'auth.otp.resent': 'కొత్త డెమో కోడ్ పంపబడింది',
@@ -74,6 +76,9 @@ export const te: Record<StringKey, string> = {
   'legal.p1': 'Housefi మిమ్మల్ని స్వతంత్ర గృహ సేవా నిపుణులతో కలుపుతుంది.',
   'legal.p2': 'మీ ఫోన్ నంబర్, చిరునామాను మీరు బుక్ చేసిన సర్వీస్ కోసం మాత్రమే వాడతాం.',
   'legal.p3': 'ఈ డెమోలో అంతా మీ ఫోన్‌లోనే ఉంటుంది. ఏదీ సర్వర్‌కు పంపబడదు.',
+  'links.website': 'మా వెబ్‌సైట్ చూడండి',
+  'links.terms': 'వినియోగ నిబంధనలు',
+  'links.privacy': 'గోప్యతా విధానం',
 
   'tab.home': 'హోమ్',
   'tab.bookings': 'బుకింగ్‌లు',
@@ -913,10 +918,7 @@ export const te: Record<StringKey, string> = {
   'notif.PROFILE_NEEDS_CORRECTION': 'దయచేసి ప్రొఫైల్ వివరాలు సరిచేయండి',
 
   // Recovery, offline, session.
-  'crash.title': 'ఏదో పొరపాటు జరిగింది',
-  'crash.body': 'మీ బుకింగ్‌లు, వివరాలు సురక్షితం. మళ్ళీ ప్రయత్నించండి, లేదా హోమ్‌కు వెళ్ళండి.',
-  'crash.retry': 'మళ్ళీ ప్రయత్నించండి',
-  'crash.home': 'హోమ్‌కు వెళ్ళండి',
+  'crash.continue': 'కొనసాగించండి',
   'offline.title': 'మీరు ఆఫ్‌లైన్‌లో ఉన్నారు',
   'offline.body': 'మీరు నమోదు చేసినవి ఉంటాయి. ఇంటర్నెట్ చూసి మళ్ళీ ప్రయత్నించండి.',
   'offline.back': 'మళ్ళీ ఆన్‌లైన్',

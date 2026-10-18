@@ -161,7 +161,7 @@ async function customer() {
   await tapUntil({ id: 'phone-send' }, { id: 'demo-sms' });
   await hideKeyboard();
   await snap('otp');
-  await tap({ id: 'demo-fill' });
+  // The demo code reads itself from the "SMS" and signs in.
   await waitFor({ id: 'auth-name' }, 20000);
   await typeInto({ id: 'name-input' }, 'Priya Sharma');
   await hideKeyboard();
@@ -328,7 +328,6 @@ async function technician() {
   await hideKeyboard();
   await snap('tech-phone');
   await tapUntil({ id: 'phone-send' }, { id: 'demo-sms' });
-  await tap({ id: 'demo-fill' });
 
   step('technician profile');
   await waitFor({ id: 'tech-setup' }, 20000);

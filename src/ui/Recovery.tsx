@@ -1,20 +1,23 @@
 // Graceful failure, everywhere: customers and technicians never see code, stack traces or developer screens.
-// - ScreenErrorBoundary (around every screen, via the navigators' screenLayout): an unexpected error in a screen shows a
-//   branded "Something went wrong" in place of that screen only, with Try again (re-opens the same screen) and Go to
-//   home. Nothing is lost: bookings live in the backend, the booking draft and sessions stay in memory and storage.
+// Whatever goes wrong, people only ever see the Housefi brand screen (logo, "by Nexara9", the tagline, the wave) with
+// one button that carries on; never an error message, code or a developer screen.
+// - ScreenErrorBoundary (around every screen, via the navigators' screenLayout): an unexpected error in a screen shows
+//   the brand screen in its place; Continue goes back to home. Nothing is lost: bookings live in the backend, the
+//   booking draft and sessions stay in memory and storage.
 // - AppErrorBoundary: the same, around the whole app, for anything outside a screen.
-// - installGlobalErrorHandler: in release builds, an error outside rendering (a button handler, a timer) goes to the
-//   same screen instead of closing the app. Development builds keep React Native's developer tools.
-// - StartupRecovery: the branded first screen with a friendly message and Retry when the app cannot start.
+// - installGlobalErrorHandler: an error outside rendering (a button handler, a timer) goes to the same screen instead
+//   of closing the app or showing React Native's red error screen. Details go to the console for developers; a
+//   development build shows React Native's own error tools only with EXPO_PUBLIC_DEV_ERRORS=1.
+// - StartupRecovery: the same brand screen while the app starts, with Retry if it cannot.
 // - OfflineBanner: a calm strip when the phone loses its connection; the current screen and its inputs stay as they are.
 import NetInfo from '@react-native-community/netinfo';
 import { router } from 'expo-router';
 import { Component, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
-import { ActivityIndicator, Animated, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, LogBox, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '../i18n/I18n';
 import { colors, radius, space } from '../theme/tokens';
-import { BrandLockup, BrandScreen, BrandWave } from './BrandHero';
+import { BrandScreen } from './BrandHero';
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { Txt } from './Txt';
@@ -36,33 +39,39 @@ interface GlobalErrorUtils {
 
 let installed = false;
 
-/** Release builds: route uncaught JavaScript errors to the branded error screen instead of closing the app. */
+/** Developers can bring back React Native's error overlays in a development build with EXPO_PUBLIC_DEV_ERRORS=1. */
+const devTools = __DEV__ && process.env.EXPO_PUBLIC_DEV_ERRORS === '1';
+
+/** Routes uncaught JavaScript errors to the brand screen instead of closing the app or showing a red error screen. */
 export function installGlobalErrorHandler(): void {
-  const utils = (globalThis as { ErrorUtils?: GlobalErrorUtils }).ErrorUtils;
-  if (installed || !utils || __DEV__) return;
+  if (installed || devTools) return;
   installed = true;
-  utils.setGlobalHandler((e) => reportAppError(e));
+  if (__DEV__) LogBox.ignoreAllLogs(true);
+  const utils = (globalThis as { ErrorUtils?: GlobalErrorUtils }).ErrorUtils;
+  utils?.setGlobalHandler((e, isFatal) => {
+    if (__DEV__) console.warn('Housefi caught an error', e);
+    // A non-fatal error was already handled where it happened; a fatal one would otherwise close the app.
+    if (isFatal !== false) reportAppError(e);
+  });
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.addEventListener('error', (ev) => {
+      ev.preventDefault();
+      reportAppError(ev.error);
+    });
+  }
 }
 
 // ---------- error boundary ----------
 
-function CrashScreen({ onRetry, onHome }: { readonly onRetry: () => void; readonly onHome: () => void }) {
+/** The brand screen with one way forward. */
+function CrashScreen({ onContinue }: { readonly onContinue: () => void }) {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.full, { paddingTop: insets.top + space.xl, paddingBottom: Math.max(insets.bottom, space.lg) + space.md }]} testID="app-error">
-      <BrandWave height={200} />
-      <View style={styles.middle}>
-        <BrandLockup compact />
-        <View style={styles.message}>
-          <Txt variant="title2" align="center" heading>{t('crash.title')}</Txt>
-          <Txt variant="body" color="inkMuted" align="center">{t('crash.body')}</Txt>
-        </View>
-      </View>
-      <View style={styles.actions}>
-        <Button label={t('crash.retry')} icon="refresh" onPress={onRetry} testID="app-error-retry" />
-        <Button label={t('crash.home')} variant="outline" icon="home-outline" onPress={onHome} testID="app-error-home" />
-      </View>
+    <View style={[styles.full, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <BrandScreen testID="app-error">
+        <Button label={t('crash.continue')} trailingIcon="arrow-forward" onPress={onContinue} testID="app-error-continue" />
+      </BrandScreen>
     </View>
   );
 }
@@ -93,11 +102,7 @@ class ErrorBoundary extends Component<{ readonly children: ReactNode; readonly a
     if (__DEV__) console.warn('Housefi caught an error', error, info.componentStack);
   }
 
-  private retry = (): void => {
-    // A new key remounts the screens below, so a stuck component starts fresh.
-    this.setState((s) => ({ error: null, key: s.key + 1 }));
-  };
-
+  /** Back to home; a new key remounts the screens below, so a stuck component starts fresh. */
   private home = (): void => {
     this.setState((s) => ({ error: null, key: s.key + 1 }));
     setTimeout(() => {
@@ -111,7 +116,7 @@ class ErrorBoundary extends Component<{ readonly children: ReactNode; readonly a
   };
 
   render(): ReactNode {
-    if (this.state.error) return <CrashScreen onRetry={this.retry} onHome={this.home} />;
+    if (this.state.error) return <CrashScreen onContinue={this.home} />;
     return <View key={this.state.key} style={styles.flex}>{this.props.children}</View>;
   }
 }
@@ -121,28 +126,19 @@ export function AppErrorBoundary({ children }: { readonly children: ReactNode })
   return <ErrorBoundary app>{children}</ErrorBoundary>;
 }
 
-/** Around one screen (navigator `screenLayout`): Try again re-opens that screen, the rest of the app stays as it is. */
+/** Around one screen (navigator `screenLayout`): the rest of the app stays as it is. */
 export function ScreenErrorBoundary({ children }: { readonly children: ReactNode }) {
   return <ErrorBoundary>{children}</ErrorBoundary>;
 }
 
 // ---------- startup ----------
 
-/** Shown while the app starts (web has no native splash) and, with `failed`, when it could not start. */
+/** Shown while the app starts (web has no native splash) and, with `failed` or `slow`, with a Retry button. */
 export function StartupRecovery({ failed, slow, onRetry }: { readonly failed: boolean; readonly slow: boolean; readonly onRetry: () => void }) {
   return (
     <BrandScreen testID={failed ? 'startup-failed' : 'startup-loading'}>
-      {failed || slow ? (
-        <>
-          {/* Fonts and language may not be ready yet, so this message is short and in both languages. */}
-          <Txt variant="title3" align="center" lang="en">{failed ? "We couldn't open Housefi" : 'This is taking longer than usual'}</Txt>
-          <Txt variant="callout" color="inkMuted" align="center" lang="te">{failed ? 'Housefi తెరవలేకపోయాం. మళ్ళీ ప్రయత్నించండి.' : 'సాధారణం కంటే ఎక్కువ సమయం పడుతోంది.'}</Txt>
-          <Txt variant="footnote" color="inkSubtle" align="center" lang="en">Your bookings and details are safe.</Txt>
-          <Button label="Retry / మళ్ళీ ప్రయత్నించండి" icon="refresh" onPress={onRetry} testID="startup-retry" />
-        </>
-      ) : (
-        <ActivityIndicator color={colors.navy} size="large" />
-      )}
+      {/* Fonts and language may not be ready yet, so the button speaks both languages. */}
+      {failed || slow ? <Button label="Retry / మళ్ళీ ప్రయత్నించండి" icon="refresh" onPress={onRetry} testID="startup-retry" /> : <ActivityIndicator color={colors.navy} size="large" />}
     </BrandScreen>
   );
 }
@@ -189,10 +185,7 @@ export function OfflineBanner() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  full: { flex: 1, backgroundColor: colors.canvas, paddingHorizontal: space.xl },
-  middle: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.xl },
-  message: { gap: space.sm, maxWidth: 420 },
-  actions: { gap: space.sm, width: '100%', maxWidth: 520, alignSelf: 'center' },
+  full: { flex: 1, backgroundColor: colors.canvas },
   offline: { position: 'absolute', left: space.lg, right: space.lg, flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radius.lg, zIndex: 100, elevation: 12 },
   offlineOn: { backgroundColor: colors.ink },
   onlineOn: { backgroundColor: colors.success },
