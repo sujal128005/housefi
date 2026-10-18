@@ -15,6 +15,8 @@ How they connect: the app calls the API at `https://api.housefi.tech/v1` and ope
 Razorpay payments (`app/docs/backend/INTEGRATION.md`). The API contract is `backend/docs/openapi.yaml`; a contract
 test keeps it in step with the server.
 
+**Launching:** [`LAUNCH-GUIDE.md`](LAUNCH-GUIDE.md) lists, in order, every account, key and store step.
+
 ## Working on it
 
 ```bash
