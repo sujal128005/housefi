@@ -32,8 +32,11 @@ EXPO_PUBLIC_HOUSEFI_API_URL=http://localhost:4000/v1 npx expo start
 ```
 
 Each folder has its own `package.json`, tests and checks (`npm test`, `npm run typecheck`, `npm run lint`). GitHub
-runs them on every push that touches the folder (`.github/workflows/app.yml`, `backend.yml`), plus a CodeQL
-security scan of both.
+runs them on every pull request that touches the folder (`.github/workflows/app.yml`, `backend.yml`).
+
+GitHub's CodeQL security scan ran while the repository was public and every finding was fixed; on a private
+repository it needs a paid plan (GitHub Code Security), so it is switched off. `npm audit` still runs in the backend
+checks.
 
 Secrets never go in this repository: the server's keys live only in `backend/.env.production` on the server
 (`backend/docs/DEPLOY.md` step 4), and the app holds no secrets at all.
