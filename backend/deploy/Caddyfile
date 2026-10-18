@@ -1,0 +1,29 @@
+# api.housefi.tech → the API container. Point the DNS A record at the Droplet first (docs/DEPLOY.md).
+api.housefi.tech {
+	encode gzip
+	# Uploads go straight to Spaces; API bodies are small.
+	request_body {
+		max_size 1MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy api:4000 {
+		# Live updates (Server-Sent Events) must not be buffered.
+		flush_interval -1
+	}
+	log {
+		output stdout
+		format json
+		# No secrets in the access log: the Exotel callback secret in the path, query strings, auth headers.
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "^(.*/exotel/)[^/?]+([^?]*).*$" "${1}SECRET${2}"
+				request>headers>Authorization delete
+				request>headers>Cookie delete
+			}
+		}
+	}
+}

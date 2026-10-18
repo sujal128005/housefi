@@ -1,0 +1,11 @@
+{
+  "accessToken": "eyJhbGciOiJFZERTQSJ9...",
+  "refreshToken": "rt_2f9c...",
+  "expiresIn": 900,
+  "isNew": false,
+  "customer": {
+    "id": "cus_51aa",
+    "phone": "9876543210",
+    "name": "Priya Sharma"
+  }
+}

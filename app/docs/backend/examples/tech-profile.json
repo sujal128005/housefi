@@ -1,0 +1,20 @@
+{
+  "id": "tech_7f3a",
+  "phone": "9876500011",
+  "name": "Swathi Naidu",
+  "gender": "F",
+  "experienceYears": 5,
+  "skills": [
+    "PLUMBING",
+    "CLEANING"
+  ],
+  "city": "Hyderabad",
+  "pincode": "500034",
+  "areas": "Banjara Hills, Jubilee Hills, Ameerpet",
+  "vehicle": "Scooter · TS 08 CD 4521",
+  "verification": "APPROVED",
+  "correctionNote": null,
+  "online": true,
+  "rating": 4.9,
+  "jobsDone": 214
+}

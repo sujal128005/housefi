@@ -1,0 +1,145 @@
+name: App
+
+on:
+  pull_request:
+    paths: ['app/**', '.github/workflows/app.yml']
+  # Pull requests run the checks; pushes only on the main branch (iOS builds use macOS runners, which count 10x
+  # against GitHub's free minutes on a private repository).
+  push:
+    branches: [path1/customer-booking, main]
+    paths: ['app/**', '.github/workflows/app.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+
+# The app lives in app/; every command runs there.
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  checks:
+    name: Typecheck, tests, expo-doctor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test -- --ci
+      - run: npx expo-doctor
+
+  android:
+    name: Android build and launch check (emulator)
+    runs-on: ubuntu-latest
+    needs: checks
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - run: npx expo prebuild --platform android --no-install
+      - name: Install the Android NDK (with retries; downloads on hosted runners sometimes arrive corrupt)
+        run: |
+          NDK=$(sed -n 's/^ndkVersion = "\(.*\)"/\1/p' node_modules/react-native/gradle/libs.versions.toml)
+          NDK=${NDK:-27.1.12297006}
+          echo "NDK $NDK"
+          for i in 1 2 3; do
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK" > /dev/null && break
+            echo "retry $i"; rm -rf "$ANDROID_HOME/ndk/$NDK"; sleep 10
+          done
+          test -f "$ANDROID_HOME/ndk/$NDK/source.properties"
+      - name: Build release APK (debug-signed, JS bundled in)
+        working-directory: app/android
+        run: ./gradlew app:assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Open the app on an emulator (both languages, offline strip, no crash)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          working-directory: app
+          script: |
+            adb logcat -c
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            node tools/launch-check.mjs ci-screens/launch
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-app-screens
+          path: app/ci-screens
+
+  ios:
+    name: iOS simulator build
+    runs-on: macos-26
+    needs: checks
+    # A clean Release build compiles every native module from source; it took longer than an hour on the hosted runner.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npx expo prebuild --platform ios
+      - name: Xcode version and Swift package resolution
+        run: |
+          xcodebuild -version
+          xcodebuild -resolvePackageDependencies -workspace ios/Housefi.xcworkspace -scheme Housefi
+      - name: Boot an iPhone simulator
+        run: |
+          NAME=$(xcrun simctl list devices available -j | node -e "const d=JSON.parse(require('fs').readFileSync(0));const all=Object.values(d.devices).flat().filter(x=>x.name.startsWith('iPhone'));const p=all.find(x=>/^iPhone 1[6-9]( Pro)?$/.test(x.name))||all[all.length-1];console.log(p.name)")
+          echo "SIM_NAME=$NAME" >> "$GITHUB_ENV"
+          xcrun simctl boot "$NAME" || true
+          xcrun simctl bootstatus "$NAME" -b
+      - name: Build and install (Release, JS bundled in)
+        run: |
+          # expo run:ios builds and installs, then tries to open a dev-server link, which a Release build does not
+          # need (and which times out on CI). Success is judged by the build result, then the app is launched directly.
+          set +e
+          npx expo run:ios --configuration Release --device "$SIM_NAME" --no-bundler 2>&1 | tee ios-build.log
+          set -e
+          grep -q "Build Succeeded" ios-build.log
+          grep -q "Installing on" ios-build.log
+      - name: Launch and capture the first screens
+        run: |
+          xcrun simctl launch booted app.housefi.mobile
+          sleep 25
+          mkdir -p ios-screens
+          xcrun simctl io booted screenshot ios-screens/01-launch.png
+      - name: Show build errors
+        if: failure()
+        run: grep -nE "error:|BUILD FAILED|failed" ios-build.log | head -80 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-screens
+          path: |
+            app/ios-screens
+            app/ios-build.log

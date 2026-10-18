@@ -1,102 +1,39 @@
 # Housefi
 
-Native Android and iOS app for Housefi, a home-services platform with a **Customer** and a **Technician**
-interface in one app. This phase is **frontend first**: every backend-dependent feature runs against an in-app demo
-backend with clearly labelled synthetic data. Nothing connects to real authentication, SMS, payments or production APIs.
+Home services in Hyderabad: customers book a verified technician; technicians get jobs, quotes and payouts.
+This repository holds both halves. **Keep it private.**
 
-The real backend is being built separately against the contract in `src/services/api.ts`; its starter package is
-in [`docs/backend/`](docs/backend/README.md) (answers to the backend team's questions, OpenAPI, database schema,
-state machine, starter prompt).
-
-## Stack
-
-| Piece | Choice | Why |
+| Folder | What | Start here |
 |---|---|---|
-| App framework | Expo SDK 57 / React Native 0.86 (TypeScript) | Real native Android and iOS apps (no WebView, no PWA); Expo generates the native projects (`android/`, `ios/` are not committed) |
-| Navigation | Expo Router (native stack + tabs) | File-based routes in `src/app` |
-| Brand and illustrations | Finalized Housefi logo (`assets/brand`, source of every app icon and the splash); Housefi's own soft-3D illustrations (`assets/illustrations`, 81 rounded-square WebP tiles cut from the generated sheets by `tools/illustrations/cut_tiles.py`); a few code-drawn tiles (Material Design Icons, Apache 2.0) where an illustration is still to come | One look across both apps; about 1.2 MB in total |
-| Sound & vibration | expo-audio with Kenney "Interface Sounds" (CC0) in `assets/sounds`, expo-haptics | Felt and heard at key moments; one switch turns both off |
-| Device | expo-location (address and language from location), expo-image-picker (problem photos) | |
-| Fonts | Anek Latin (English) and Anek Telugu (Telugu), one family for both scripts | OFL, bundled |
-| Technician ID card | expo-screen-capture (Android secure window, iOS capture protection), react-native-qrcode-svg (QR on the existing SVG library), expo-crypto (random IDs and tokens), expo-image-manipulator (480 px profile photos) | Native protection, no extra servers |
-| Storage | AsyncStorage | Demo data and preferences stay on the device |
+| [`app/`](app/) | The Android and iOS app (Expo, React Native): customer and technician in one app | [`app/README.md`](app/README.md) |
+| [`backend/`](backend/) | The API server (NestJS, PostgreSQL with PostGIS, Redis), the database schema and migrations (`backend/prisma/`), and the deploy kit | [`backend/README.md`](backend/README.md), then [`backend/docs/DEPLOY.md`](backend/docs/DEPLOY.md) |
 
-## How the code is organised
+The website (housefi.tech, with the payment page `/pay/` and the Technician ID check page `/t/`) is in its own
+repository, `sujal128005/housefi-website`, because it publishes itself to GitHub Pages from there.
 
-```
-src/
-  app/            screens (Expo Router)
-    (tabs)/       customer: Home, Bookings, Help, Account
-    book/         customer booking: snap, problem, voice, photos, address, when, confirm, confirmed
-    booking/      booking hub (live), receipt, rating, assigned technician's ID card
-    tech/         technician: setup (photo, legal name), verification, (tabs)/ Home, Jobs, Earnings, Profile, offer, job,
-                  quote, id-card (My Housefi ID)
-    verify/       verification page a Technician ID card's QR code opens
-  domain/         types and pure rules (validation, slots, quotes, earnings, lifecycle, language from location,
-                  technician identity: ID format and generation, verification display)
-  data/           DEMO catalogue, prices and fictional technicians
-  services/
-    api.ts        the backend contract the screens use (customer, technician, AI, notifications)
-    mock/         the demo backend that implements it (latency, OTP, matching, offers, price check, failures)
-    feedback.ts   sounds and vibration
-  state/          app state (language, interface, both sessions) and the booking draft
-  i18n/           English and Telugu strings and formatting
-  ui/             shared components (incl. live alerts for quotes and job offers)
-tools/            Android emulator journey driver
-docs/             reports, screenshots, backend handoff
-```
+How they connect: the app calls the API at `https://api.housefi.tech/v1` and opens `https://housefi.tech/pay/` for
+Razorpay payments (`app/docs/backend/INTEGRATION.md`). The API contract is `backend/docs/openapi.yaml`; a contract
+test keeps it in step with the server.
 
-**Connecting the real backend later:** write an HTTP implementation of `Backend` in `src/services/api.ts` and pass
-it to `BackendProvider` in `src/app/_layout.tsx` instead of `createMockBackend`. Screens do not change.
+**Launching:** [`LAUNCH-GUIDE.md`](LAUNCH-GUIDE.md) lists, in order, every account, key and store step.
 
-## Run it
-
-Requirements: Node 20+, Android SDK with an emulator (and JDK 17), or macOS with Xcode for iOS.
+## Working on it
 
 ```bash
-npm install
-npx expo run:android      # builds the native Android app and starts Metro
-npx expo run:ios          # macOS only
-npm test                  # unit tests
-npm run typecheck
-npm run lint
+# API (details and the no-Docker option: backend/README.md)
+cd backend && npm install
+npm run setup             # creates .env with local secrets
+docker compose up -d      # Postgres + PostGIS, Redis, S3Mock
+npm run db:deploy && npm run db:seed && npm run dev
+
+# App against that API
+cd app && npm install
+EXPO_PUBLIC_HOUSEFI_API_URL=http://localhost:4000/v1 npx expo start
 ```
 
-**Quick, lag-free look in a browser** (review aid only; the product is the native app):
+Each folder has its own `package.json`, tests and checks (`npm test`, `npm run typecheck`, `npm run lint`). GitHub
+runs them on every push that touches the folder (`.github/workflows/app.yml`, `backend.yml`), plus a CodeQL
+security scan of both.
 
-```bash
-npx expo start --web
-```
-
-then open http://localhost:8081 and use the browser's phone-size view (Chrome DevTools → device toolbar).
-
-End-to-end journey on a running Android emulator, customer and technician (screenshots into `docs/screens/app/`):
-
-```bash
-node tools/app-journey.mjs en
-node tools/app-journey.mjs te
-node tools/recovery-check.mjs   # offline strip and the branded error screen (after a journey)
-```
-
-## Trying both interfaces on one phone
-
-Customer and technician use the same demo backend, so a booking made as a customer reaches the technician app:
-
-1. As a customer, book and pay the ₹49 visit fee.
-2. **Account → Switch to technician app**, sign in with another number (the code shows on screen), fill the
-   profile; it is approved after a few seconds. Go **online**.
-3. The booking rings in as a job offer. Accept, start the trip, arrive, get the customer's code (**Demo: get the
-   customer's code**), send a quote (e.g. ₹120 labour + ₹200 material).
-4. **Profile → Switch to customer app**: the quote pops up after the AI price check. Approve, ask for a lower
-   price, or decline; pay online or in cash (the technician confirms cash).
-
-With no technician online, a simulated technician takes the booking and the visit runs by itself
-(**Booking status → Demo: simulate outcome** skips ahead). **Home → Try a practice job** gives a technician a
-simulated customer.
-
-## Demo mode
-
-- A **DEMO** marker is on every screen; simulated outcomes say so. No money moves, no SMS is sent, nobody visits.
-- **Account / Profile → Demo settings**: technician matching (quick, delayed, none), next payment (succeeds,
-  pending, fails), extra work during repair, how the practice customer answers a quote, technician profile review
-  (approve, or ask for one correction), and forced network / slot-taken failures.
+Secrets never go in this repository: the server's keys live only in `backend/.env.production` on the server
+(`backend/docs/DEPLOY.md` step 4), and the app holds no secrets at all.

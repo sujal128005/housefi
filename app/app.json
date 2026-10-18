@@ -1,0 +1,113 @@
+{
+  "expo": {
+    "name": "Housefi",
+    "slug": "housefi",
+    "scheme": "housefi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.housefi.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "app.housefi.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A3CFD",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "softwareKeyboardLayoutMode": "resize",
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Housefi uses your location to fill in your address, and for technicians to receive nearby jobs and show customers when they are on the way."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Housefi lets you add photos of the problem, and technicians upload their profile photo.",
+          "cameraPermission": "Housefi uses the camera for photos of the problem, and for the technician's profile photo.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 150,
+          "resizeMode": "contain",
+          "backgroundColor": "#FAF9F5"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Housefi uses the microphone to record a voice note describing the problem.",
+          "recordAudioAndroid": true,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-asset",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Housefi uses the camera to scan the QR code on a technician's Aadhaar card, and for photos.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0A3CFD"
+        }
+      ],
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "GOOGLE_MAPS_ANDROID_API_KEY"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "backgroundColor": "#FAF9F5",
+    "owner": "sujal128005s-team",
+    "extra": {
+      "eas": {
+        "projectId": "4b5489ce-99b4-42bd-892a-4a02a8369a11"
+      }
+    }
+  }
+}

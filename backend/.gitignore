@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+.data/
+
+node_modules/
+dist/
+build/
+coverage/
+.env
+dump.rdb
