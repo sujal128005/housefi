@@ -85,10 +85,12 @@ export interface VisitTime {
 
 export interface VoiceNote {
   readonly durationSec: number;
-  /** What the (demo) AI understood from the recording; added to the problem description. */
+  /** What the AI understood from the recording; added to the problem description. */
   readonly transcript: string;
-  /** Demo recordings are simulated; a real build stores a local file uri here. */
-  readonly simulated: true;
+  /** The uploaded recording (sent with the booking). */
+  readonly audioId?: string | null;
+  /** The recording on this phone, before booking. */
+  readonly uri?: string;
 }
 
 export interface Photo {
@@ -258,8 +260,10 @@ export interface Booking {
   readonly technician: AssignedTechnician | null;
   /** 4-digit code the customer tells the technician at the door (starts the visit). */
   readonly arrivalOtp: string;
-  /** Live estimate while the technician travels, in (demo) minutes. */
+  /** Live estimate while the technician travels, in minutes. */
   readonly etaMin: number | null;
+  /** Where the technician is, only while on the way (EN_ROUTE) and only a recent point. */
+  readonly technicianLocation?: { readonly lat: number; readonly lng: number; readonly accuracyM: number | null; readonly at: number } | null;
   readonly visitPayment: Payment;
   readonly quote: Quote | null;
   /** Additional work found during the repair, waiting for approval. */
@@ -383,6 +387,8 @@ export interface TechProfile extends TechProfileInput {
   /** Average customer stars; null until the first rating. */
   readonly rating: number | null;
   readonly jobsDone: number;
+  /** Aadhaar checked offline from the Secure QR on the card (only the last 4 digits are kept); null until then. */
+  readonly aadhaar?: { readonly last4: string; readonly nameMatches: boolean; readonly verifiedAt: number } | null;
 }
 
 export interface TechSession {

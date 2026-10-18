@@ -11,8 +11,10 @@ import { Image, Linking, LogBox, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Locale } from '../i18n/format';
 import { I18nProvider } from '../i18n/I18n';
-import { backendChoiceFromEnv, createBackend } from '../services/createBackend';
-import { BackendProvider } from '../services/ServicesProvider';
+import { apiUrlFromEnv, createBackend } from '../services/createBackend';
+import { createCheckout } from '../services/checkout';
+import { useNotificationTaps, usePushRegistration } from '../services/push';
+import { BackendProvider, useBackend } from '../services/ServicesProvider';
 import { deviceStore, secretStore } from '../services/storage';
 import { AppStateProvider, useAppState } from '../state/AppState';
 import { BookingDraftProvider } from '../state/BookingDraft';
@@ -60,14 +62,16 @@ export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
 export default function RootLayout() {
   // App fonts and the two icon fonts load before the splash screen hides, so no icon pops in late.
   const [fontsLoaded, fontError] = useFonts({ ...FONT_ASSETS, ...Ionicons.font, ...MaterialCommunityIcons.font });
-  // Technician IDs and verification tokens come from the system's cryptographic random source.
-  // Demo backend unless the build explicitly selects the live one (services/createBackend.ts); every call has a time
-  // limit (services/timeouts.ts), so no screen can wait for ever.
-  const backend = useMemo(() => createBackend(backendChoiceFromEnv({
+  // The live Housefi API (services/createBackend.ts); session credentials in the secret store, payments through
+  // Razorpay's checkout page, and a time limit on every call (services/timeouts.ts), so no screen can wait for ever.
+  const backend = useMemo(() => createBackend(apiUrlFromEnv({
     // Written out: Expo inlines EXPO_PUBLIC_* variables only where they are named literally.
-    EXPO_PUBLIC_HOUSEFI_BACKEND: process.env.EXPO_PUBLIC_HOUSEFI_BACKEND,
     EXPO_PUBLIC_HOUSEFI_API_URL: process.env.EXPO_PUBLIC_HOUSEFI_API_URL,
-  }), { store: deviceStore, randomBytes: getRandomBytes }), []);
+  }), {
+    secrets: secretStore,
+    randomBytes: getRandomBytes,
+    openCheckout: createCheckout(process.env.EXPO_PUBLIC_HOUSEFI_CHECKOUT_URL || undefined),
+  }), []);
   // The service catalogue comes from the backend; the bundled list stays as the fallback if this fails.
   useEffect(() => {
     void Promise.all([backend.catalog.categories(), backend.catalog.services()])
@@ -89,8 +93,12 @@ export default function RootLayout() {
 const SLOW_START_MS = 10_000;
 
 function Shell({ fontsReady }: { readonly fontsReady: boolean }) {
-  const { ready, failed, retryStartup, prefs, deviceLocale } = useAppState();
+  const { ready, failed, retryStartup, prefs, deviceLocale, session, techSession } = useAppState();
+  const backend = useBackend();
   const show = ready && fontsReady;
+  // Push: this phone receives the signed-in accounts' updates; a tapped notification opens its booking or job.
+  usePushRegistration(backend, session?.token ?? null, techSession?.token ?? null);
+  useNotificationTaps(prefs.role, show);
   const [slow, setSlow] = useState(false);
   useEffect(() => {
     if (show) return;

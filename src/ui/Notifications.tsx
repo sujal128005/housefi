@@ -26,6 +26,8 @@ const ART: Record<NotificationKind, ArtName> = {
   PAYMENT_DUE: 'money', BOOKING_COMPLETED: 'party', BOOKING_CANCELLED: 'package', NO_TECHNICIAN: 'no_results', JOB_OFFER: 'job_offer',
   QUOTE_APPROVED: 'check', QUOTE_REVISION: 'memo', QUOTE_DECLINED: 'package', EXTRA_APPROVED: 'check', EXTRA_DECLINED: 'package',
   PAYMENT_RECEIVED: 'pay_success', JOB_CANCELLED: 'package', PROFILE_APPROVED: 'verify_ok', PROFILE_NEEDS_CORRECTION: 'verify_fix',
+  PAY_REMINDER: 'pay_due', BOOKING_REMINDER: 'alarm', JOB_REMINDER: 'alarm', QUOTE_REMINDER: 'hourglass', RATE_REMINDER: 'star',
+  PROFILE_SUSPENDED: 'locked', PROFILE_REINSTATED: 'verify_ok', PROFILE_REJECTED: 'verify_fix',
 };
 
 /** Notification text in the reader's language. */

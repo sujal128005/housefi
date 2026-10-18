@@ -53,7 +53,6 @@ export default function Account() {
           right={<Switch value={prefs.feedback} onValueChange={setFeedback} trackColor={{ true: colors.blue, false: colors.lineStrong }} thumbColor={colors.surface}
             accessibilityLabel={t('account.feedback')} testID="account-feedback-switch" />} />
         <Divider />
-        <ListRow icon="flask-outline" title={t('account.demo')} onPress={() => router.push('/demo')} testID="account-demo" />
         <Divider />
         <ListRow icon="construct-outline" title={t('account.switch')} testID="account-switch" onPress={() => {
           setRole('TECHNICIAN');

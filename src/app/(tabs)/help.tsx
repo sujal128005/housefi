@@ -1,4 +1,4 @@
-// Help: chat with the Housefi assistant first (demo AI), call customer care if it can't help, and common questions.
+// Help: chat with the Housefi assistant first (AI), call customer care if it can't help, and common questions.
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -7,7 +7,9 @@ import { Art3D } from '../../illustrations/Art3D';
 import { useI18n, type StringKey } from '../../i18n/I18n';
 import { openWeb } from '../../services/links';
 import { colors, GUTTER, radius, space } from '../../theme/tokens';
-import { Card, DemoPill, Divider, Icon, ListRow, NotInDemoSheet, Pill, Screen, Tap, Txt, Wash } from '../../ui';
+import { Card, DemoPill, Divider, Icon, ListRow, Pill, Screen, Tap, Txt, Wash } from '../../ui';
+import { useCareCall } from '../../ui/useMaskedCall';
+import { useSession } from '../../state/AppState';
 
 const FAQ: readonly (readonly [StringKey, StringKey])[] = [
   ['help.q1', 'help.a1'],
@@ -21,7 +23,8 @@ export default function Help() {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState<number | null>(0);
-  const [call, setCall] = useState(false);
+  const session = useSession();
+  const care = useCareCall(session.token);
   return (
     <Screen
       testID="help"
@@ -35,7 +38,7 @@ export default function Help() {
       <Tap onPress={() => router.push('/support')} testID="help-chat" accessibilityLabel={t('help.chat')} scale={0.98} haptic>
         <Wash name="lavender" style={styles.hero}>
           <View style={styles.flex}>
-            <Pill label={t('support.demoAi')} tone="demo" icon="sparkles" />
+            <Pill label={t('support.demoAi')} tone="info" icon="sparkles" />
             <Txt variant="title2">{t('help.chat')}</Txt>
             <Txt variant="footnote" color="inkMuted">{t('help.chatSub')}</Txt>
             <View style={styles.cta}>
@@ -46,7 +49,7 @@ export default function Help() {
           <Art3D name="robot" size={104} float />
         </Wash>
       </Tap>
-      <ListRow icon="call-outline" title={t('help.contact')} subtitle={t('help.contactSub')} onPress={() => setCall(true)} testID="help-call" />
+      <ListRow icon="call-outline" title={t('help.contact')} subtitle={t('help.contactSub')} onPress={() => void care.call()} testID="help-call" />
       <Txt variant="title3" heading>{t('help.faq')}</Txt>
       <Card style={styles.faq}>
         {FAQ.map(([q, a], i) => (
@@ -62,7 +65,6 @@ export default function Help() {
       </Card>
       <ListRow icon="document-text-outline" title={t('account.legal')} onPress={() => router.push('/legal')} testID="help-legal" />
       <ListRow icon="globe-outline" title={t('links.website')} subtitle="housefi.tech" onPress={() => openWeb()} testID="help-website" />
-      <NotInDemoSheet visible={call} title={t('help.contact')} onClose={() => setCall(false)} />
     </Screen>
   );
 }

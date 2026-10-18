@@ -9,7 +9,7 @@ import { canCancel, cancelRefundsVisitFee, canReschedule, DEMO_TIMING, isVisitLi
 import type { Booking, CancelReason } from '../../domain/types';
 import { Anim3D, type AnimName } from '../../illustrations/Anim3D';
 import { Art3D, type ArtName } from '../../illustrations/Art3D';
-import { TrackingMap } from '../../illustrations/TrackingMap';
+import { LiveMap } from '../../ui/LiveMap';
 import { formatHour, formatRupees } from '../../i18n/format';
 import { useI18n, type StringKey } from '../../i18n/I18n';
 import type { DemoOutcome } from '../../services/api';
@@ -108,7 +108,9 @@ export default function BookingHub() {
   const step = b.status === 'MATCHING' ? Math.max(1, matchingStep((now - lastAt) / 1000)) : 4;
   const live = isVisitLive(b.status);
   const showOtp = ['ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(b.status);
-  const mapProgress = b.etaMin !== null ? 1 - b.etaMin / DEMO_TIMING.travelShownMin : 0;
+  const mapProgress = b.etaMin !== null ? Math.max(0, Math.min(1, 1 - b.etaMin / DEMO_TIMING.travelShownMin)) : 0;
+  const techAt = b.technicianLocation ? { lat: b.technicianLocation.lat, lng: b.technicianLocation.lng } : null;
+  const homeAt = b.address.lat !== undefined && b.address.lng !== undefined ? { lat: b.address.lat, lng: b.address.lng } : null;
 
   const act = async (f: () => Promise<Booking>, okMsg?: string) => {
     setBusy(true);
@@ -160,7 +162,7 @@ export default function BookingHub() {
         ) : null}
         {b.status === 'EN_ROUTE' ? (
           <View style={styles.map}>
-            <TrackingMap progress={mapProgress} width={width - GUTTER * 2} />
+            <LiveMap technician={techAt} home={homeAt} progress={mapProgress} width={width - GUTTER * 2} />
             <View style={styles.eta}>
               <Txt variant="caption" color="onNavy">{t('hub.eta')}</Txt>
               <Txt variant="title1" color="onNavy" testID="eta">{t('hub.etaMin', { min: b.etaMin ?? 0 })}</Txt>
@@ -192,7 +194,6 @@ export default function BookingHub() {
                     : b.status === 'CLOSED_NO_REPAIR' ? t(closedBody(b))
                     : hero ? t(hero.body) : ''}
         </Txt>
-        {b.status === 'EN_ROUTE' ? <Txt variant="caption" color="demo" align="center">{t('hub.spedUp')}</Txt> : null}
       </View>
 
       {/* status-specific actions */}

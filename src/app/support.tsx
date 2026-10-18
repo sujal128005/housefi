@@ -1,5 +1,5 @@
 // AI support chat (demo assistant): quick replies, typing indicator, knows the live booking; hands over to a person
-// ("Call customer care") when it cannot help. The real AI and calling arrive with the backend.
+// ("Call customer care") when it cannot help.
 import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Art3D } from '../illustrations/Art3D';
@@ -9,7 +9,8 @@ import { useBackend } from '../services/ServicesProvider';
 import { useSession } from '../state/AppState';
 import { fontFamily } from '../theme/fonts';
 import { colors, GUTTER, radius, space } from '../theme/tokens';
-import { Banner, Button, Header, Icon, NotInDemoSheet, Pill, Screen, Tap, Txt } from '../ui';
+import { Banner, Button, Header, Icon, Pill, Screen, Tap, Txt } from '../ui';
+import { useCareCall } from '../ui/useMaskedCall';
 import { Appear } from '../ui/motion';
 
 interface Msg {
@@ -27,7 +28,7 @@ export default function Support() {
   const [offerHuman, setOfferHuman] = useState(false);
   const [typing, setTyping] = useState(false);
   const [text, setText] = useState('');
-  const [call, setCall] = useState(false);
+  const care = useCareCall(session.token);
   const scroll = useRef<ScrollView>(null);
   const nextId = useRef(1);
 
@@ -77,7 +78,7 @@ export default function Support() {
             <Icon name="send" size={20} color="onNavy" />
           </Tap>
         </View>
-        <Banner tone="demo" text={t('support.demo')} />
+        <Banner tone="info" text={t('support.demo')} />
         </>
       }
     >
@@ -85,7 +86,7 @@ export default function Support() {
         <View style={styles.botHead}>
           <Art3D name="robot" size={72} float />
           <Txt variant="title3">{t('support.name')}</Txt>
-          <Pill label={t('support.demoAi')} tone="demo" icon="sparkles" />
+          <Pill label={t('support.demoAi')} tone="info" icon="sparkles" />
         </View>
         {msgs.map((m) => (
           <Appear key={m.id} from={8} style={[styles.bubbleRow, m.from === 'me' && styles.mine]}>
@@ -104,12 +105,11 @@ export default function Support() {
                 <Txt variant="bodyStrong">{t('support.humanTitle')}</Txt>
                 <Txt variant="footnote" color="inkMuted">{t('support.humanSub')}</Txt>
               </View>
-              <Button label={t('support.call')} icon="call" size="sm" onPress={() => setCall(true)} testID="support-call" />
+              <Button label={t('support.call')} icon="call" size="sm" onPress={() => void care.call()} loading={care.calling} testID="support-call" />
             </View>
           </Appear>
         ) : null}
       </ScrollView>
-      <NotInDemoSheet visible={call} title={t('support.call')} onClose={() => setCall(false)} />
     </Screen>
   );
 }

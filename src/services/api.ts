@@ -1,6 +1,6 @@
-// The contract between the screens and "the backend". Today the only implementation is the in-app mock
-// (services/mock); the real backend will be a second implementation of these same interfaces (an HTTP client), so
-// screens never change when it arrives.
+// The contract between the screens and "the backend". The app talks to the live Housefi API through the HTTP client
+// (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
+// build of the app uses it.
 import type {
   Address, AddressInput, Booking, CancelReason, Category, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo,
   ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession,
@@ -63,8 +63,10 @@ export interface OtpChallenge {
   readonly phone: string;
   readonly resendAfterSec: number;
   readonly expiresAt: number;
-  /** Only the demo backend returns the code (it stands in for the SMS). Always null from a real backend. */
+  /** Only the test double returns the code. Always null from the live backend. */
   readonly demoCode: string | null;
+  /** One of the team's demo numbers: no SMS is sent; the team's fixed code signs in. */
+  readonly demoAccount: boolean;
 }
 
 export interface AuthApi {
@@ -133,8 +135,13 @@ export interface BookingApi {
    * customer's own and a technician is assigned (the same answer for other people's bookings, so nothing leaks).
    */
   technicianCard(token: string, bookingId: string): Promise<TechIdCard>;
-  /** Live updates for one booking (polling today; a socket later). Returns an unsubscribe function. */
+  /** Live updates for one booking. Returns an unsubscribe function. */
   watch(token: string, id: string, onChange: (b: Booking) => void, onError?: (e: unknown) => void): () => void;
+  /**
+   * A masked call to the assigned technician: the number to dial (Housefi's number, which connects to the technician
+   * without either side seeing the other's number). CONFLICT outside the visit.
+   */
+  call(token: string, id: string): Promise<{ readonly dialNumber: string }>;
 }
 
 /** What a notification is about; the app turns it into text in the person's language (key "notif.<kind>"). */
@@ -144,7 +151,10 @@ export type NotificationKind =
   | 'BOOKING_CANCELLED' | 'NO_TECHNICIAN'
   // technician
   | 'JOB_OFFER' | 'QUOTE_APPROVED' | 'QUOTE_REVISION' | 'QUOTE_DECLINED' | 'EXTRA_APPROVED' | 'EXTRA_DECLINED' | 'PAYMENT_RECEIVED'
-  | 'JOB_CANCELLED' | 'PROFILE_APPROVED' | 'PROFILE_NEEDS_CORRECTION';
+  | 'JOB_CANCELLED' | 'PROFILE_APPROVED' | 'PROFILE_NEEDS_CORRECTION'
+  // reminders and account notices
+  | 'PAY_REMINDER' | 'BOOKING_REMINDER' | 'JOB_REMINDER' | 'QUOTE_REMINDER' | 'RATE_REMINDER' | 'PROFILE_SUSPENDED'
+  | 'PROFILE_REINSTATED' | 'PROFILE_REJECTED';
 
 export interface AppNotification {
   readonly id: string;
@@ -193,12 +203,27 @@ export interface LocalTopProblems {
   readonly items: readonly LocalProblem[];
 }
 
-/** AI features. Dummy in this phase (rule-based / canned), real models later. */
+/** A recorded voice note on the phone. */
+export interface Recording {
+  /** Local file of the recording (m4a). */
+  readonly uri: string;
+  readonly durationSec: number;
+}
+
+export interface Transcript {
+  /** What was said; empty when it could not be written down (the voice note is still kept as audio). */
+  readonly text: string;
+  /** The uploaded recording, to attach to the booking. */
+  readonly audioId: string | null;
+}
+
+/** AI features (customer app): the model answers, with Housefi's rules as the fallback on the server. */
 export interface AiApi {
-  /** The 6 problems most booked around this PIN code right now (AI-ranked). */
-  topProblems(pincode: string | null, area: string | null): Promise<LocalTopProblems>;
-  classifyPhoto(photo: Photo): Promise<PhotoSuggestion>;
-  transcribe(durationSec: number, serviceId: string | null, locale: 'en' | 'te'): Promise<string>;
+  /** The 6 problems most booked around this PIN code right now. */
+  topProblems(token: string, pincode: string | null, area: string | null): Promise<LocalTopProblems>;
+  classifyPhoto(token: string, photo: Photo): Promise<PhotoSuggestion>;
+  /** Uploads the recording and writes down what was said (Telugu or English; up to 30 s). */
+  transcribe(token: string, recording: Recording, serviceId: string | null, locale: 'en' | 'te'): Promise<Transcript>;
   chat(token: string, message: string, locale: 'en' | 'te'): Promise<ChatReply>;
 }
 
@@ -260,6 +285,16 @@ export interface TechApi {
   /** CUSTOMER_UNAVAILABLE and CANNOT_COMPLETE close the visit; the others alert support. */
   report(token: string, id: string, issue: TechIssue, note: string): Promise<Job>;
   earnings(token: string): Promise<Earnings>;
+  /**
+   * Verifies the technician's Aadhaar offline from the Secure QR code on the card (the text the camera read). Stores only
+   * the last 4 digits and whether the name matches. VALIDATION for a QR that is not a signed Aadhaar Secure QR; CONFLICT
+   * when that Aadhaar is already used by another account.
+   */
+  verifyAadhaar(token: string, qr: string): Promise<{ readonly last4: string; readonly nameMatches: boolean; readonly verifiedAt: number }>;
+  /** A masked call to the customer of an assigned job (Housefi's number connects to them). */
+  callCustomer(token: string, jobId: string): Promise<{ readonly dialNumber: string }>;
+  /** The phone's position while online or on a job (about every minute); the customer sees it only while on the way. */
+  sendLocation(token: string, position: { readonly lat: number; readonly lng: number; readonly accuracy?: number }): Promise<void>;
   watchJob(token: string, id: string, onChange: (j: Job) => void, onError?: (e: unknown) => void): () => void;
   readonly notifications: NotificationApi;
 }
@@ -294,6 +329,12 @@ export interface DemoControls {
   reset(): Promise<void>;
 }
 
+/** Customer care, for customers and technicians alike. */
+export interface SupportApi {
+  /** Asks Housefi to call this person back (about a booking, when given). */
+  callback(token: string, bookingId: string | null, reason?: string): Promise<void>;
+}
+
 /** Housefi's public verification page for a scanned Technician ID card. No sign-in; minimal data. */
 export interface VerifyApi {
   /** NOT_FOUND for an unknown or withdrawn token. */
@@ -310,6 +351,7 @@ export interface Backend {
   readonly notifications: NotificationApi;
   readonly tech: TechApi;
   readonly verify: VerifyApi;
+  readonly support: SupportApi;
   readonly demo: DemoControls | null;
 }
 

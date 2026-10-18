@@ -16,20 +16,21 @@ import { feedback } from '../../../services/feedback';
 import { openWeb } from '../../../services/links';
 import { useAppState, useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, space } from '../../../theme/tokens';
-import { Banner, Button, Card, Chip, ConfirmSheet, DemoPill, Divider, ErrorBanner, Field, Icon, ListRow, NotInDemoSheet, Pill, Screen, Sheet, Txt, Wash, useToast } from '../../../ui';
+import { Banner, Button, Card, Chip, ConfirmSheet, DemoPill, Divider, ErrorBanner, Field, Icon, ListRow, Pill, Screen, Sheet, Txt, Wash, useToast } from '../../../ui';
 import { TechPhoto, VerificationPill } from '../../../ui/TechIdentity';
+import { useCareCall } from '../../../ui/useMaskedCall';
 
 export default function TechProfile() {
   const { t, l, locale } = useI18n();
   const insets = useSafeAreaInsets();
   const session = useTechSession();
+  const care = useCareCall(session.token);
   const { techSignOut, setRole, prefs, setFeedback, updateTech } = useAppState();
   const backend = useBackend();
   /** Labels about simulated backend outcomes show only with the demo backend. */
   const isDemo = useIsDemo();
   const toast = useToast();
   const [confirm, setConfirm] = useState(false);
-  const [support, setSupport] = useState(false);
   const [fix, setFix] = useState(false);
   const [fixKind, setFixKind] = useState<'NAME' | 'PHOTO'>('NAME');
   const [fixNote, setFixNote] = useState('');
@@ -139,9 +140,8 @@ export default function TechProfile() {
           right={<Switch value={prefs.feedback} onValueChange={setFeedback} trackColor={{ true: colors.blue, false: colors.lineStrong }} thumbColor={colors.surface}
             accessibilityLabel={t('account.feedback')} />} />
         <Divider />
-        <ListRow icon="headset-outline" title={t('tprofile.support')} subtitle={t('tprofile.supportSub')} onPress={() => setSupport(true)} testID="tprofile-support" />
+        <ListRow icon="headset-outline" title={t('tprofile.support')} subtitle={t('tprofile.supportSub')} onPress={() => void care.call()} testID="tprofile-support" />
         <Divider />
-        <ListRow icon="flask-outline" title={t('account.demo')} onPress={() => router.push('/demo')} testID="tprofile-demo" />
         <Divider />
         <ListRow icon="home-outline" title={t('tprofile.switch')} testID="tprofile-switch" onPress={() => {
           setRole('CUSTOMER');
@@ -173,7 +173,6 @@ export default function TechProfile() {
           <Button label={t('id.correctionSend')} icon="send" onPress={() => void sendFix()} loading={fixBusy} disabled={fixNote.trim().length < 3} testID="correction-send" />
         </View>
       </Sheet>
-      <NotInDemoSheet visible={support} title={t('tprofile.support')} onClose={() => setSupport(false)} />
       <ConfirmSheet visible={confirm} title={t('account.signOutTitle')} body={t('tprofile.signOutBody')} icon="log-out-outline" confirmLabel={t('account.signOut')}
         confirmVariant="danger" onCancel={() => setConfirm(false)} onConfirm={() => {
           setConfirm(false);

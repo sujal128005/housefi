@@ -21,12 +21,12 @@ describe('architecture', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('only services/createBackend.ts builds the demo backend', () => {
+  it('no app code builds the in-memory test backend (the app talks to the live API only)', () => {
     const src = join(__dirname, '..');
     const builders = files(src)
       .filter((f) => !f.includes('__tests__') && !f.includes(join('services', 'mock')))
       .filter((f) => /createMockBackend\(/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(src.length + 1).replace(/\\/g, '/'));
-    expect(builders).toEqual(['services/createBackend.ts']);
+    expect(builders).toEqual([]);
   });
 });

@@ -8,8 +8,8 @@ import { useI18n } from '../../i18n/I18n';
 import { useBackend, useIsDemo } from '../../services/ServicesProvider';
 import { useAppState } from '../../state/AppState';
 import { authFlow } from '../../state/authFlow';
-import { colors, space } from '../../theme/tokens';
-import { Banner, Button, ErrorBanner, Field, Header, NotInDemoSheet, Pill, Screen, Tap, Txt } from '../../ui';
+import { space } from '../../theme/tokens';
+import { Banner, Button, ErrorBanner, Field, Header, Pill, Screen, Tap, Txt } from '../../ui';
 
 /** "9876543210" -> "98765 43210" while typing; a pasted or autofilled "+91 98765 43210" becomes the same. */
 function formatTyping(raw: string): string {
@@ -28,7 +28,6 @@ export default function PhoneSignIn() {
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [social, setSocial] = useState<string | null>(null);
 
   const digits = value.replace(/\D/g, '');
   const phone = normalizePhone(digits);
@@ -40,7 +39,8 @@ export default function PhoneSignIn() {
     setBusy(true);
     setError(null);
     try {
-      const challenge = await backend.auth.requestOtp(phone);
+      // Customer and technician accounts are separate: the code is for the account this app section signs in to.
+      const challenge = await (asTech ? backend.tech.auth.requestOtp(phone) : backend.auth.requestOtp(phone));
       authFlow.set(challenge);
       router.push('/auth/otp');
     } catch (e) {
@@ -79,22 +79,12 @@ export default function PhoneSignIn() {
       />
       {isDemo ? <Banner tone="demo" text={t('auth.phone.demo')} /> : null}
       <ErrorBanner error={error} />
-      <View style={styles.orRow}>
-        <View style={styles.rule} />
-        <Txt variant="footnote" color="inkMuted">{t('auth.phone.or')}</Txt>
-        <View style={styles.rule} />
-      </View>
-      <View style={styles.socialRow}>
-        <Button label="Google" icon="logo-google" variant="outline" size="md" tag={t('common.soon')} onPress={() => setSocial('Google')} style={styles.flex} />
-        <Button label="Apple" icon="logo-apple" variant="outline" size="md" tag={t('common.soon')} onPress={() => setSocial('Apple')} style={styles.flex} />
-      </View>
       <View style={styles.terms}>
         <Txt variant="footnote" color="inkMuted" align="center">{t('auth.phone.terms')}</Txt>
         <Tap onPress={() => router.push('/legal')} style={styles.termsLink} accessibilityRole="link" accessibilityLabel={t('auth.phone.readTerms')} testID="read-terms">
           <Txt variant="label" color="blue">{t('auth.phone.readTerms')}</Txt>
         </Tap>
       </View>
-      <NotInDemoSheet visible={social !== null} title={social ?? undefined} onClose={() => setSocial(null)} />
     </Screen>
   );
 }
@@ -103,9 +93,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   art: { alignItems: 'center', marginTop: -space.md },
   roleTag: { alignItems: 'flex-start' },
-  orRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  rule: { flex: 1, height: 1, backgroundColor: colors.line },
-  socialRow: { flexDirection: 'row', gap: space.md },
   terms: { alignItems: 'center', gap: 2 },
   termsLink: { minHeight: 44, justifyContent: 'center', paddingHorizontal: space.sm },
 });

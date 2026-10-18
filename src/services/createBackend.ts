@@ -1,31 +1,29 @@
-// Which backend the app talks to, chosen in one place. The demo backend is the default (this phase). The live
-// backend is chosen explicitly at build time (EXPO_PUBLIC_HOUSEFI_BACKEND=live, EXPO_PUBLIC_HOUSEFI_API_URL=https://...)
-// and is never replaced by the demo silently: until the HTTP client is written against the confirmed contract,
-// asking for "live" fails at start (the branded error screen), so simulated data can never pass for real data.
+// The app talks to the live Housefi API only. The address comes from the build (EXPO_PUBLIC_HOUSEFI_API_URL), defaulting
+// to production; a local development server can be used with http://localhost (or 10.0.2.2 from the Android emulator).
+// There is no demo mode: the team's demo accounts are real accounts on the server (DEMO_PHONES), with simulated payments.
 import type { Backend, KeyValueStore } from './api';
 import type { RandomBytes } from '../domain/identity';
-import { createMockBackend } from './mock/MockBackend';
+import type { CheckoutOrder, CheckoutOutcome } from './http/HttpBackend';
+import { createHttpBackend } from './http/HttpBackend';
 import { withTimeouts } from './timeouts';
 
-export type BackendChoice = { readonly kind: 'demo' } | { readonly kind: 'live'; readonly baseUrl: string };
+export const DEFAULT_API_URL = 'https://api.housefi.tech/v1';
 
 export class BackendConfigError extends Error {}
 
-/** Reads the build-time choice. Anything other than an explicit, complete "live" setting is the demo backend. */
-export function backendChoiceFromEnv(env: Record<string, string | undefined>): BackendChoice {
-  const kind = (env.EXPO_PUBLIC_HOUSEFI_BACKEND ?? 'demo').trim().toLowerCase();
-  if (kind === 'demo' || kind === '') return { kind: 'demo' };
-  if (kind === 'live') {
-    const baseUrl = (env.EXPO_PUBLIC_HOUSEFI_API_URL ?? '').trim();
-    if (!baseUrl) throw new BackendConfigError('EXPO_PUBLIC_HOUSEFI_API_URL is required for the live backend');
-    return { kind: 'live', baseUrl };
-  }
-  throw new BackendConfigError(`Unknown EXPO_PUBLIC_HOUSEFI_BACKEND "${kind}" (use demo or live)`);
+/** The API address from the build settings. */
+export function apiUrlFromEnv(env: Record<string, string | undefined>): string {
+  const url = (env.EXPO_PUBLIC_HOUSEFI_API_URL ?? '').trim() || DEFAULT_API_URL;
+  const ok = /^https:\/\/[^/\s]+(\/[^\s]*)?$/i.test(url) || /^http:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2|\[::1\])(:\d+)?(\/[^\s]*)?$/i.test(url);
+  if (!ok) throw new BackendConfigError('EXPO_PUBLIC_HOUSEFI_API_URL must be an https:// address (or a local http://localhost one)');
+  return url.replace(/\/+$/, '');
 }
 
-export function createBackend(choice: BackendChoice, deps: { readonly store: KeyValueStore; readonly randomBytes: RandomBytes }): Backend {
-  if (choice.kind === 'demo') return withTimeouts(createMockBackend({ store: deps.store, randomBytes: deps.randomBytes }));
-  // The HTTP client (services/http) maps each Backend method once the backend team confirms the endpoints;
-  // see docs/backend/INTEGRATION.md.
-  throw new BackendConfigError('The live backend client is not connected yet');
+export function createBackend(apiUrl: string, deps: {
+  readonly secrets: KeyValueStore;
+  readonly randomBytes: RandomBytes;
+  readonly openCheckout: (order: CheckoutOrder) => Promise<CheckoutOutcome>;
+  readonly locale?: () => string;
+}): Backend {
+  return withTimeouts(createHttpBackend({ baseUrl: apiUrl, secrets: deps.secrets, randomBytes: deps.randomBytes, openCheckout: deps.openCheckout, locale: deps.locale }));
 }

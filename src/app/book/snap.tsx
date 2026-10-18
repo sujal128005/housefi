@@ -19,12 +19,14 @@ import { CategoryBadge } from '../../ui/CategoryTile';
 import { Appear, Pop, Pulse } from '../../ui/motion';
 import { PhotoThumb } from '../../ui/PhotoThumb';
 import { feedback } from '../../services/feedback';
+import { useSession } from '../../state/AppState';
 
 export default function Snap() {
   const { t, l } = useI18n();
   const backend = useBackend();
   const draft = useDraft();
   const toast = useToast();
+  const session = useSession();
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [result, setResult] = useState<PhotoSuggestion | null>(null);
 
@@ -32,15 +34,18 @@ export default function Snap() {
     if (!photo) return;
     let alive = true;
     setResult(null);
-    void backend.ai.classifyPhoto(photo).then((r) => {
+    void backend.ai.classifyPhoto(session.token, photo).then((r) => {
       if (!alive) return;
       feedback(r.serviceId ? 'success' : 'pop');
       setResult(r);
+    }, () => {
+      // No answer (no network, upload refused): the person picks the service themselves.
+      if (alive) setResult({ serviceId: null, confidence: 0, alternatives: [] });
     });
     return () => {
       alive = false;
     };
-  }, [photo, backend]);
+  }, [photo, backend, session.token]);
 
   const take = async (source: 'camera' | 'gallery') => {
     const r = await pickPhoto(source);
@@ -82,7 +87,6 @@ export default function Snap() {
               </Tap>
             ))}
           </View>
-          <Banner tone="demo" icon="sparkles" text={t('snap.demo')} />
         </>
       ) : (
         <>
@@ -101,7 +105,7 @@ export default function Snap() {
               {suggested ? (
                 <Card style={styles.resultCard} testID="snap-suggestion">
                   <View style={styles.row}>
-                    <Pill label={t('snap.aiDemo')} tone="demo" icon="sparkles" />
+                    <Pill label={t('snap.aiDemo')} tone="info" icon="sparkles" />
                     <Txt variant="caption" color="success">{t('snap.match', { pct: Math.round(result.confidence * 100) })}</Txt>
                   </View>
                   <View style={styles.svcRow}>

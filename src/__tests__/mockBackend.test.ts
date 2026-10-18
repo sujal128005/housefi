@@ -445,18 +445,18 @@ describe('demo bookings', () => {
 describe('demo AI', () => {
   it('suggests a service for sample photos and admits it cannot read real ones', async () => {
     const { backend } = setup();
-    const s = await backend.ai.classifyPhoto({ id: 'p1', sample: 3 });
+    const s = await backend.ai.classifyPhoto('t', { id: 'p1', sample: 3 });
     expect(s.serviceId).toBe('elec-switch');
     expect(s.alternatives).not.toContain('elec-switch');
-    const real = await backend.ai.classifyPhoto({ id: 'p2', uri: 'file:///photo.jpg' });
+    const real = await backend.ai.classifyPhoto('t', { id: 'p2', uri: 'file:///photo.jpg' });
     expect(real.serviceId).toBeNull();
     expect(real.alternatives.length).toBeGreaterThan(0);
   });
 
   it('writes a note from a voice recording in the chosen language', async () => {
     const { backend } = setup();
-    expect(await backend.ai.transcribe(6, 'plumb-tap', 'en')).toMatch(/leaking/);
-    expect(await backend.ai.transcribe(6, 'plumb-tap', 'te')).toMatch(/నీరు/);
+    expect((await backend.ai.transcribe('t', { uri: 'file:///n.m4a', durationSec: 6 }, 'plumb-tap', 'en')).text).toMatch(/leaking/);
+    expect((await backend.ai.transcribe('t', { uri: 'file:///n.m4a', durationSec: 6 }, 'plumb-tap', 'te')).text).toMatch(/నీరు/);
   });
 
   it('answers support questions and offers a person when it is stuck', async () => {
@@ -699,11 +699,11 @@ describe('technician app', () => {
 describe('demo AI top problems', () => {
   it('ranks 6 different problems for a locality', async () => {
     const { backend } = setup();
-    const r = await backend.ai.topProblems('500034', 'Banjara Hills, Hyderabad');
+    const r = await backend.ai.topProblems('t', '500034', 'Banjara Hills, Hyderabad');
     expect(r.area).toBe('Banjara Hills, Hyderabad');
     expect(r.items).toHaveLength(6);
     expect(new Set(r.items.map((x) => x.issueId)).size).toBe(6);
     expect(r.items[0]?.recentCount ?? 0).toBeGreaterThanOrEqual(r.items[5]?.recentCount ?? 0);
-    expect((await backend.ai.topProblems(null, null)).area).toBeNull();
+    expect((await backend.ai.topProblems('t', null, null)).area).toBeNull();
   });
 });

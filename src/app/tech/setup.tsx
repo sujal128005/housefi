@@ -221,7 +221,7 @@ export default function TechSetup() {
           <Txt variant="bodyStrong">{t('tsetup.id')}</Txt>
           <Txt variant="footnote" color="inkMuted">{t('tsetup.idSub')}</Txt>
         </View>
-        <Pill label={t('common.soon')} tone="demo" />
+        <Pill label={t('tsetup.idNext')} tone="info" />
       </View>
       <ErrorBanner error={error} />
     </Screen>

@@ -15,10 +15,13 @@ import { useI18n, type StringKey } from '../../../i18n/I18n';
 import { isApiError } from '../../../services/api';
 import { feedback } from '../../../services/feedback';
 import { useBackend } from '../../../services/ServicesProvider';
+import { useMaskedCall } from '../../../ui/useMaskedCall';
+import { VoicePlayer } from '../../../ui/VoicePlayer';
+import { useLocationReporter } from '../../../services/locationReporter';
 import { useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, shadow, space } from '../../../theme/tokens';
 import {
-  Banner, Button, Card, ConfirmSheet, Divider, ErrorBanner, ErrorView, Field, Header, Icon, NotInDemoSheet, Pill, Screen, Sheet, Skeleton, Tap, Txt, useToast,
+  Banner, Button, Card, ConfirmSheet, Divider, ErrorBanner, ErrorView, Field, Header, Icon, Pill, Screen, Sheet, Skeleton, Tap, Txt, useToast,
   type IconName,
 } from '../../../ui';
 import { PriceCheckPill, QuoteLines, QuoteSplit } from '../../../ui/BookingParts';
@@ -48,8 +51,11 @@ export default function JobScreen() {
   const backend = useBackend();
   const session = useTechSession();
   const toast = useToast();
+  const callCustomer = useMaskedCall(session.token, id, () => backend.tech.callCustomer(session.token, id));
   const { width } = useWindowDimensions();
   const [job, setJob] = useState<Job | null>(null);
+  // On a job the position keeps the customer's map and ETA up to date.
+  useLocationReporter(session.token, !!job && isActive(job.status));
   const [loadError, setLoadError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -61,7 +67,6 @@ export default function JobScreen() {
   const [issue, setIssue] = useState<TechIssue | null>(null);
   const [note, setNote] = useState('');
   const [confirm, setConfirm] = useState<'COMPLETE' | 'CASH' | 'REPORT' | null>(null);
-  const [call, setCall] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const codeInput = useRef<TextInput>(null);
   const reduce = useReducedMotion();
@@ -298,9 +303,14 @@ export default function JobScreen() {
         {issues.length > 0 ? <View style={styles.chips}>{issues.map((x) => <Pill key={x} label={x} tone="info" icon="construct" />)}</View> : null}
         {j.problem.notes ? <Txt variant="callout">“{j.problem.notes}”</Txt> : null}
         {j.problem.voiceNote ? (
-          <View style={styles.voice}>
-            <Icon name="mic" size={16} color="demo" />
-            <Txt variant="footnote" style={styles.flex}>{j.problem.voiceNote.transcript}</Txt>
+          <View style={styles.voiceNote}>
+            {j.problem.voiceNote.uri ? <VoicePlayer uri={j.problem.voiceNote.uri} durationSec={j.problem.voiceNote.durationSec} testID="tj-voice" /> : null}
+            {j.problem.voiceNote.transcript ? (
+              <View style={styles.voice}>
+                <Icon name="mic" size={16} color="blue" />
+                <Txt variant="footnote" style={styles.flex}>{j.problem.voiceNote.transcript}</Txt>
+              </View>
+            ) : null}
           </View>
         ) : null}
         {j.problem.photos.length > 0 ? <View style={styles.chips}>{j.problem.photos.map((p) => <PhotoThumb key={p.id} photo={p} size={64} />)}</View> : null}
@@ -310,7 +320,7 @@ export default function JobScreen() {
         {live ? (
           <View style={styles.actions}>
             <Button label={t('tj.navigate')} icon="navigate" variant="secondary" size="md" onPress={() => void directions()} style={styles.flex} testID="tj-navigate" />
-            <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => setCall(true)} style={styles.flex} testID="tj-call" />
+            <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => void callCustomer.call()} loading={callCustomer.calling} style={styles.flex} testID="tj-call" />
           </View>
         ) : null}
         {live ? <Txt variant="caption" color="inkMuted" align="center">{t('tj.masked')}</Txt> : null}
@@ -348,7 +358,6 @@ export default function JobScreen() {
           else void sendReport();
         }} testID="tj-report-send" />
         {issue === 'UNSAFE' ? <Banner tone="danger" text={t('tj.unsafe')} /> : null}
-        <Banner tone="demo" text={t('safety.demo')} />
       </Sheet>
 
       <ConfirmSheet visible={confirm === 'REPORT'} title={t('tj.closeTitle')} body={t('tj.closeBody')} icon="close-circle" confirmLabel={t('tj.closeConfirm')} confirmVariant="danger"
@@ -363,7 +372,6 @@ export default function JobScreen() {
           setConfirm(null);
           void act(() => backend.tech.confirmCash(session.token, j.id), 'cash');
         }} onCancel={() => setConfirm(null)} busy={busy} />
-      <NotInDemoSheet visible={call} title={t('track.call')} onClose={() => setCall(false)} />
     </Screen>
   );
 
@@ -443,6 +451,7 @@ function stageOf(j: Job): Stage {
 }
 
 const styles = StyleSheet.create({
+  voiceNote: { gap: space.xs },
   flex: { flex: 1 },
   center: { alignItems: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },

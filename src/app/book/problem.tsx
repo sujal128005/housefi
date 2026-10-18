@@ -7,7 +7,7 @@ import { formatDuration } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { hasProblem, useDraft } from '../../state/BookingDraft';
 import { colors, radius, shadow, space } from '../../theme/tokens';
-import { Button, Chip, Field, Icon, Pill, Screen, Tap, Txt } from '../../ui';
+import { Button, Chip, Field, Icon, Screen, Tap, Txt } from '../../ui';
 import { Appear } from '../../ui/motion';
 import { PhotoThumb } from '../../ui/PhotoThumb';
 import { StepHeader } from '../../ui/StepHeader';
@@ -55,8 +55,7 @@ export default function ProblemStep() {
           <View style={styles.aiNote} testID="ai-note">
             <View style={styles.aiHead}>
               <Art3D name="robot" size={28} />
-              <Txt variant="label" color="demo" style={styles.flex}>{t('voice.aiNote')}</Txt>
-              <Pill label={t('common.demo')} tone="demo" />
+              <Txt variant="label" color="blue" style={styles.flex}>{t('voice.aiNote')}</Txt>
               <Tap onPress={() => setVoiceNote(null)} accessibilityLabel={t('common.remove')} style={styles.x} testID="ai-note-remove">
                 <Icon name="close" size={18} color="inkMuted" />
               </Tap>

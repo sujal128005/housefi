@@ -2,7 +2,7 @@
 // catalogue hydration. (The screens' independence from the demo backend is checked in architecture.test.js.)
 import { CATEGORIES, currentCatalog, hydrateCatalog, SERVICES, serviceById } from '../data/catalog';
 import { ApiError, type ApiErrorCode } from '../services/api';
-import { BackendConfigError, backendChoiceFromEnv, createBackend } from '../services/createBackend';
+import { BackendConfigError, apiUrlFromEnv, DEFAULT_API_URL, createBackend } from '../services/createBackend';
 import { presentError } from '../services/errorText';
 import { decodeTechIdCard, decodeTechVerifyResult } from '../services/http/decode';
 import { apiPath, codeForStatus, createTransport } from '../services/http/transport';
@@ -148,19 +148,17 @@ describe('response decoding', () => {
 });
 
 describe('backend selection', () => {
-  it('is the demo backend unless live is chosen explicitly', () => {
-    expect(backendChoiceFromEnv({})).toEqual({ kind: 'demo' });
-    expect(backendChoiceFromEnv({ EXPO_PUBLIC_HOUSEFI_BACKEND: 'demo' })).toEqual({ kind: 'demo' });
-    expect(backendChoiceFromEnv({ EXPO_PUBLIC_HOUSEFI_BACKEND: 'live', EXPO_PUBLIC_HOUSEFI_API_URL: 'https://api.example' }))
-      .toEqual({ kind: 'live', baseUrl: 'https://api.example' });
-    expect(() => backendChoiceFromEnv({ EXPO_PUBLIC_HOUSEFI_BACKEND: 'live' })).toThrow(BackendConfigError);
-    expect(() => backendChoiceFromEnv({ EXPO_PUBLIC_HOUSEFI_BACKEND: 'production' })).toThrow(BackendConfigError);
+  it('talks to the production API unless the build names another https (or local) address', () => {
+    expect(apiUrlFromEnv({})).toBe(DEFAULT_API_URL);
+    expect(apiUrlFromEnv({ EXPO_PUBLIC_HOUSEFI_API_URL: 'https://staging.example/v1/' })).toBe('https://staging.example/v1');
+    expect(apiUrlFromEnv({ EXPO_PUBLIC_HOUSEFI_API_URL: 'http://localhost:4000/v1' })).toBe('http://localhost:4000/v1');
+    expect(() => apiUrlFromEnv({ EXPO_PUBLIC_HOUSEFI_API_URL: 'http://api.example/v1' })).toThrow(BackendConfigError);
   });
 
-  it('never falls back to the demo backend when live is asked for', () => {
-    const deps = { store: memoryStore(), randomBytes: (n: number) => new Uint8Array(n) };
-    expect(createBackend({ kind: 'demo' }, deps).mode).toBe('DEMO');
-    expect(() => createBackend({ kind: 'live', baseUrl: 'https://api.example' }, deps)).toThrow(BackendConfigError);
+  it('is always the live backend: no demo mode, no demo controls', () => {
+    const b = createBackend('https://api.example/v1', { secrets: memoryStore(), randomBytes: (n: number) => new Uint8Array(n), openCheckout: async () => ({ kind: 'dismissed' }) });
+    expect(b.mode).toBe('LIVE');
+    expect(b.demo).toBeNull();
   });
 });
 

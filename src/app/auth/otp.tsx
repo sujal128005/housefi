@@ -12,7 +12,7 @@ import { useBackend } from '../../services/ServicesProvider';
 import { useAppState } from '../../state/AppState';
 import { authFlow } from '../../state/authFlow';
 import { colors, radius, shadow, space } from '../../theme/tokens';
-import { Banner, Button, ErrorBanner, Header, Icon, Screen, Tap, Txt, useToast } from '../../ui';
+import { Banner, Button, ErrorBanner, Header, Icon, Pill, Screen, Tap, Txt, useToast } from '../../ui';
 import { feedback } from '../../services/feedback';
 import { listenForOtp } from '../../services/otpAutoRead';
 import { Pop } from '../../ui/motion';
@@ -116,7 +116,7 @@ export default function Otp() {
     if (!challenge) return;
     setError(null);
     try {
-      const next = await backend.auth.requestOtp(challenge.phone);
+      const next = await (asTech ? backend.tech.auth.requestOtp(challenge.phone) : backend.auth.requestOtp(challenge.phone));
       authFlow.set(next);
       setChallenge(next);
       setCode('');
@@ -174,6 +174,12 @@ export default function Otp() {
           <Tap onPress={() => { stopListening.current(); fillIn(challenge.demoCode ?? ''); }} style={styles.fill} accessibilityLabel={t('auth.otp.fill')} testID="demo-fill" disabled={blocked || verified}>
             <Txt variant="label" color="blue">{t('auth.otp.fill')}</Txt>
           </Tap>
+        </View>
+      ) : null}
+      {challenge.demoAccount ? (
+        <View style={styles.demoAccount} testID="demo-account">
+          <Pill label={t('auth.otp.demoAccount')} tone="demo" icon="flask" />
+          <Txt variant="footnote" color="inkMuted" style={styles.flex}>{t('auth.otp.demoAccountBody')}</Txt>
         </View>
       ) : null}
 
@@ -242,6 +248,7 @@ export default function Otp() {
 }
 
 const styles = StyleSheet.create({
+  demoAccount: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   flex: { flex: 1 },
   sms: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.demoTint, ...shadow.card },
   smsIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.demo, alignItems: 'center', justifyContent: 'center' },

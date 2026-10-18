@@ -62,7 +62,7 @@ export default function Home() {
   const home = extra.addresses[0];
   const unread = extra.inbox.filter((n) => !n.read).length;
   const area = home ? (home.street.split(',').map((x) => x.trim()).filter(Boolean).pop() ?? home.city) : null;
-  const top = useQuery(() => backend.ai.topProblems(home?.pincode ?? null, area ? `${area}, ${home?.city ?? ''}` : null), [backend, home?.pincode, area, home?.city]);
+  const top = useQuery(() => backend.ai.topProblems(session.token, home?.pincode ?? null, area ? `${area}, ${home?.city ?? ''}` : null), [backend, session.token, home?.pincode, area, home?.city]);
   const first = session.customer.name.split(' ')[0] ?? '';
   const cols = layout.columns(3);
   const problemCols = layout.tablet ? 3 : 2;

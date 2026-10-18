@@ -1,6 +1,6 @@
 // Verification status after submitting the profile: Pending (checking), Approved (go to home), Needs correction
-// (with what to fix), or Rejected / Suspended (no jobs; contact support). Checks again every few seconds. An approval
-// made by the demo backend is called a demo approval, never "verified".
+// (with what to fix), or Rejected / Suspended (no jobs; contact support). Checks again every few seconds. Until the
+// Aadhaar card is verified (camera scan of its Secure QR), that is the technician's next step.
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -34,7 +34,7 @@ export default function Verification() {
       void backend.tech.me(session.token).then((p) => {
         if (alive) updateTech(p);
       }).catch(() => undefined);
-    }, 2000);
+    }, 10_000);
     return () => {
       alive = false;
       clearInterval(id);
@@ -96,7 +96,23 @@ export default function Verification() {
           </View>
         ))}
       </Card>
-      {v === 'PENDING' ? <Banner tone="demo" text={t('tverify.demo')} /> : null}
+      {(v === 'PENDING' || v === 'NEEDS_CORRECTION') && !session.profile.aadhaar ? (
+        <Card style={styles.aadhaar} testID="tverify-aadhaar">
+          <View style={styles.step}>
+            <Art3D name="shield" size={44} />
+            <View style={styles.flex}>
+              <Txt variant="bodyStrong">{t('aadhaar.cardTitle')}</Txt>
+              <Txt variant="footnote" color="inkMuted">{t('aadhaar.cardBody')}</Txt>
+            </View>
+          </View>
+          <Button label={t('aadhaar.scan')} icon="qr-code" size="md" onPress={() => router.push('/tech/aadhaar')} testID="tverify-aadhaar-scan" />
+        </Card>
+      ) : null}
+      {session.profile.aadhaar ? (
+        <Banner tone={session.profile.aadhaar.nameMatches ? 'success' : 'warning'} icon="card" testID="tverify-aadhaar-done"
+          text={session.profile.aadhaar.nameMatches ? t('aadhaar.doneBanner', { last4: session.profile.aadhaar.last4 }) : t('aadhaar.nameDiffers')} />
+      ) : null}
+      {v === 'PENDING' ? <Banner tone="info" text={t('tverify.demo')} /> : null}
     </Screen>
   );
 }
@@ -106,6 +122,7 @@ const styles = StyleSheet.create({
   art: { alignItems: 'center', justifyContent: 'center', height: 210 },
   pill: { flexDirection: 'row', justifyContent: 'center' },
   steps: { gap: space.md },
+  aadhaar: { gap: space.md },
   step: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   dot: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: colors.lineStrong, alignItems: 'center', justifyContent: 'center' },
   dotDone: { backgroundColor: colors.success, borderColor: colors.success, borderRadius: radius.pill },

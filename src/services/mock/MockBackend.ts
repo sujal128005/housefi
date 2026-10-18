@@ -840,7 +840,7 @@ export function createMockBackend(opts: MockOptions): Backend {
     if (!p) throw new ApiError('VALIDATION');
     const ch: Challenge = { id: id('otp'), phone: p, code: digits(6), expiresAt: now() + OTP_TTL_MS, attempts: 0 };
     challenges.set(ch.id, ch);
-    return { challengeId: ch.id, phone: p, resendAfterSec: OTP_RESEND_SEC, expiresAt: ch.expiresAt, demoCode: ch.code };
+    return { challengeId: ch.id, phone: p, resendAfterSec: OTP_RESEND_SEC, expiresAt: ch.expiresAt, demoCode: ch.code, demoAccount: false };
   }
 
   function userIdFor(s: DemoState, token: string): string {
@@ -1081,6 +1081,10 @@ export function createMockBackend(opts: MockOptions): Backend {
         return store(list, index, nb);
       },
 
+      async call() {
+        throw new ApiError('CONFLICT');
+      },
+
       watch(token, bookingId, onChange, onError) {
         let last = '';
         let stopped = false;
@@ -1107,7 +1111,7 @@ export function createMockBackend(opts: MockOptions): Backend {
     },
 
     ai: {
-      async topProblems(pincode, area) {
+      async topProblems(_token, pincode, area) {
         await delay();
         // Demo "AI": a stable ranking per PIN code (each locality gets its own top 6), with this week's counts.
         const seed = (pincode ?? '000000').split('').reduce((a, ch) => (a * 33 + ch.charCodeAt(0)) >>> 0, 7);
@@ -1119,7 +1123,7 @@ export function createMockBackend(opts: MockOptions): Backend {
         return { area: pincode ? area : null, items: ranked.slice(0, 6) };
       },
 
-      async classifyPhoto(photo) {
+      async classifyPhoto(_token, photo) {
         await delay();
         await delay();
         if (photo.sample !== undefined) {
@@ -1130,11 +1134,11 @@ export function createMockBackend(opts: MockOptions): Backend {
         return { serviceId: null, confidence: 0, alternatives: TOP_PROBLEMS.map((p) => p.serviceId).slice(0, 4) };
       },
 
-      async transcribe(_durationSec, serviceId, locale) {
+      async transcribe(_token, _recording, serviceId, locale) {
         await delay();
         const cat = serviceId ? serviceById(serviceId)?.categoryId : undefined;
         const text = TRANSCRIPTS[cat ?? 'DEFAULT'] ?? TRANSCRIPTS.DEFAULT;
-        return text ? text[locale] : '';
+        return { text: text ? text[locale] : '', audioId: null };
       },
 
       async chat(token, message, locale) {
@@ -1388,6 +1392,18 @@ export function createMockBackend(opts: MockOptions): Backend {
         return storeJob(list, index, b);
       },
 
+      async verifyAadhaar() {
+        throw new ApiError('VALIDATION');
+      },
+
+      async callCustomer() {
+        throw new ApiError('CONFLICT');
+      },
+
+      async sendLocation() {
+        return undefined;
+      },
+
       async earnings(token): Promise<Earnings> {
         const s = await request('READ');
         const tech = techFor(s, token);
@@ -1464,6 +1480,11 @@ export function createMockBackend(opts: MockOptions): Backend {
       },
     },
 
+    support: {
+      async callback() {
+        return undefined;
+      },
+    },
     demo: {
       async settings() {
         return (await load()).settings;
@@ -1515,7 +1536,7 @@ export function createMockBackend(opts: MockOptions): Backend {
         const transcript = TRANSCRIPTS[svc.categoryId]?.en ?? '';
         const b0 = newBooking(PRACTICE_CUSTOMER, {
           serviceId: svc.id, addressId: address.id, time: { mode: 'INSTANT', window: null }, preferWomenRated: false,
-          problem: { issueIds: issue ? [issue.id] : [], notes: '', voiceNote: { durationSec: 7, transcript, simulated: true }, photos: [] },
+          problem: { issueIds: issue ? [issue.id] : [], notes: '', voiceNote: { durationSec: 7, transcript }, photos: [] },
         }, address, t, { practice: true });
         const b = go(b0, 'MATCHING', t, { visitPayment: { ...b0.visitPayment, state: 'PAID', method: 'UPI', txnId: `DEMO${digits(10)}`, at: t } });
         s.bookings[PRACTICE_CUSTOMER] = [b, ...(s.bookings[PRACTICE_CUSTOMER] ?? [])];

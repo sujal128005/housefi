@@ -1,5 +1,6 @@
 // Phone features: camera / gallery photos (booking problems, the technician's profile photo) and the current location.
-// Problem photos and location stay on the device in this phase.
+// Every photo is re-saved as a JPEG of sensible size before it is uploaded: the API accepts JPEG, PNG and HEIC only (not
+// WebP and the like), a smaller file uploads faster on mobile data, and re-saving drops the camera's metadata.
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -14,20 +15,32 @@ export async function pickPhoto(source: 'camera' | 'gallery'): Promise<PickResul
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) return { ok: false, reason: 'DENIED' };
       const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 });
-      return r.canceled || !r.assets[0] ? { ok: false, reason: 'CANCELLED' } : { ok: true, uri: r.assets[0].uri };
+      return r.canceled || !r.assets[0] ? { ok: false, reason: 'CANCELLED' } : { ok: true, uri: await asJpeg(r.assets[0].uri, r.assets[0].width) };
     }
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
-    return r.canceled || !r.assets[0] ? { ok: false, reason: 'CANCELLED' } : { ok: true, uri: r.assets[0].uri };
+    return r.canceled || !r.assets[0] ? { ok: false, reason: 'CANCELLED' } : { ok: true, uri: await asJpeg(r.assets[0].uri, r.assets[0].width) };
   } catch {
     return { ok: false, reason: 'UNAVAILABLE' };
   }
+}
+
+/** Longest side of an uploaded problem photo. */
+const PHOTO_MAX_PX = 1600;
+
+/** The photo as a JPEG file at most PHOTO_MAX_PX wide. */
+async function asJpeg(uri: string, width: number): Promise<string> {
+  let image = ImageManipulator.manipulate(uri);
+  if (width > PHOTO_MAX_PX) image = image.resize({ width: PHOTO_MAX_PX });
+  const rendered = await image.renderAsync();
+  const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.75 });
+  return saved.uri;
 }
 
 export type ProfilePhotoResult = { readonly ok: true; readonly photo: string } | { readonly ok: false; readonly reason: 'CANCELLED' | 'DENIED' | 'UNAVAILABLE' };
 
 /**
  * The technician's profile photo: a live photo (front camera) or one from the gallery, cropped square and shrunk to
- * 480 px JPEG, returned as a data URI (about 40 KB). It goes to the backend with the registration, nowhere else.
+ * a 480 px JPEG file (about 40 KB). It is uploaded with the registration and goes nowhere else.
  */
 export async function pickProfilePhoto(source: 'camera' | 'gallery'): Promise<ProfilePhotoResult> {
   try {
@@ -44,8 +57,8 @@ export async function pickProfilePhoto(source: 'camera' | 'gallery'): Promise<Pr
     const asset = r.canceled ? undefined : r.assets[0];
     if (!asset) return { ok: false, reason: 'CANCELLED' };
     const image = await ImageManipulator.manipulate(asset.uri).resize({ width: 480 }).renderAsync();
-    const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.7, base64: true });
-    return saved.base64 ? { ok: true, photo: `data:image/jpeg;base64,${saved.base64}` } : { ok: false, reason: 'UNAVAILABLE' };
+    const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.7 });
+    return saved.uri ? { ok: true, photo: saved.uri } : { ok: false, reason: 'UNAVAILABLE' };
   } catch {
     return { ok: false, reason: 'UNAVAILABLE' };
   }

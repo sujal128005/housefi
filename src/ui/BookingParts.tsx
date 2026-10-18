@@ -10,7 +10,10 @@ import { useI18n, type StringKey } from '../i18n/I18n';
 import { colors, radius, shadow, space } from '../theme/tokens';
 import { Button } from './Button';
 import { Icon } from './Icon';
-import { ConfirmSheet, NotInDemoSheet, Sheet, useToast } from './Overlays';
+import { ConfirmSheet, Sheet, useToast } from './Overlays';
+import { useMaskedCall } from './useMaskedCall';
+import { useBackend } from '../services/ServicesProvider';
+import { useSession } from '../state/AppState';
 import { visitTimeText } from './present';
 import { Banner, Card, Divider, Pill } from './Surfaces';
 import { Tap } from './Tap';
@@ -58,7 +61,9 @@ export function ProgressStepper({ booking }: { readonly booking: Booking }) {
  */
 export function TechnicianCard({ tech, booking }: { readonly tech: AssignedTechnician; readonly booking: Booking }) {
   const { t, l } = useI18n();
-  const [contact, setContact] = useState<'CALL' | 'CHAT' | null>(null);
+  const backend = useBackend();
+  const session = useSession();
+  const { calling, call } = useMaskedCall(session.token, booking.id, () => backend.bookings.call(session.token, booking.id));
   const openId = () => router.push({ pathname: '/booking/technician', params: { id: booking.id } });
   return (
     <Card style={styles.tech} testID="tech-card">
@@ -93,12 +98,10 @@ export function TechnicianCard({ tech, booking }: { readonly tech: AssignedTechn
       </View>
       {booking.preferWomenRated && tech.womenRated ? <Banner tone="info" icon="heart" text={t('track.womenMatched')} /> : null}
       <View style={styles.actions}>
-        <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => setContact('CALL')} style={styles.flex} testID="tech-call" />
-        <Button label={t('track.message')} icon="chatbubble-ellipses" variant="secondary" size="md" onPress={() => setContact('CHAT')} style={styles.flex} testID="tech-chat" />
+        <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => void call()} loading={calling} style={styles.flex} testID="tech-call" />
       </View>
       <Txt variant="caption" color="inkMuted" align="center">{t('track.masked')}</Txt>
-      <Banner tone="demo" text={booking.viaTechApp ? t('track.viaTechApp') : t('track.assigned.demo')} />
-      <NotInDemoSheet visible={contact !== null} title={contact === 'CALL' ? t('track.call') : t('track.message')} onClose={() => setContact(null)} />
+      {booking.demo ? <Banner tone="demo" text={t('track.demoBooking')} /> : null}
     </Card>
   );
 }

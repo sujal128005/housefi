@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import { StyleSheet } from 'react-native';
 import { useI18n } from '../../../i18n/I18n';
 import { useAppState } from '../../../state/AppState';
+import { useLocationReporter } from '../../../services/locationReporter';
 import { fontFamily } from '../../../theme/fonts';
 import { colors } from '../../../theme/tokens';
 import { Icon, type IconName } from '../../../ui';
@@ -19,6 +20,8 @@ const ICONS: Record<string, readonly [IconName, IconName]> = {
 export default function TechTabsLayout() {
   const { t, locale } = useI18n();
   const { techSession, prefs } = useAppState();
+  // While online, the phone's position is used to offer nearby jobs.
+  useLocationReporter(techSession?.token ?? '', !!techSession?.profile.online);
   if (!techSession || prefs.role !== 'TECHNICIAN' || techSession.profile.verification !== 'APPROVED') return <Redirect href="/" />;
   return (
     <Tabs
