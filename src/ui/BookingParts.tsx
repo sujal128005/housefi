@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
-import { finalAmount, lineTotal, PROGRESS_STEPS, progressIndex } from '../domain/rules';
+import { canCall, finalAmount, lineTotal, PROGRESS_STEPS, progressIndex } from '../domain/rules';
 import type { AssignedTechnician, Booking, Quote } from '../domain/types';
 import { Art3D } from '../illustrations/Art3D';
 import { formatRupees } from '../i18n/format';
@@ -14,12 +14,13 @@ import { ConfirmSheet, Sheet, useToast } from './Overlays';
 import { useMaskedCall } from './useMaskedCall';
 import { useBackend } from '../services/ServicesProvider';
 import { useSession } from '../state/AppState';
-import { visitTimeText } from './present';
+import { jobsText, visitTimeText } from './present';
 import { Banner, Card, Divider, Pill } from './Surfaces';
 import { Tap } from './Tap';
 import { TechPhoto, VerificationPill } from './TechIdentity';
 import { Txt } from './Txt';
 import { feedback } from '../services/feedback';
+import { dial } from '../services/calls';
 
 const STEP_LABEL: Record<(typeof PROGRESS_STEPS)[number], StringKey> = {
   booked: 'progress.booked',
@@ -76,7 +77,7 @@ export function TechnicianCard({ tech, booking }: { readonly tech: AssignedTechn
           <View style={styles.meta}>
             <Icon name="star" size={14} color="yellow" />
             <Txt variant="label">{tech.rating > 0 ? tech.rating.toFixed(1) : t('track.newTech')}</Txt>
-            <Txt variant="footnote" color="inkMuted">· {t('track.jobs', { count: tech.jobs })} · {t('track.experience', { years: tech.years })}</Txt>
+            <Txt variant="footnote" color="inkMuted">· {jobsText(tech.jobs, t)} · {t('track.experience', { years: tech.years })}</Txt>
           </View>
           <View style={styles.badges}>
             <VerificationPill state={tech.verification} simulated={tech.verificationSimulated} />
@@ -92,15 +93,21 @@ export function TechnicianCard({ tech, booking }: { readonly tech: AssignedTechn
         </View>
         <Icon name="chevron-forward" size={18} color="inkMuted" />
       </Tap>
-      <View style={styles.vehicle}>
-        <Art3D name="scooter" size={26} />
-        <Txt variant="footnote" color="inkMuted">{tech.vehicle}</Txt>
-      </View>
+      {tech.vehicle ? (
+        <View style={styles.vehicle}>
+          <Art3D name="scooter" size={26} />
+          <Txt variant="footnote" color="inkMuted">{tech.vehicle}</Txt>
+        </View>
+      ) : null}
       {booking.preferWomenRated && tech.womenRated ? <Banner tone="info" icon="heart" text={t('track.womenMatched')} /> : null}
-      <View style={styles.actions}>
-        <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => void call()} loading={calling} style={styles.flex} testID="tech-call" />
-      </View>
-      <Txt variant="caption" color="inkMuted" align="center">{t('track.masked')}</Txt>
+      {canCall(booking.status) ? (
+        <>
+          <View style={styles.actions}>
+            <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => void call()} loading={calling} style={styles.flex} testID="tech-call" />
+          </View>
+          <Txt variant="caption" color="inkMuted" align="center">{t('track.masked')}</Txt>
+        </>
+      ) : null}
       {booking.demo ? <Banner tone="demo" text={t('track.demoBooking')} /> : null}
     </Card>
   );
@@ -264,7 +271,27 @@ export function BillCard({ booking }: { readonly booking: Booking }) {
 export function SafetyRow({ booking }: { readonly booking: Booking }) {
   const { t, l, locale } = useI18n();
   const toast = useToast();
+  const backend = useBackend();
+  const session = useSession();
   const [sos, setSos] = useState(false);
+  const [alerting, setAlerting] = useState(false);
+  const call112 = async () => {
+    setSos(false);
+    if (!(await dial('112'))) toast.show(t('safety.dialFailed'), 'alert-circle');
+  };
+  const alertTeam = async () => {
+    setAlerting(true);
+    try {
+      await backend.support.ticket(session.token, 'UNSAFE', booking.id, `SOS during visit ${booking.code}`);
+      feedback('success');
+      toast.show(t('safety.alerted'), 'shield-checkmark');
+      setSos(false);
+    } catch {
+      toast.show(t('safety.alertFailed'), 'alert-circle');
+    } finally {
+      setAlerting(false);
+    }
+  };
   const share = async () => {
     const name = booking.technician ? l(booking.technician.name) : '';
     const msg = t('safety.shareText', { code: booking.code, name, when: visitTimeText(booking.time, locale, t) });
@@ -295,15 +322,8 @@ export function SafetyRow({ booking }: { readonly booking: Booking }) {
             <Txt variant="callout" color="inkMuted">{t('safety.sosBody')}</Txt>
           </View>
         </View>
-        <Button label={t('safety.call112')} icon="call" variant="danger" onPress={() => {
-          setSos(false);
-          toast.show(t('safety.demo112'), 'alert-circle');
-        }} testID="sos-112" />
-        <Button label={t('safety.alertTeam')} icon="notifications" onPress={() => {
-          setSos(false);
-          toast.show(t('safety.alerted'), 'shield-checkmark');
-        }} testID="sos-team" />
-        <Banner tone="demo" text={t('safety.demo')} />
+        <Button label={t('safety.call112')} icon="call" variant="danger" onPress={() => void call112()} testID="sos-112" />
+        <Button label={t('safety.alertTeam')} icon="notifications" loading={alerting} onPress={() => void alertTeam()} testID="sos-team" />
         <Button label={t('common.close')} variant="ghost" onPress={() => setSos(false)} />
       </Sheet>
     </View>

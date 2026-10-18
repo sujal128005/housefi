@@ -376,6 +376,8 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     support: {
       callback: (handle, bookingId, reason) =>
         call(handle, 'POST', apiPath`/support/callback`, decodeNothing, { ...(bookingId ? { bookingId } : {}), ...(reason ? { reason: reason.slice(0, 300) } : {}) }),
+      ticket: (handle, kind, bookingId, note) =>
+        call(handle, 'POST', apiPath`/support/tickets`, decodeNothing, { kind, ...(bookingId ? { bookingId } : {}), ...(note ? { note: note.slice(0, 1000) } : {}) }),
     },
   };
 }

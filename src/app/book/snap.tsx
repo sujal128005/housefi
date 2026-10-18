@@ -6,7 +6,6 @@ import { StyleSheet, View } from 'react-native';
 import { categoryById, serviceById } from '../../data/catalog';
 import type { Photo } from '../../domain/types';
 import { Art3D } from '../../illustrations/Art3D';
-import { SAMPLE_PHOTOS, SamplePhoto } from '../../illustrations/SamplePhoto';
 import { formatRupees } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import type { PhotoSuggestion } from '../../services/api';
@@ -78,15 +77,6 @@ export default function Snap() {
             <Button label={t('photos.camera')} icon="camera" onPress={() => void take('camera')} style={styles.flex} testID="snap-camera" />
             <Button label={t('photos.gallery')} icon="images" variant="secondary" onPress={() => void take('gallery')} style={styles.flex} testID="snap-gallery" />
           </View>
-          <Txt variant="label" color="inkMuted">{t('snap.samples')}</Txt>
-          <View style={styles.samples}>
-            {SAMPLE_PHOTOS.map((n) => (
-              <Tap key={n} onPress={() => setPhoto({ id: `sample_${n}_${Date.now().toString(36)}`, sample: n })} style={styles.sample}
-                accessibilityLabel={t('photos.sample', { n })} testID={`snap-sample-${n}`} haptic>
-                <SamplePhoto n={n} size="100%" />
-              </Tap>
-            ))}
-          </View>
         </>
       ) : (
         <>
@@ -147,8 +137,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   hero: { alignItems: 'center', marginTop: space.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm, justifyContent: 'space-between' },
-  samples: { flexDirection: 'row', gap: space.sm },
-  sample: { flex: 1, aspectRatio: 1, borderRadius: radius.md, overflow: 'hidden', borderWidth: 2, borderColor: colors.surface },
   preview: { width: '100%', aspectRatio: 1.3, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.surfaceMuted },
   scan: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(19,35,91,0.55)', alignItems: 'center', justifyContent: 'center', gap: space.sm },
   result: { gap: space.md },

@@ -1,8 +1,7 @@
-// Photos of the problem: real camera or gallery pictures (kept on the phone in this phase) or labelled demo samples.
+// Photos of the problem: camera or gallery pictures, uploaded with the booking (location data removed).
 // Up to four; tap the cross to remove one.
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { SAMPLE_PHOTOS } from '../../illustrations/SamplePhoto';
 import { useI18n } from '../../i18n/I18n';
 import { pickPhoto } from '../../services/device';
 import { MAX_PHOTOS, useDraft } from '../../state/BookingDraft';
@@ -26,13 +25,6 @@ export default function Photos() {
     else if (r.reason === 'UNAVAILABLE') toast.show(t('photos.unavailable'), 'information-circle');
   };
 
-  const addSample = () => {
-    if (full) return toast.show(t('photos.limit', { max: MAX_PHOTOS }), 'information-circle');
-    const used = new Set(photos.map((p) => p.sample));
-    const sample = SAMPLE_PHOTOS.find((n) => !used.has(n)) ?? 1;
-    addPhoto({ id: `sample_${sample}_${Date.now().toString(36)}`, sample });
-  };
-
   return (
     <Screen testID="photos" header={<Header title={t('photos.title')} />} footer={<Button label={t('common.done')} onPress={() => router.back()} testID="photos-done" />}>
       <Txt variant="callout" color="inkMuted">{t('photos.body', { max: MAX_PHOTOS })}</Txt>
@@ -41,7 +33,6 @@ export default function Photos() {
           <Pop key={p.id} style={styles.cell}>
             <View style={styles.photo} testID={`photo-${k + 1}`}>
               <PhotoThumb photo={p} size="100%" />
-              {p.uri ? null : <View style={styles.sampleTag}><Txt variant="caption" color="onNavy">{t('photos.sample', { n: k + 1 })}</Txt></View>}
             </View>
             <Tap onPress={() => removePhoto(p.id)} style={styles.remove} accessibilityLabel={t('photos.removeLabel', { n: k + 1 })} testID={`photo-remove-${k + 1}`}>
               <Icon name="close" size={18} color="onNavy" />
@@ -61,7 +52,6 @@ export default function Photos() {
         <Button label={t('photos.camera')} icon="camera" variant="secondary" onPress={() => void add('camera')} disabled={full} style={styles.flex} testID="photos-camera" />
         <Button label={t('photos.gallery')} icon="images" variant="secondary" onPress={() => void add('gallery')} disabled={full} style={styles.flex} testID="photos-gallery" />
       </View>
-      <Button label={t('photos.useSample')} icon="flask" variant="ghost" size="md" onPress={addSample} disabled={full} testID="photos-sample" />
       <Banner tone="info" icon="lock-closed" text={t('photos.private')} />
       {full ? <Banner tone="info" text={t('photos.limit', { max: MAX_PHOTOS })} /> : null}
     </Screen>
@@ -74,7 +64,6 @@ const styles = StyleSheet.create({
   cell: { width: '50%', paddingHorizontal: space.xs },
   photo: { aspectRatio: 1, borderRadius: radius.lg, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceMuted },
   empty: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.lineStrong, gap: space.xs },
-  sampleTag: { position: 'absolute', left: 8, bottom: 8, backgroundColor: 'rgba(16,24,51,0.7)', borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 2 },
   remove: { position: 'absolute', top: 6, right: space.xs + 6, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(16,24,51,0.75)', alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', gap: space.md },
 });

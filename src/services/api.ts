@@ -333,6 +333,8 @@ export interface DemoControls {
 export interface SupportApi {
   /** Asks Housefi to call this person back (about a booking, when given). */
   callback(token: string, bookingId: string | null, reason?: string): Promise<void>;
+  /** Reports a problem to the support team. UNSAFE is urgent: the safety team calls at once. */
+  ticket(token: string, kind: 'UNSAFE' | 'PAYMENT_PROBLEM' | 'OTHER', bookingId: string | null, note?: string): Promise<void>;
 }
 
 /** Housefi's public verification page for a scanned Technician ID card. No sign-in; minimal data. */

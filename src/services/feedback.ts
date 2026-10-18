@@ -44,6 +44,10 @@ let enabled = true;
 let modeSet = false;
 const players: Partial<Record<SoundName, AudioPlayer>> = {};
 const haptics = Platform.OS !== 'web';
+// Browsers refuse sound until the person has tapped the page (and report it as an uncaught error), so the web build
+// stays quiet until the first tap.
+let heard = Platform.OS !== 'web';
+if (!heard && typeof window !== 'undefined') window.addEventListener('pointerdown', () => { heard = true; }, { once: true, capture: true });
 
 /** Follows the "Sounds & vibration" preference. */
 export function setFeedbackEnabled(on: boolean): void {
@@ -52,6 +56,7 @@ export function setFeedbackEnabled(on: boolean): void {
 }
 
 function play(name: SoundName): void {
+  if (!heard) return;
   try {
     if (!modeSet) {
       modeSet = true;

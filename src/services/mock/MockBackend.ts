@@ -1484,6 +1484,9 @@ export function createMockBackend(opts: MockOptions): Backend {
       async callback() {
         return undefined;
       },
+      async ticket() {
+        return undefined;
+      },
     },
     demo: {
       async settings() {

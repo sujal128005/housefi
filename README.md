@@ -1,12 +1,12 @@
 # Housefi
 
 Native Android and iOS app for Housefi, a home-services platform with a **Customer** and a **Technician**
-interface in one app. This phase is **frontend first**: every backend-dependent feature runs against an in-app demo
-backend with clearly labelled synthetic data. Nothing connects to real authentication, SMS, payments or production APIs.
+interface in one app. The app talks to the Housefi API (`api.housefi.tech`) for everything: sign-in by SMS code,
+bookings, Razorpay payments, live technician location, masked calls, push notifications, Aadhaar QR verification,
+AI photo reading and voice notes. It has no built-in demo data.
 
-The real backend is being built separately against the contract in `src/services/api.ts`; its starter package is
-in [`docs/backend/`](docs/backend/README.md) (answers to the backend team's questions, OpenAPI, database schema,
-state machine, starter prompt).
+The API is in the backend repository; its contract is `docs/openapi.yaml` there. How the app connects is in
+[`docs/backend/INTEGRATION.md`](docs/backend/INTEGRATION.md).
 
 ## Stack
 
@@ -19,7 +19,8 @@ state machine, starter prompt).
 | Device | expo-location (address and language from location), expo-image-picker (problem photos) | |
 | Fonts | Anek Latin (English) and Anek Telugu (Telugu), one family for both scripts | OFL, bundled |
 | Technician ID card | expo-screen-capture (Android secure window, iOS capture protection), react-native-qrcode-svg (QR on the existing SVG library), expo-crypto (random IDs and tokens), expo-image-manipulator (480 px profile photos) | Native protection, no extra servers |
-| Storage | AsyncStorage | Demo data and preferences stay on the device |
+| Live features | expo-web-browser (Razorpay checkout on housefi.tech/pay), react-native-maps (technician on the way), expo-camera (Aadhaar Secure QR), expo-notifications (push, job-offer channel), expo-audio (30 s voice notes), expo-secure-store (sign-in tokens) | |
+| Storage | AsyncStorage (preferences, booking draft), Keychain / Keystore (tokens) | |
 
 ## How the code is organised
 
@@ -36,8 +37,11 @@ src/
                   technician identity: ID format and generation, verification display)
   data/           DEMO catalogue, prices and fictional technicians
   services/
-    api.ts        the backend contract the screens use (customer, technician, AI, notifications)
-    mock/         the demo backend that implements it (latency, OTP, matching, offers, price check, failures)
+    api.ts        the backend contract the screens use (customer, technician, AI, notifications, support)
+    http/         the live client (HttpBackend), token vault, uploads, live updates (SSE with polling fallback)
+    mock/         an in-memory backend used only by the unit tests
+    checkout.ts   Razorpay checkout through housefi.tech/pay
+    push.ts, calls.ts, locationReporter.ts
     feedback.ts   sounds and vibration
   state/          app state (language, interface, both sessions) and the booking draft
   i18n/           English and Telugu strings and formatting
@@ -45,9 +49,6 @@ src/
 tools/            Android emulator journey driver
 docs/             reports, screenshots, backend handoff
 ```
-
-**Connecting the real backend later:** write an HTTP implementation of `Backend` in `src/services/api.ts` and pass
-it to `BackendProvider` in `src/app/_layout.tsx` instead of `createMockBackend`. Screens do not change.
 
 ## Run it
 
@@ -78,25 +79,31 @@ node tools/app-journey.mjs te
 node tools/recovery-check.mjs   # offline strip and the branded error screen (after a journey)
 ```
 
-## Trying both interfaces on one phone
+## Settings (build time)
 
-Customer and technician use the same demo backend, so a booking made as a customer reaches the technician app:
+Set these in `eas.json` (per build profile) or a local `.env`. None of them is secret; secrets live only on the server.
 
-1. As a customer, book and pay the ₹49 visit fee.
-2. **Account → Switch to technician app**, sign in with another number (the code shows on screen), fill the
-   profile; it is approved after a few seconds. Go **online**.
-3. The booking rings in as a job offer. Accept, start the trip, arrive, get the customer's code (**Demo: get the
-   customer's code**), send a quote (e.g. ₹120 labour + ₹200 material).
-4. **Profile → Switch to customer app**: the quote pops up after the AI price check. Approve, ask for a lower
-   price, or decline; pay online or in cash (the technician confirms cash).
+| Variable | Default | What |
+|---|---|---|
+| `EXPO_PUBLIC_HOUSEFI_API_URL` | `https://api.housefi.tech/v1` | The API. https only (http allowed for `localhost` while developing) |
+| `EXPO_PUBLIC_HOUSEFI_CHECKOUT_URL` | `https://housefi.tech/pay/` | The website page that opens Razorpay checkout |
+| `EXPO_PUBLIC_HOUSEFI_SUPPORT_PHONE` | none | Customer-care number for the "Call us" buttons (without it, those buttons ask for a call-back) |
 
-With no technician online, a simulated technician takes the booking and the visit runs by itself
-(**Booking status → Demo: simulate outcome** skips ahead). **Home → Try a practice job** gives a technician a
-simulated customer.
+`app.json` also holds:
 
-## Demo mode
+- the Expo project (`owner`, `extra.eas.projectId`), needed for push notifications;
+- the Google Maps Android key under the `react-native-maps` plugin: replace `GOOGLE_MAPS_ANDROID_API_KEY` with a key
+  restricted to the app's package name and signing certificate (Google Cloud → Maps SDK for Android). iOS uses
+  Apple Maps and needs no key.
 
-- A **DEMO** marker is on every screen; simulated outcomes say so. No money moves, no SMS is sent, nobody visits.
-- **Account / Profile → Demo settings**: technician matching (quick, delayed, none), next payment (succeeds,
-  pending, fails), extra work during repair, how the practice customer answers a quote, technician profile review
-  (approve, or ask for one correction), and forced network / slot-taken failures.
+The Razorpay **key ID** comes from the API with each order; the app holds no payment keys.
+
+## Team demo accounts
+
+Only the phone numbers listed in `DEMO_PHONES` on the server get demo accounts. They sign in with the fixed
+`DEMO_OTP_CODE` (no SMS), see a small **Demo account** badge, only ever meet each other, and their payments are
+simulated. Every other number is a normal live account. The numbers are kept out of every repository.
+
+To try both sides on one phone: sign in as a customer with one demo number, then **Account → Switch to technician
+app** and sign in with the other. Approve the technician profile with `npm run tech -- approve <phone>` in the
+backend, go online, and book as the customer.

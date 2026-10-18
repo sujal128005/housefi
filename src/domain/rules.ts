@@ -305,6 +305,11 @@ export function isActive(status: BookingStatus): boolean {
   return ACTIVE.includes(status);
 }
 
+/** Masked calls between customer and technician: from assignment until the bill is paid (the API refuses otherwise). */
+export function canCall(status: BookingStatus): boolean {
+  return ['ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'INSPECTING', 'QUOTE_SHARED', 'IN_PROGRESS', 'EXTRA_WORK', 'PAYMENT_DUE'].includes(status);
+}
+
 /** A booking can be cancelled until the technician is at the door. */
 export function canCancel(status: BookingStatus): boolean {
   return ['AWAITING_PAYMENT', 'MATCHING', 'MATCHING_DELAYED', 'UNFULFILLED', 'ASSIGNED', 'EN_ROUTE'].includes(status);

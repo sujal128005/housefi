@@ -17,6 +17,7 @@ import { openWeb } from '../../../services/links';
 import { useAppState, useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, space } from '../../../theme/tokens';
 import { Banner, Button, Card, Chip, ConfirmSheet, DemoPill, Divider, ErrorBanner, Field, Icon, ListRow, Pill, Screen, Sheet, Txt, Wash, useToast } from '../../../ui';
+import { jobsText } from '../../../ui/present';
 import { TechPhoto, VerificationPill } from '../../../ui/TechIdentity';
 import { useCareCall } from '../../../ui/useMaskedCall';
 
@@ -77,7 +78,7 @@ export default function TechProfile() {
             <View style={styles.pills}>
               <VerificationPill state={p.verification} simulated={simulated} />
               <Pill label={p.rating ? `★ ${p.rating.toFixed(1)}` : t('track.newTech')} tone="warning" />
-              <Pill label={t('track.jobs', { count: p.jobsDone })} tone="info" />
+              <Pill label={jobsText(p.jobsDone, t)} tone="info" />
             </View>
           </View>
         </View>

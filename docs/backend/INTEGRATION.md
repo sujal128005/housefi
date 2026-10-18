@@ -1,45 +1,38 @@
-# Connecting the app to the real backend
+# How the app connects to the backend
 
-Status: **the app is ready to be connected, not connected.** Every screen talks to the backend only through the
-`Backend` interface in `src/services/api.ts`. Today the only implementation is the demo backend
-(`src/services/mock/MockBackend.ts`). The live implementation is still to be written, once the endpoints below are
-confirmed.
+Status: **connected.** Every screen talks to the backend only through the `Backend` interface in
+`src/services/api.ts`; the one implementation the app ships is the live client `src/services/http/HttpBackend.ts`.
+`src/services/mock/MockBackend.ts` stays only as a test double for the unit tests (an architecture test checks that
+no screen imports it). Tested end to end against a local copy of the API: sign-in, booking with a photo, visit-fee
+payment, technician sign-up and approval, job offer, trip, arrival code, quote and approval, completion, final
+payment, rating, SOS, notifications.
 
-## How the app chooses its backend
+## Settings
 
-`src/services/createBackend.ts`, from build-time settings:
+`src/services/createBackend.ts` reads `EXPO_PUBLIC_HOUSEFI_API_URL` (default `https://api.housefi.tech/v1`; https
+only, http allowed for localhost). `EXPO_PUBLIC_HOUSEFI_CHECKOUT_URL` (default `https://housefi.tech/pay/`) is the
+payment page; `EXPO_PUBLIC_HOUSEFI_SUPPORT_PHONE` the customer-care number. Every call has a 25 s limit, longer for
+payments, booking creation, photo reading, voice notes and profile submission (`services/timeouts.ts`).
 
-| Setting | Result |
+## How each part works
+
+| Part | How |
 |---|---|
-| nothing, or `EXPO_PUBLIC_HOUSEFI_BACKEND=demo` | Demo backend (synthetic data, labelled "Demo" everywhere) |
-| `EXPO_PUBLIC_HOUSEFI_BACKEND=live` + `EXPO_PUBLIC_HOUSEFI_API_URL=https://...` | Live backend. Until the HTTP client exists this **fails at start on purpose**: the app never falls back to demo data silently |
+| Sign-in | `POST /auth/otp/request` and `/auth/otp/verify` with the role (customer or technician). The access and refresh tokens are kept in the Keychain / Keystore under a random handle (`http/credentials.ts`); the screens only ever see the handle. Access tokens refresh a minute before they expire, one refresh at a time, and a refused token is retried once after a refresh. A refused refresh ends the session ("sign in again") |
+| Demo accounts | The server marks the team's demo numbers with `demoAccount: true` (OTP screen badge) and `demo: true` on their bookings and jobs (a "Team demo booking" note). Nothing else in the app changes |
+| Uploads | `POST /uploads/photos` or `/uploads/audio` for a ticket, then `PUT` the file to the signed URL. The server checks the bytes before anything uses them (`http/uploads.ts`) |
+| Live updates | Server-sent events with the access token; if the stream fails the app polls every few seconds (`http/liveStream.ts`) |
+| Payments | `POST /bookings/{id}/payments` returns a Razorpay order and the key ID. The app opens housefi.tech/pay in the phone's secure browser, Razorpay's checkout runs there, and the page sends the result back through `housefi://pay/return`. The app then calls `/payments/{id}/verify`; the booking is "paid" only when the server says so. Cash: the technician confirms it. Demo accounts: simulated, no money moves |
+| Calls | `POST /bookings/{id}/call` (customer) or `/tech/jobs/{id}/call` (technician) returns a Housefi number to dial; neither side sees the other's number. If calls are off, the app asks for a call-back (`POST /support/callback`) |
+| SOS | 112 opens the phone's dialler; "Alert Housefi safety team" files an urgent `UNSAFE` ticket (`POST /support/tickets`) |
+| Location | While a technician is online or on a job, the app sends its position about once a minute (`POST /tech/location`). The customer sees it on a map only while the technician is on the way |
+| Push | After sign-in the phone's Expo push token is registered for each signed-in account; job offers use a loud Android channel. Tapping a notification opens the booking or job |
+| Aadhaar | The camera reads the Secure QR on the technician's Aadhaar; the server checks UIDAI's signature and keeps only the last 4 digits, birth year, gender and whether the name matches (`POST /tech/aadhaar`) |
+| AI | Photo reading and voice notes go through the API (Claude and Sarvam on the server); the app never holds AI keys |
 
-Every call, demo or live, has a 25 s limit (`services/timeouts.ts`).
-
-## What is ready on the app side
-
-| Piece | Where |
-|---|---|
-| The contract the screens use (methods, models, error codes) | `src/services/api.ts`, `src/domain/types.ts` |
-| HTTP plumbing: https only, encoded paths, `Authorization: Bearer`, `Idempotency-Key`, `Accept-Language`, time limit, status and error-envelope mapping | `src/services/http/transport.ts` |
-| Response checks (identity and verification so far); an answer that doesn't match becomes `BAD_RESPONSE` | `src/services/http/decode.ts` |
-| One mapping from error codes to what people see (words, Retry or not, sign in again) | `src/services/errorText.ts` |
-| Session tokens in the Keychain / Keystore; a server answer of "session ended" forgets the token | `src/state/sessionTokens.ts`, `src/state/AppState.tsx` |
-| The service catalogue loaded from `GET /catalog/...` at start (bundled list only as a fallback) | `src/data/catalog.ts` (`hydrateCatalog`) |
-| Demo labels shown only with the demo backend; `demo`, `simulated`, `verifyIsDemo` and `fictional` flags read from responses | `useIsDemo()` in `src/services/ServicesProvider.tsx` |
-| Tests: transport against a fake server, decoders, error mapping, backend selection, catalogue, "no screen imports the demo backend" | `src/__tests__/integration.test.ts`, `src/__tests__/architecture.test.js` |
-
-## Writing the live client
-
-Create `src/services/http/HttpBackend.ts` implementing `Backend` with `createTransport(...)`, one method per row of
-the API table in `README.md` (section 6), each with a decoder. Then return it from `createBackend` for
-`kind: 'live'`. No screen changes. Keep `mode: 'LIVE'` and `demo: null`.
-
-`bookings.create(token, input, idempotencyKey)` and `bookings.pay(token, bookingId, kind, method, idempotencyKey)`
-take the key from the screen: one key per attempt (`src/state/idempotency.ts`), sent again on every retry after a
-time-out or lost connection, and a new one when the input changes or the backend has answered. The HTTP client sends
-it as the `Idempotency-Key` header; the backend must answer a key it has seen (for the same customer and request) with
-its first result, and refuse the same key with a different request.
+`bookings.create` and `bookings.pay` take an idempotency key from the screen: one key per attempt
+(`src/state/idempotency.ts`), sent again on every retry after a time-out or lost connection, and a new one when the
+input changes or the backend has answered.
 
 ## Error codes the app expects
 
@@ -60,23 +53,3 @@ logs; the app never shows it.
 | 2xx with an unreadable body | `BAD_RESPONSE` | as server error |
 
 Unknown codes are treated by their HTTP status.
-
-## Still needed from the backend team (the app does not guess these)
-
-1. **Confirm the endpoints and bodies** in `openapi.yaml` (written from the app's side), or send the final spec.
-2. **Auth flow:** token lifetime, refresh-token endpoint and rotation, sign-out revocation. Today the app keeps one
-   token per account and asks people to sign in again when it is refused.
-3. **Live updates:** `bookings.watch` / `tech.watchJob` / job offers poll today; confirm SSE or WebSocket and its URL.
-4. **Uploads:** problem photos and the technician's registration photo (`POST /uploads` with `kind`?), sizes and
-   types, signed `https` URLs for reading.
-5. **Idempotency:** confirm `Idempotency-Key` on booking creation and payments, and how long keys are remembered.
-6. **Payments:** the Razorpay (or other) order / confirmation flow; the app shows "paid" only after the server says so.
-7. **Identity:** `simulated: false`, `verifyIsDemo: false`, `fictional: false` on every live response; the
-   verification page domain for QR codes; who approves photos and identities (admin portal).
-8. **Error envelope:** confirm the shape above and that `message` never carries personal data.
-9. **Catalogue:** confirm `GET /catalog/categories` and `GET /catalog/services` return the `Category` / `Service`
-   shapes (localized names in English and Telugu, issues, visit fee).
-10. **Pagination** for bookings, jobs, notifications and earnings once lists grow.
-
-When the backend is built, its team runs the review in `REVIEW-PROMPT.md` (security, leaks, races, payments,
-identity) before the app is pointed at it.

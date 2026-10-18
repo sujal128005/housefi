@@ -22,6 +22,11 @@ export function visitTimeText(time: VisitTime, locale: Locale, t: T, now = new D
   return whenText(time.window, locale, t, now);
 }
 
+/** "1 job" / "12 jobs". */
+export function jobsText(count: number, t: T): string {
+  return count === 1 ? t('track.oneJob') : t('track.jobs', { count });
+}
+
 export function addressLine(a: Address): string {
   return [a.house, a.street, a.landmark].filter((x) => x.trim().length > 0).join(', ');
 }

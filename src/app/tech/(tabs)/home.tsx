@@ -16,6 +16,7 @@ import { useBackend } from '../../../services/ServicesProvider';
 import { useAppState, useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, shadow, space } from '../../../theme/tokens';
 import { Banner, DemoPill, ErrorBanner, Icon, SectionTitle, Sheet, Tap, Txt, Wash } from '../../../ui';
+import { jobsText } from '../../../ui/present';
 import { Appear, Pulse } from '../../../ui/motion';
 import { NotificationList } from '../../../ui/Notifications';
 import { JobCard, techStepIndex, TECH_STEPS } from '../../../ui/TechParts';
@@ -153,7 +154,7 @@ export default function TechHome() {
             <Art3D name="star" size={40} />
             <Txt variant="caption" color="inkMuted">{t('thome.total')}</Txt>
             <Txt variant="title1">{formatRupees(data.earnings?.total ?? 0)}</Txt>
-            <Txt variant="caption" color="inkMuted">{p.rating ? `★ ${p.rating.toFixed(1)} · ${t('track.jobs', { count: p.jobsDone })}` : t('track.newTech')}</Txt>
+            <Txt variant="caption" color="inkMuted">{p.rating ? `★ ${p.rating.toFixed(1)} · ${jobsText(p.jobsDone, t)}` : t('track.newTech')}</Txt>
           </Tap>
         </View>
 
