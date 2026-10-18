@@ -31,10 +31,61 @@ const csv = z
   .default('')
   .transform((v) => v.split(',').map((s) => s.trim()).filter((s) => s.length > 0));
 
-const bool = z
-  .enum(['true', 'false', '1', '0'])
-  .default('false')
-  .transform((v) => v === 'true' || v === '1');
+/** 10-digit Indian mobile numbers (no +91), comma-separated. */
+const phoneList = z
+  .string()
+  .default('')
+  .transform((v) => v.split(',').map((s) => s.replace(/[\s-]/g, '').replace(/^(\+?91)(?=[6-9]\d{9}$)/, '')).filter((s) => s.length > 0))
+  .refine((list) => list.every((p) => /^[6-9]\d{9}$/.test(p)), 'must be 10-digit Indian mobile numbers, comma-separated');
+
+/**
+ * Number of reverse proxies in front of the API whose X-Forwarded-For entries are trusted (0 = none). Only the
+ * entries those proxies appended are believed, so a client cannot choose its own IP by sending the header.
+ * "true" means 1 and "false" means 0, for older .env files.
+ */
+const proxyHops = z
+  .string()
+  .default('0')
+  .transform((v) => (v === 'true' ? 1 : v === 'false' ? 0 : Number(v)))
+  .pipe(z.number().int().min(0).max(3));
+
+/**
+ * Versioned master keys for field encryption without a cloud KMS: "1:<base64 32 bytes>,2:<base64 32 bytes>".
+ * New values use DATA_KEY_ACTIVE; older versions stay readable, so keys can be rotated.
+ */
+const dataKeys = z
+  .string()
+  .transform((v, ctx) => {
+    const out = new Map<number, string>();
+    for (const part of v.split(',').map((s) => s.trim()).filter(Boolean)) {
+      const m = /^(\d{1,3}):([A-Za-z0-9+/]+={0,2})$/.exec(part);
+      if (!m || Buffer.from(m[2] as string, 'base64').length !== 32 || Number(m[1]) < 1 || Number(m[1]) > 255) {
+        ctx.addIssue({ code: 'custom', message: 'each entry must be <version 1-255>:<32 bytes base64>' });
+        return z.NEVER;
+      }
+      if (out.has(Number(m[1]))) {
+        ctx.addIssue({ code: 'custom', message: 'duplicate key version' });
+        return z.NEVER;
+      }
+      out.set(Number(m[1]), m[2] as string);
+    }
+    return out;
+  })
+  .optional();
+
+/** "5:10m,3:1h,1:24h,1:21d" → steps of { failures, lockSec }. Units: s, m, h, d. */
+const lockSteps = z
+  .string()
+  .default('5:10m,3:1h,1:24h,1:21d')
+  .transform((v, ctx) => {
+    const unit: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86_400 };
+    const steps = v.split(',').map((part) => /^\s*(\d{1,2}):(\d{1,4})([smhd])\s*$/.exec(part));
+    if (steps.length === 0 || steps.some((m) => !m || Number(m[1]) < 1)) {
+      ctx.addIssue({ code: 'custom', message: 'must look like 5:10m,3:1h,1:24h,1:21d' });
+      return z.NEVER;
+    }
+    return steps.map((m) => ({ failures: Number(m![1]), lockSec: Number(m![2]) * (unit[m![3] as string] as number) }));
+  });
 
 const hourRange = z
   .string()
@@ -45,12 +96,13 @@ const hourRange = z
 
 export const envSchema = z
   .object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    /** Required: a deployment that forgets it must not silently run with development behaviour. */
+    NODE_ENV: z.enum(['development', 'test', 'production']),
     PORT: int(4000, 1, 65535),
     PUBLIC_BASE_URL: z.url().default('http://localhost:4000'),
     CORS_ORIGINS: csv,
-    /** Set when running behind a load balancer so req.ip is the client, not the proxy. */
-    TRUST_PROXY: bool,
+    /** Reverse proxies (load balancer, Cloudflare) in front of the API: 1 behind one load balancer. See proxyHops. */
+    TRUST_PROXY: proxyHops,
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
     /** Default per-IP limit for every route without its own @RateLimit. */
     RATE_LIMIT_PER_MIN: int(120, 1),
@@ -60,15 +112,38 @@ export const envSchema = z
 
     JWT_PRIVATE_KEY_B64: base64Pem,
     JWT_PUBLIC_KEY_B64: base64Pem,
-    JWT_ACCESS_TTL_SEC: int(900, 60),
-    REFRESH_TOKEN_TTL_DAYS: int(30, 1),
+    JWT_ACCESS_TTL_SEC: int(900, 60, 3600),
+    REFRESH_TOKEN_TTL_DAYS: int(30, 1, 90),
     OTP_PEPPER_B64: base64Secret,
     TOKEN_PEPPER_B64: base64Secret,
-    OTP_TTL_SEC: int(300, 30),
-    OTP_MAX_ATTEMPTS: int(3, 1),
-    OTP_RESEND_AFTER_SEC: int(30, 0),
+    OTP_TTL_SEC: int(300, 30, 900),
+    OTP_MAX_ATTEMPTS: int(3, 1, 5),
+    OTP_RESEND_AFTER_SEC: int(30, 0, 300),
+    /**
+     * Sign-in SMS budget for the whole service, counted in the database (holds when Redis is down). Past it, new
+     * codes are refused and an alert is logged: a flood of requests cannot drain the SMS balance.
+     */
+    OTP_SMS_PER_MINUTE: int(60, 1),
+    OTP_SMS_PER_HOUR: int(1000, 1),
+    OTP_SMS_PER_DAY: int(8000, 1),
+    /**
+     * Progressive sign-in lock per phone number, counted across all its codes: "wrong codes:lock" steps. Default: 5
+     * wrong codes lock sign-in for 10 minutes, 3 more for 1 hour, 1 more for 24 hours, 1 more for 21 days (the account
+     * is locked; support can unlock it). A correct code resets the count; so do 30 days without a wrong code.
+     */
+    OTP_LOCK_STEPS: lockSteps,
 
+    /**
+     * Team demo accounts: these numbers (and only these) sign in with DEMO_OTP_CODE instead of an SMS. Their
+     * bookings use simulated payments and only reach demo technicians; real customers and technicians never see them.
+     */
+    DEMO_PHONES: phoneList,
+    DEMO_OTP_CODE: z.string().regex(/^[0-9]{6}$/, 'must be 6 digits').optional(),
+
+    /** Optional: AWS KMS key. Without a cloud KMS, production uses DATA_KEYS_B64 (kept in the host's secret store). */
     KMS_KEY_ID: z.string().optional(),
+    DATA_KEYS_B64: dataKeys,
+    DATA_KEY_ACTIVE: z.coerce.number().int().min(1).max(255).optional(),
     LOCAL_DATA_KEY_B64: base64Key32,
     PHONE_HASH_KEY_B64: base64Secret,
 
@@ -82,7 +157,9 @@ export const envSchema = z
     RAZORPAY_KEY_SECRET: z.string().optional(),
     RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
 
+    /** Region of the S3-compatible storage (DigitalOcean Spaces: blr1; AWS: ap-south-1). */
     AWS_REGION: z.string().default('ap-south-1'),
+    S3_REGION: z.string().optional(),
     S3_BUCKET_UPLOADS: z.string().default('housefi-dev-uploads'),
     S3_ENDPOINT: z.url().optional(),
     S3_ACCESS_KEY_ID: z.string().optional(),
@@ -123,21 +200,43 @@ export const envSchema = z
     const authSecrets = ['JWT_PRIVATE_KEY_B64', 'JWT_PUBLIC_KEY_B64', 'OTP_PEPPER_B64', 'TOKEN_PEPPER_B64', 'PHONE_HASH_KEY_B64'] as const;
     if (e.NODE_ENV === 'development') {
       for (const k of authSecrets) require(k, '(run "npm run setup" to generate local secrets)');
-      if (e.LOCAL_DATA_KEY_B64 === undefined && e.KMS_KEY_ID === undefined) {
+      if (e.LOCAL_DATA_KEY_B64 === undefined && e.KMS_KEY_ID === undefined && e.DATA_KEYS_B64 === undefined) {
         require('LOCAL_DATA_KEY_B64', '(run "npm run setup" to generate local secrets)');
       }
     }
+    if (e.DATA_KEYS_B64 !== undefined) {
+      if (e.DATA_KEY_ACTIVE === undefined || !e.DATA_KEYS_B64.has(e.DATA_KEY_ACTIVE)) {
+        ctx.addIssue({ code: 'custom', path: ['DATA_KEY_ACTIVE'], message: 'must name one of the versions in DATA_KEYS_B64' });
+      }
+    }
+    // The console sender writes sign-in codes to the log: only on a developer's machine or in tests.
+    if (e.SMS_PROVIDER === 'console' && e.NODE_ENV === 'production') {
+      ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'must be msg91 in production' });
+    }
+    if (e.DEMO_PHONES.length > 0 && e.DEMO_OTP_CODE === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['DEMO_OTP_CODE'], message: 'required when DEMO_PHONES is set' });
+    }
+    if (e.DEMO_OTP_CODE !== undefined && weakCode(e.DEMO_OTP_CODE)) {
+      ctx.addIssue({ code: 'custom', path: ['DEMO_OTP_CODE'], message: 'too easy to guess (repeated or sequential digits)' });
+    }
     if (e.NODE_ENV === 'production') {
       const keys = [
-        ...authSecrets, 'KMS_KEY_ID', 'MSG91_AUTH_KEY', 'MSG91_OTP_TEMPLATE_ID', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET',
+        ...authSecrets, 'MSG91_AUTH_KEY', 'MSG91_OTP_TEMPLATE_ID', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET',
         'RAZORPAY_WEBHOOK_SECRET',
       ] as const;
       for (const k of keys) require(k, 'in production');
-      if (e.LOCAL_DATA_KEY_B64 !== undefined) {
-        ctx.addIssue({ code: 'custom', path: ['LOCAL_DATA_KEY_B64'], message: 'must not be set in production (use KMS_KEY_ID)' });
+      if (e.KMS_KEY_ID === undefined && e.DATA_KEYS_B64 === undefined) {
+        ctx.addIssue({ code: 'custom', path: ['DATA_KEYS_B64'], message: 'required in production (or KMS_KEY_ID)' });
       }
-      if (e.SMS_PROVIDER !== 'msg91') {
-        ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'must be msg91 in production' });
+      if (e.LOCAL_DATA_KEY_B64 !== undefined) {
+        ctx.addIssue({ code: 'custom', path: ['LOCAL_DATA_KEY_B64'], message: 'must not be set in production (use DATA_KEYS_B64)' });
+      }
+      // Redis holds rate limits and live updates: never an open, password-less server.
+      if (!/^rediss?:\/\/[^/@]*:[^/@]+@/.test(e.REDIS_URL)) {
+        ctx.addIssue({ code: 'custom', path: ['REDIS_URL'], message: 'must include a password in production (rediss:// recommended)' });
+      }
+      if (e.OTP_RESEND_AFTER_SEC < 15) {
+        ctx.addIssue({ code: 'custom', path: ['OTP_RESEND_AFTER_SEC'], message: 'must be at least 15 in production' });
       }
       if (e.S3_BUCKET_UPLOADS === 'housefi-dev-uploads') {
         ctx.addIssue({ code: 'custom', path: ['S3_BUCKET_UPLOADS'], message: 'must be the production bucket in production' });
@@ -159,6 +258,13 @@ export const envSchema = z
   });
 
 export type Env = z.infer<typeof envSchema>;
+
+/** 000000, 111111, 123456, 654321 and the like. */
+function weakCode(code: string): boolean {
+  const d = [...code].map(Number);
+  const steps = d.slice(1).map((x, i) => x - (d[i] as number));
+  return steps.every((s) => s === 0) || steps.every((s) => s === 1) || steps.every((s) => s === -1);
+}
 
 export class ConfigError extends Error {
   constructor(readonly problems: readonly string[]) {

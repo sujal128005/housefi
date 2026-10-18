@@ -76,6 +76,8 @@ export class SlotsService {
         timeMode: 'SCHEDULED',
         windowDate: new Date(`${date}T00:00:00Z`),
         status: { in: [...HOLDS_SLOT] },
+        // The team's demo bookings never use up real customers' capacity.
+        isDemo: false,
         ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
       },
       _count: { _all: true },

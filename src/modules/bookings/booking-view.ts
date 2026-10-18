@@ -67,7 +67,8 @@ export interface TechnicianDto {
   readonly vehicle: string;
   /** Masked calling arrives with Exotel (later); empty until then. */
   readonly maskedPhone: string;
-  readonly demo: false;
+  /** A team demo technician (DEMO_PHONES). */
+  readonly demo: boolean;
 }
 
 export interface PaymentDto {
@@ -106,7 +107,8 @@ export interface BookingDto {
   readonly closeReason: CloseReason | null;
   readonly workStarted: boolean;
   readonly viaTechApp: true;
-  readonly demo: false;
+  /** A team demo booking: simulated payments, demo technicians only. */
+  readonly demo: boolean;
 }
 
 const API_CANCEL_REASONS = new Set<CancelReason>(['PLANS_CHANGED', 'FIXED', 'TOO_LONG', 'MISTAKE', 'OTHER']);
@@ -139,7 +141,7 @@ export async function technicianDto(t: Technician & { user: User }, cipher: Fiel
     womenRated: t.womenRated,
     vehicle: t.vehicleEnc.length > 0 ? await cipher.decrypt('technicians.vehicle', t.vehicleEnc) : '',
     maskedPhone: '',
-    demo: false,
+    demo: t.user.isDemo,
   };
 }
 
@@ -184,6 +186,6 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
     closeReason: b.closeReason,
     workStarted: b.workStarted,
     viaTechApp: true,
-    demo: false,
+    demo: b.isDemo,
   };
 }

@@ -6,6 +6,7 @@ import { AccessTokens } from './access-tokens';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
+import { SessionCheck } from './session-check';
 import { SessionsService } from './sessions.service';
 import { TechniciansModule } from '../technicians/technicians.module';
 import { UsersModule } from '../users/users.module';
@@ -40,8 +41,9 @@ function createSmsSender(config: Env): SmsSender {
     { provide: SMS_SENDER, inject: [APP_CONFIG], useFactory: createSmsSender },
     OtpService,
     SessionsService,
+    SessionCheck,
     AuthService,
   ],
-  exports: [AccessTokens],
+  exports: [AccessTokens, SessionCheck],
 })
 export class AuthModule {}

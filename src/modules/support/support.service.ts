@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type TicketPriority, type UserRole } from '@prisma/client';
+import { Hashing } from '../../common/crypto/hashing';
 import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { AppError } from '../../common/errors/app-error';
@@ -44,8 +45,32 @@ export class SupportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly hashing: Hashing,
     @InjectClock() private readonly clock: Clock,
   ) {}
+
+  /**
+   * Lifts a sign-in lock on a number (after wrong codes), once support has confirmed with the person that it is
+   * really them, e.g. on a call to the number. Audited. Returns false when the number was not locked.
+   */
+  async unlockSignIn(phone: string, actor: SupportActor): Promise<boolean> {
+    const digits = phone.replace(/^(\+?91)/, '');
+    if (!/^[6-9][0-9]{9}$/.test(digits)) throw new AppError('VALIDATION', { fields: { phone: 'INVALID' } }, 'a 10-digit mobile number');
+    const phoneHash = this.hashing.phone(digits);
+    return this.prisma.$transaction(async (tx) => {
+      const lock = await tx.otpLockout.findUnique({ where: { phoneHash } });
+      if (!lock) return false;
+      await tx.otpLockout.delete({ where: { phoneHash } });
+      await this.audit.record(
+        {
+          actorType: actor.type, actorId: actor.id, action: 'support.unlock_sign_in', entity: 'phone', entityId: Buffer.from(phoneHash).toString('hex').slice(0, 16),
+          before: { level: lock.level, lockedUntil: lock.lockedUntil?.toISOString() ?? null }, after: { level: 0, via: actor.via, phone: `******${digits.slice(-4)}` },
+        },
+        tx,
+      );
+      return true;
+    });
+  }
 
   async raise(raiser: Raiser, input: { bookingId?: string; kind: TicketKind; note?: string }): Promise<{ ticketId: string }> {
     const booking = input.bookingId ? await this.ownBooking(raiser, input.bookingId) : null;

@@ -19,7 +19,7 @@ export class AuthController {
   @Post('otp/request')
   @Public()
   @HttpCode(200)
-  @RateLimit({ limit: 10, windowSec: 600 })
+  @RateLimit({ limit: 10, windowSec: 600, onStoreError: 'closed' })
   request(@Body(new ZodValidationPipe(OtpRequestBody)) body: z.infer<typeof OtpRequestBody>, @Req() req: FastifyRequest): Promise<OtpChallengeDto> {
     return this.otp.request(body.phone, body.role, req.ip ?? null);
   }
@@ -27,7 +27,7 @@ export class AuthController {
   @Post('otp/verify')
   @Public()
   @HttpCode(200)
-  @RateLimit({ limit: 20, windowSec: 600 })
+  @RateLimit({ limit: 20, windowSec: 600, onStoreError: 'closed' })
   verify(@Body(new ZodValidationPipe(OtpVerifyBody)) body: z.infer<typeof OtpVerifyBody>): Promise<AuthResultDto> {
     return this.auth.verifyOtp(body.challengeId, body.code);
   }
@@ -36,7 +36,7 @@ export class AuthController {
   @Post('refresh')
   @Public()
   @HttpCode(200)
-  @RateLimit({ limit: 30, windowSec: 600 })
+  @RateLimit({ limit: 30, windowSec: 600, onStoreError: 'closed' })
   refresh(@Body(new ZodValidationPipe(RefreshBody)) body: z.infer<typeof RefreshBody>): Promise<AuthResultDto> {
     return this.auth.refresh(body.refreshToken);
   }

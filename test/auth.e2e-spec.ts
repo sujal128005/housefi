@@ -55,7 +55,7 @@ describe('auth (e2e)', () => {
   describe('POST /v1/auth/otp/request', () => {
     it('sends a 6-digit code and returns the challenge (never the code)', async () => {
       const { body, code } = await requestCode();
-      expect(body).toEqual({ challengeId: expect.any(String), phone: PHONE, resendAfterSec: 30, expiresAt: t.clock.now() + 5 * MIN, demoCode: null });
+      expect(body).toEqual({ challengeId: expect.any(String), phone: PHONE, resendAfterSec: 30, expiresAt: t.clock.now() + 5 * MIN, demoCode: null, demoAccount: false });
       expect(code).toMatch(/^\d{6}$/);
       expect(JSON.stringify(body)).not.toContain(code);
     });
@@ -118,7 +118,7 @@ describe('auth (e2e)', () => {
         customer: { id: expect.any(String), phone: PHONE, name: '' },
       });
       const me = await http().get('/v1/test/whoami').set('Authorization', `Bearer ${auth.accessToken}`).expect(200);
-      expect(me.body).toEqual({ id: auth.customer?.id, role: 'CUSTOMER', sessionId: expect.any(String) });
+      expect(me.body).toEqual({ id: auth.customer?.id, role: 'CUSTOMER', sessionId: expect.any(String), tokenExpiresAt: expect.any(Number) });
     });
 
     it('signs the same customer in again (same account), and keeps the phone encrypted at rest', async () => {

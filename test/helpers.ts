@@ -200,7 +200,7 @@ export class FakePush implements PushSender {
 }
 
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE uploads, ratings, notifications, devices, earnings_ledger, payouts, support_tickets, quote_lines, quotes, job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, users, service_issues, services, categories RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE uploads, ratings, notifications, devices, earnings_ledger, payouts, support_tickets, quote_lines, quotes, job_offers, service_area_pincodes, audit_log, technician_skills, technicians, payment_webhook_events, payments, booking_events, bookings, addresses, slot_capacities, refresh_tokens, otp_challenges, otp_lockouts, users, service_issues, services, categories RESTART IDENTITY CASCADE');
 }
 
 export interface TestApp {

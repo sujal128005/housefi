@@ -14,7 +14,8 @@ export function createAdapter(config: Env): FastifyAdapter {
     logger: loggerOptions(config),
     genReqId,
     logController: new LogController({ requestIdLogLabel: 'requestId' }),
-    trustProxy: config.TRUST_PROXY,
+    // A hop count (not "true"): only addresses appended by our own proxies are believed, never one the client sent.
+    trustProxy: config.TRUST_PROXY > 0 ? (_address: string, hop: number) => hop < config.TRUST_PROXY : false,
     bodyLimit: BODY_LIMIT_BYTES,
   });
 }

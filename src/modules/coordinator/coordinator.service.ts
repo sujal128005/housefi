@@ -84,8 +84,10 @@ export class CoordinatorService {
       const b = await this.core.lock(tx, bookingId);
       if (!b) throw new AppError('NOT_FOUND');
       await tx.$queryRaw`SELECT user_id FROM technicians WHERE user_id = ${technicianId}::uuid FOR UPDATE`;
-      const tech = await tx.technician.findFirst({ where: { userId: technicianId, coordinatorId }, include: { skills: true } });
-      if (!tech) throw new AppError('NOT_FOUND', {}, 'not one of your technicians');
+      const tech = await tx.technician.findFirst({ where: { userId: technicianId, coordinatorId }, include: { skills: true, user: { select: { isDemo: true, status: true } } } });
+      if (!tech || tech.user.status !== 'ACTIVE') throw new AppError('NOT_FOUND', {}, 'not one of your technicians');
+      // Demo bookings only to demo technicians and the other way round.
+      if (tech.user.isDemo !== b.isDemo) throw new AppError('CONFLICT', {}, 'demo and real bookings and technicians are kept apart');
       if (tech.verification !== 'APPROVED') throw new AppError('NOT_VERIFIED');
       if (!tech.skills.some((s) => s.categoryId === b.categoryId)) throw new AppError('CONFLICT', {}, `technician has no ${b.categoryId} skill`);
       if ((await tx.booking.count({ where: { technicianId, status: { in: [...TECH_ACTIVE] } } })) > 0) throw new AppError('CONFLICT', {}, 'technician is on another job');

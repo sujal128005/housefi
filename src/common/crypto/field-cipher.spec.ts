@@ -2,7 +2,7 @@ import { DecryptCommand, GenerateDataKeyCommand } from '@aws-sdk/client-kms';
 import { randomBytes } from 'node:crypto';
 import { FieldCipher } from './field-cipher';
 import { Hashing, Hmac, digestsEqual } from './hashing';
-import { KmsKeyProvider, LocalKeyProvider } from './key-providers';
+import { KmsKeyProvider, LocalKeyProvider, VersionedKeyProvider } from './key-providers';
 
 describe('FieldCipher (local key)', () => {
   const cipher = new FieldCipher(new LocalKeyProvider(randomBytes(32)));
@@ -90,5 +90,26 @@ describe('Hashing', () => {
 
   it('rejects short keys', () => {
     expect(() => new Hmac(randomBytes(16))).toThrow();
+  });
+});
+
+describe('VersionedKeyProvider (production without a cloud KMS)', () => {
+  const k = (n: number) => Buffer.alloc(32, n).toString('base64');
+
+  it('encrypts with the active version and still reads older versions after a rotation', async () => {
+    const v1 = new FieldCipher(new VersionedKeyProvider(new Map([[1, k(1)]]), 1));
+    const old = await v1.encrypt('users.phone', '9876543210');
+    const rotated = new FieldCipher(new VersionedKeyProvider(new Map([[1, k(1)], [2, k(2)]]), 2));
+    expect(await rotated.decrypt('users.phone', old)).toBe('9876543210');
+    const fresh = await rotated.encrypt('users.phone', '9123456780');
+    expect(await rotated.decrypt('users.phone', fresh)).toBe('9123456780');
+    // Without version 2 the new value cannot be read.
+    await expect(v1.decrypt('users.phone', fresh)).rejects.toThrow();
+  });
+
+  it('binds the field name: a value copied to another column does not decrypt', async () => {
+    const c = new FieldCipher(new VersionedKeyProvider(new Map([[1, k(1)]]), 1));
+    const blob = await c.encrypt('users.phone', 'x');
+    await expect(c.decrypt('users.name', blob)).rejects.toThrow();
   });
 });

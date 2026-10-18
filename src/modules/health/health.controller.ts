@@ -51,13 +51,22 @@ export class HealthController {
   /** Readiness: dependencies reachable. 503 takes the instance out of rotation without restarting it. */
   @Get('ready')
   async ready(@Res({ passthrough: true }) reply: FastifyReply): Promise<{ status: 'ok' | 'degraded'; checks: Record<string, CheckState> }> {
-    const redis = this.redis;
-    const [database, cache] = await Promise.all([
-      check(() => this.prisma.$queryRaw`SELECT 1`),
-      redis ? check(() => redis.ping()) : Promise.resolve<CheckState>('disabled'),
-    ]);
+    // Public and unthrottled (load balancers poll it): the answer is reused for a second, so a flood of requests
+    // cannot turn into a flood of database and Redis round trips.
+    const now = Date.now();
+    if (!this.lastReady || this.lastReady.at + 1000 <= now) {
+      const redis = this.redis;
+      const [database, cache] = await Promise.all([
+        check(() => this.prisma.$queryRaw`SELECT 1`),
+        redis ? check(() => redis.ping()) : Promise.resolve<CheckState>('disabled'),
+      ]);
+      this.lastReady = { at: now, database, cache };
+    }
+    const { database, cache } = this.lastReady;
     const ok = database === 'up' && cache !== 'down';
     void reply.status(ok ? 200 : 503);
     return { status: ok ? 'ok' : 'degraded', checks: { database, redis: cache } };
   }
+
+  private lastReady: { at: number; database: CheckState; cache: CheckState } | null = null;
 }

@@ -41,7 +41,8 @@ export interface JobDto {
   readonly history: readonly { readonly status: BookingStatus; readonly at: number }[];
   readonly acceptedAt: number;
   readonly practice: false;
-  readonly demo: false;
+  /** A team demo booking (simulated payments). */
+  readonly demo: boolean;
 }
 
 export interface JobViewOptions {
@@ -109,6 +110,6 @@ export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOpti
     history: b.events.map((e) => ({ status: e.status, at: e.at.getTime() })),
     acceptedAt: accepted?.getTime() ?? 0,
     practice: false,
-    demo: false,
+    demo: b.isDemo,
   };
 }

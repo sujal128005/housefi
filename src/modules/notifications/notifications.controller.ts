@@ -1,12 +1,13 @@
 import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import type { z } from 'zod';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
-import { type AuthUser, CurrentUser } from '../auth/auth.guard';
+import { type AuthUser, CurrentUser, Roles } from '../auth/auth.guard';
 import { DeviceBody, MarkReadBody } from './notifications.schemas';
 import { type NotificationDto, NotificationsService } from './notifications.service';
 
-/** The inbox and push-token registration, for either role. */
+/** The inbox and push-token registration, for customers and technicians (staff accounts have neither). */
 @Controller()
+@Roles('CUSTOMER', 'TECHNICIAN')
 export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 

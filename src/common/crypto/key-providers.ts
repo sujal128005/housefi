@@ -1,6 +1,7 @@
 // Data-key providers for envelope encryption. Every encrypted value gets its own random 256-bit data key; the
-// provider wraps that key with a master key: a local key from the environment in development, AWS KMS in
-// production. The provider id is stored in each ciphertext, so values can always be routed to the right provider.
+// provider wraps that key with a master key: a local key in development; in production either versioned master keys
+// from the host's secret store (VersionedKeyProvider, no cloud lock-in) or AWS KMS. The provider id is stored in each
+// ciphertext, so values can always be routed to the right provider.
 import { DecryptCommand, GenerateDataKeyCommand, type KMSClient } from '@aws-sdk/client-kms';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
@@ -40,6 +41,45 @@ export class LocalKeyProvider implements KeyProvider {
     const tag = wrapped.subarray(IV_BYTES, IV_BYTES + TAG_BYTES);
     const decipher = createDecipheriv('aes-256-gcm', this.masterKey, iv).setAAD(Buffer.from(context)).setAuthTag(tag);
     return Buffer.concat([decipher.update(wrapped.subarray(IV_BYTES + TAG_BYTES)), decipher.final()]);
+  }
+}
+
+/**
+ * Production without a cloud KMS: master keys come from the environment (the host's encrypted secret store), each
+ * with a version number. New data keys are wrapped with the active version, which is stored in front of the wrapped
+ * key, so older versions keep decrypting after a rotation (add the new version, make it active, keep the old one until
+ * data is re-encrypted). Master keys never leave memory and are never logged.
+ */
+export class VersionedKeyProvider implements KeyProvider {
+  readonly id = 3;
+  private readonly keys: ReadonlyMap<number, Buffer>;
+
+  constructor(
+    keys: ReadonlyMap<number, string>,
+    private readonly active: number,
+  ) {
+    this.keys = new Map([...keys].map(([v, b64]) => [v, Buffer.from(b64, 'base64')]));
+    for (const [v, k] of this.keys) if (k.length !== 32) throw new Error(`data key version ${v} must be 32 bytes`);
+    if (!this.keys.has(active)) throw new Error('DATA_KEY_ACTIVE must name a key in DATA_KEYS_B64');
+  }
+
+  async generate(context: string): Promise<DataKey> {
+    const plain = randomBytes(32);
+    const iv = randomBytes(IV_BYTES);
+    const master = this.keys.get(this.active) as Buffer;
+    const cipher = createCipheriv('aes-256-gcm', master, iv).setAAD(Buffer.from(`${context}|k${this.active}`));
+    const ct = Buffer.concat([cipher.update(plain), cipher.final()]);
+    return { plain, wrapped: Buffer.concat([Buffer.from([this.active]), iv, cipher.getAuthTag(), ct]) };
+  }
+
+  async unwrap(wrapped: Buffer, context: string): Promise<Buffer> {
+    const version = wrapped.readUInt8(0);
+    const master = this.keys.get(version);
+    if (!master) throw new Error(`data key version ${version} is not configured`);
+    const iv = wrapped.subarray(1, 1 + IV_BYTES);
+    const tag = wrapped.subarray(1 + IV_BYTES, 1 + IV_BYTES + TAG_BYTES);
+    const decipher = createDecipheriv('aes-256-gcm', master, iv).setAAD(Buffer.from(`${context}|k${version}`)).setAuthTag(tag);
+    return Buffer.concat([decipher.update(wrapped.subarray(1 + IV_BYTES + TAG_BYTES)), decipher.final()]);
   }
 }
 

@@ -100,7 +100,10 @@ export class DispatchService {
       FROM technicians t
       JOIN bookings b ON b.id = ${b.id}::uuid
       JOIN technician_skills s ON s.technician_id = t.user_id AND s.category_id = b.category_id
-      WHERE t.verification = 'APPROVED' AND t.online
+      JOIN users u ON u.id = t.user_id
+      WHERE t.verification = 'APPROVED' AND t.online AND u.status = 'ACTIVE'
+        -- Demo bookings go only to the team's demo technicians, real bookings only to real technicians.
+        AND u.is_demo = b.is_demo
         AND (t.pincode = b.pincode OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = b.pincode))
         AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))
         AND NOT EXISTS (SELECT 1 FROM job_offers o WHERE o.technician_id = t.user_id AND o.state = 'OPEN')

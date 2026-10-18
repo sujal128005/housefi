@@ -55,13 +55,18 @@ export class AuthService {
 
   private async findOrCreateUser({ role, phone, phoneHash }: VerifiedPhone): Promise<User> {
     const where = { role_phoneHash: { role, phoneHash } };
+    // Demo status follows DEMO_PHONES at every sign-in (a number taken off the list becomes a normal account).
+    const isDemo = role !== 'COORDINATOR' && role !== 'ADMIN' && this.otp.isDemoPhone(phone);
     const existing = await this.prisma.user.findUnique({ where });
-    if (existing) return existing;
+    if (existing) {
+      if (existing.isDemo === isDemo) return existing;
+      return this.prisma.user.update({ where: { id: existing.id }, data: { isDemo } });
+    }
     // Staff accounts are created by an admin (npm run coordinators), never by signing in.
     if (role === 'COORDINATOR' || role === 'ADMIN') throw new AppError('UNAUTHENTICATED', {}, 'no such account');
     const phoneEnc = await this.cipher.encrypt('users.phone', phone);
     try {
-      return await this.prisma.user.create({ data: { role, phoneHash, phoneEnc } });
+      return await this.prisma.user.create({ data: { role, phoneHash, phoneEnc, isDemo } });
     } catch (e) {
       // Two first sign-ins for the same number at once: the other one created the account.
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return this.prisma.user.findUniqueOrThrow({ where });

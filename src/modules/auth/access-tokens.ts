@@ -16,6 +16,14 @@ export interface AccessClaims {
   readonly sid: string;
 }
 
+/** Verified claims, with the expiry for long-lived streams. */
+export interface VerifiedClaims extends AccessClaims {
+  /** Expiry, ms since epoch. */
+  readonly expiresAt: number;
+  /** Milliseconds of validity left when verified (independent of the server clock used for signing). */
+  readonly remainingMs: number;
+}
+
 const Payload = z.object({
   sub: z.uuid(),
   role: z.enum(ROLES),
@@ -80,7 +88,7 @@ export class AccessTokens {
   }
 
   /** Returns the claims, or throws UNAUTHENTICATED for anything malformed, forged, expired or foreign. */
-  verify(token: string): AccessClaims {
+  verify(token: string): VerifiedClaims {
     const parts = token.split('.');
     if (parts.length !== 3) throw new AppError('UNAUTHENTICATED');
     const [h, p, s] = parts as [string, string, string];
@@ -92,7 +100,7 @@ export class AccessTokens {
       const nowSec = Math.floor(this.now() / 1000);
       if (claims.iss !== this.opts.issuer || claims.aud !== AUDIENCE) throw new Error('issuer/audience');
       if (claims.exp + LEEWAY_SEC <= nowSec || claims.iat - LEEWAY_SEC > nowSec) throw new Error('time');
-      return { sub: claims.sub, role: claims.role, sid: claims.sid };
+      return { sub: claims.sub, role: claims.role, sid: claims.sid, expiresAt: claims.exp * 1000, remainingMs: claims.exp * 1000 - this.now() };
     } catch {
       throw new AppError('UNAUTHENTICATED');
     }

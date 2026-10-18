@@ -15,6 +15,7 @@ const production = {
   TOKEN_PEPPER_B64: secret(),
   PHONE_HASH_KEY_B64: secret(),
   KMS_KEY_ID: 'alias/housefi-pii',
+  REDIS_URL: 'rediss://default:secret@redis.internal:6379',
   SMS_PROVIDER: 'msg91',
   PUSH_PROVIDER: 'expo',
   S3_BUCKET_UPLOADS: 'housefi-prod-uploads',
@@ -47,7 +48,7 @@ describe('parseEnv', () => {
     expect(env.INSTANT_HOURS).toEqual([7, 21]);
     expect(env.SMS_PROVIDER).toBe('console');
     expect(env.CORS_ORIGINS).toEqual([]);
-    expect(env.TRUST_PROXY).toBe(false);
+    expect(env.TRUST_PROXY).toBe(0);
   });
 
   describe('the committed .env.example', () => {
@@ -96,7 +97,7 @@ describe('parseEnv', () => {
 
   it('rejects the local data key in production', () => {
     expect(problems({ ...production, LOCAL_DATA_KEY_B64: secret() })).toEqual([
-      'LOCAL_DATA_KEY_B64: must not be set in production (use KMS_KEY_ID)',
+      'LOCAL_DATA_KEY_B64: must not be set in production (use DATA_KEYS_B64)',
     ]);
   });
 
@@ -131,5 +132,50 @@ describe('parseEnv', () => {
     expect(problems({ NODE_ENV: 'test', MATCHING_DELAYED_AFTER_MIN: '30', MATCHING_GIVE_UP_AFTER_MIN: '10' })).toEqual([
       'MATCHING_GIVE_UP_AFTER_MIN: must be greater than MATCHING_DELAYED_AFTER_MIN',
     ]);
+  });
+});
+
+describe('hardening rules', () => {
+  const secret32 = () => Buffer.alloc(32, 9).toString('base64');
+  const base = { NODE_ENV: 'test' };
+  const problemsOf = (raw: NodeJS.ProcessEnv): readonly string[] => {
+    try {
+      parseEnv(raw);
+      return [];
+    } catch (e) {
+      return (e as ConfigError).problems;
+    }
+  };
+
+  it('requires NODE_ENV to be set explicitly', () => {
+    expect(problemsOf({})).toEqual([expect.stringMatching(/^NODE_ENV:/)]);
+  });
+
+  it('reads TRUST_PROXY as a hop count (true = 1), never as "trust any header"', () => {
+    expect(parseEnv({ ...base, TRUST_PROXY: 'true' }).TRUST_PROXY).toBe(1);
+    expect(parseEnv({ ...base, TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
+    expect(problemsOf({ ...base, TRUST_PROXY: '9' })).toHaveLength(1);
+  });
+
+  it('accepts demo numbers only with a strong demo code', () => {
+    expect(parseEnv({ ...base, DEMO_PHONES: '+91 98765 00201, 9876500202', DEMO_OTP_CODE: '482915' }).DEMO_PHONES).toEqual(['9876500201', '9876500202']);
+    expect(problemsOf({ ...base, DEMO_PHONES: '9876500202' })).toEqual(['DEMO_OTP_CODE: required when DEMO_PHONES is set']);
+    expect(problemsOf({ ...base, DEMO_PHONES: '9876500202', DEMO_OTP_CODE: '123456' })).toEqual([expect.stringMatching(/too easy/)]);
+    expect(problemsOf({ ...base, DEMO_PHONES: '12345' , DEMO_OTP_CODE: '482915' })).toHaveLength(1);
+  });
+
+  it('takes versioned data keys and needs the active version to exist', () => {
+    const env = parseEnv({ ...base, DATA_KEYS_B64: `1:${secret32()},2:${secret32()}`, DATA_KEY_ACTIVE: '2' });
+    expect([...(env.DATA_KEYS_B64 ?? new Map()).keys()]).toEqual([1, 2]);
+    expect(problemsOf({ ...base, DATA_KEYS_B64: `1:${secret32()}`, DATA_KEY_ACTIVE: '3' })).toEqual([expect.stringMatching(/^DATA_KEY_ACTIVE:/)]);
+    expect(problemsOf({ ...base, DATA_KEYS_B64: '1:short' })).toHaveLength(1);
+  });
+
+  it('never lets the console SMS sender run in production', () => {
+    expect(problemsOf({ NODE_ENV: 'production', SMS_PROVIDER: 'console' })).toContain('SMS_PROVIDER: must be msg91 in production');
+  });
+
+  it('refuses a password-less Redis in production', () => {
+    expect(problemsOf({ NODE_ENV: 'production', REDIS_URL: 'redis://redis:6379' })).toContain('REDIS_URL: must include a password in production (rediss:// recommended)');
   });
 });

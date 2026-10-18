@@ -26,13 +26,13 @@ describe('AccessTokens', () => {
     const jwt = at.sign(claims);
     const header = JSON.parse(Buffer.from(jwt.split('.')[0]!, 'base64url').toString());
     expect(header).toEqual({ alg: 'EdDSA', typ: 'JWT', kid: expect.any(String) });
-    expect(at.verify(jwt)).toEqual(claims);
+    expect(at.verify(jwt)).toEqual({ ...claims, expiresAt: expect.any(Number), remainingMs: expect.any(Number) });
   });
 
   it('expires after the TTL (with 30 s leeway)', () => {
     const jwt = at.sign(claims);
     t += 900_000 + 29_000;
-    expect(at.verify(jwt)).toEqual(claims);
+    expect(at.verify(jwt)).toEqual({ ...claims, expiresAt: expect.any(Number), remainingMs: expect.any(Number) });
     t += 2_000;
     expect(() => at.verify(jwt)).toThrow(expect.objectContaining({ code: 'UNAUTHENTICATED' }));
   });

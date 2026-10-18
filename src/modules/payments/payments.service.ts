@@ -24,10 +24,13 @@ const ABANDON_AFTER_MIN = 24 * 60;
 /** An UNFULFILLED booking is cancelled and refunded this long after the search gave up. */
 const UNFULFILLED_EXPIRY_MS = 24 * 60 * 60_000;
 
-/** openapi.yaml PaymentOrder: what the app passes to the Razorpay checkout sheet. */
+/**
+ * openapi.yaml PaymentOrder: what the app passes to the Razorpay checkout sheet. For a team demo booking the provider
+ * is SIMULATED: the app skips the checkout sheet and calls /payments/{id}/verify at once; no money moves.
+ */
 export interface PaymentOrderDto {
   readonly paymentId: string;
-  readonly provider: 'RAZORPAY';
+  readonly provider: 'RAZORPAY' | 'SIMULATED';
   readonly orderId: string;
   readonly keyId: string;
   /** Whole rupees. */
@@ -127,6 +130,15 @@ export class PaymentsService {
         const row = await tx.payment.update({ where: { id: latest.id }, data: { method, idempotencyKey } });
         return { changed: false, result: this.startResult(row) };
       }
+      if (b.isDemo) {
+        // Team demo booking: a simulated order, never a Razorpay one (production uses live keys).
+        const row = latest.state === 'DUE' && !latest.providerOrderId ? latest : await this.newAttempt(tx, latest);
+        const updated = await tx.payment.update({
+          where: { id: row.id },
+          data: { state: 'PROCESSING', method, provider: 'SIMULATED', providerOrderId: `sim_order_${row.id}`, orderedAt: now, idempotencyKey },
+        });
+        return { changed: true, result: this.startResult(updated) };
+      }
       const razorpay = this.client(); // "payments not configured" is reported as itself, not as an outage
       const row = latest.state === 'DUE' && !latest.providerOrderId ? latest : await this.newAttempt(tx, latest);
       let orderId: string;
@@ -155,8 +167,16 @@ export class PaymentsService {
    * app is never trusted). An invalid signature or a different order is PAYMENT_FAILED and changes nothing.
    */
   async verify(customerId: string, paymentId: string, body: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }): Promise<PaymentResultDto> {
-    const p = UUID.test(paymentId) ? await this.prisma.payment.findUnique({ where: { id: paymentId }, include: { booking: { select: { customerId: true } } } }) : null;
+    const p = UUID.test(paymentId) ? await this.prisma.payment.findUnique({ where: { id: paymentId }, include: { booking: { select: { customerId: true, isDemo: true } } } }) : null;
     if (!p || p.booking.customerId !== customerId) throw new AppError('NOT_FOUND');
+    if (p.provider === 'SIMULATED' && p.providerOrderId && p.booking.isDemo) {
+      // Team demo booking: the simulated payment succeeds; nothing is sent to Razorpay.
+      const state = await this.settle(p.id, {
+        id: `sim_pay_${p.id}`, order_id: p.providerOrderId, amount: Number(p.amountPaise), currency: 'INR', status: 'captured',
+        method: p.method ? p.method.toLowerCase() : 'upi',
+      });
+      return { state, booking: await this.core.get(customerId, p.bookingId) };
+    }
     if (p.provider !== 'RAZORPAY' || !p.providerOrderId) throw new AppError('CONFLICT');
     const secret = this.config.RAZORPAY_KEY_SECRET;
     if (!secret) throw new AppError('INTERNAL', {}, 'payments not configured');
@@ -454,7 +474,9 @@ export class PaymentsService {
     if (!p.providerOrderId) throw new AppError('CONFLICT');
     return {
       kind: 'order',
-      order: { paymentId: p.id, provider: 'RAZORPAY', orderId: p.providerOrderId, keyId: this.config.RAZORPAY_KEY_ID ?? '', amount: paiseToRupees(p.amountPaise) },
+      order: p.provider === 'SIMULATED'
+        ? { paymentId: p.id, provider: 'SIMULATED', orderId: p.providerOrderId, keyId: '', amount: paiseToRupees(p.amountPaise) }
+        : { paymentId: p.id, provider: 'RAZORPAY', orderId: p.providerOrderId, keyId: this.config.RAZORPAY_KEY_ID ?? '', amount: paiseToRupees(p.amountPaise) },
     };
   }
 }

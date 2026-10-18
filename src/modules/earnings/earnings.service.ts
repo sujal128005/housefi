@@ -107,7 +107,11 @@ export class EarningsService {
   async prepare(actor: PayoutActor): Promise<PayoutRow[]> {
     const { cutoffMs, periodEnd } = payoutCutoff(this.clock.now());
     const cutoff = new Date(cutoffMs);
-    const due = await this.prisma.earningsLedger.groupBy({ by: ['technicianId'], where: { payoutId: null, createdAt: { lt: cutoff } } });
+    // The team's demo technicians never get a real payout.
+    const due = await this.prisma.earningsLedger.groupBy({
+      by: ['technicianId'],
+      where: { payoutId: null, createdAt: { lt: cutoff }, technician: { user: { isDemo: false } } },
+    });
     const created: string[] = [];
     for (const { technicianId } of due) {
       const id = await this.prisma.$transaction(async (tx) => {

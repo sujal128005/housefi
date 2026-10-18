@@ -8,6 +8,7 @@ import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { AccessTokens } from './access-tokens';
+import { SessionCheck } from './session-check';
 
 export interface TokenPair {
   readonly accessToken: string;
@@ -39,6 +40,7 @@ export class SessionsService {
     private readonly prisma: PrismaService,
     private readonly hashing: Hashing,
     private readonly accessTokens: AccessTokens,
+    private readonly check: SessionCheck,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -76,6 +78,7 @@ export class SessionsService {
     });
 
     if (outcome.kind === 'reused') {
+      this.check.forget('', outcome.familyId);
       this.log.warn(`refresh token reused; session ${outcome.familyId} revoked`);
       throw new AppError('UNAUTHENTICATED');
     }
@@ -86,6 +89,7 @@ export class SessionsService {
   /** Signs out one session: every refresh token in the family stops working. */
   async revoke(userId: string, familyId: string): Promise<void> {
     await this.prisma.refreshToken.updateMany({ where: { userId, familyId, revokedAt: null }, data: { revokedAt: new Date(this.clock.now()) } });
+    this.check.forget(userId, familyId);
   }
 
   /** The family a refresh token belongs to, if it is this user's. */

@@ -72,6 +72,8 @@ export class BookingsService {
     const audioId = input.problem.voiceNote?.audioId;
     const [audio] = audioId ? await this.uploads.ready(customerId, [audioId], 'AUDIO', 'problem.voiceNote.audioId') : [];
     const address = await this.ownedAddress(customerId, input.addressId);
+    // A team demo account's booking is a demo booking (kept apart from real customers and technicians).
+    const isDemo = (await this.prisma.user.findUnique({ where: { id: customerId }, select: { isDemo: true } }))?.isDemo ?? false;
 
     const addressSnapshotEnc = await this.cipher.encrypt('bookings.address', JSON.stringify(address));
     const arrivalCodeEnc = await this.cipher.encrypt('bookings.arrival_code', String(randomInt(0, 10_000)).padStart(4, '0'));
@@ -101,6 +103,7 @@ export class BookingsService {
               voiceDurationSec: audio?.durationSec ?? input.problem.voiceNote?.durationSec ?? null,
               ...windowFields(input.time),
               preferWomenRated: input.preferWomenRated,
+              isDemo,
               status: 'AWAITING_PAYMENT',
               arrivalCodeEnc,
               idempotencyKey,

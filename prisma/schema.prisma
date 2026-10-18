@@ -52,6 +52,8 @@ model User {
   nameEnc   Bytes?     @map("name_enc")
   locale    Locale     @default(en)
   status    UserStatus @default(ACTIVE)
+  /// A team demo account (DEMO_PHONES): its bookings are simulated and kept apart from real ones.
+  isDemo    Boolean    @default(false) @map("is_demo")
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime?  @map("deleted_at") @db.Timestamptz(6)
@@ -80,6 +82,8 @@ model OtpChallenge {
   role       UserRole
   codeHash   Bytes     @map("code_hash")
   attempts   Int       @default(0)
+  /// False for team demo numbers (no SMS). The service-wide SMS budget counts the true ones.
+  sendsSms   Boolean   @default(true) @map("sends_sms")
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
   consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
   ip         String?   @db.Inet
@@ -87,6 +91,20 @@ model OtpChallenge {
 
   @@index([phoneHash, createdAt(sort: Desc)])
   @@map("otp_challenges")
+}
+
+/// Progressive sign-in lock per phone number after wrong codes (OTP_LOCK_STEPS). Deleted on a correct code, except
+/// after the final step: then only support unlocks it (npm run support -- unlock <phone>, audited).
+model OtpLockout {
+  phoneHash     Bytes     @id @map("phone_hash")
+  /// Lock steps reached so far (0 = none).
+  level         Int       @default(0) @db.SmallInt
+  /// Wrong codes counted towards the next step.
+  failures      Int       @default(0)
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(6)
+  lastFailureAt DateTime  @map("last_failure_at") @db.Timestamptz(6)
+
+  @@map("otp_lockouts")
 }
 
 /// Refresh tokens, stored only as HMAC(pepper, token). Each sign-in starts a family; every refresh replaces the
@@ -319,6 +337,8 @@ model Booking {
   windowStartHour    Int?                                   @map("window_start_hour") @db.SmallInt
   windowEndHour      Int?                                   @map("window_end_hour") @db.SmallInt
   preferWomenRated   Boolean                                @default(false) @map("prefer_women_rated")
+  /// Made by a team demo account: simulated payments, demo technicians only, no payouts.
+  isDemo             Boolean                                @default(false) @map("is_demo")
   status             BookingStatus
   /// The assigned technician.
   technicianId       String?                                @map("technician_id") @db.Uuid
