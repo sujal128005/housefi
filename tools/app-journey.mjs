@@ -158,10 +158,16 @@ async function customer() {
   await typeInto({ id: 'phone-input' }, '9876543210');
   await hideKeyboard();
   await snap('phone');
-  await tapUntil({ id: 'phone-send' }, { id: 'demo-sms' });
-  await hideKeyboard();
-  await snap('otp');
-  // The demo code reads itself from the "SMS" and signs in.
+  // The demo code reads itself from the "SMS" and signs in. On a slow device the name screen can already be up by the
+  // time the screen is read, so either one means Send code worked (tapping it again would fail: it is gone).
+  const afterSend = await tapUntil({ id: 'phone-send' }, { anyOf: [{ id: 'demo-sms' }, { id: 'auth-name' }] });
+  if (afterSend?.id === 'demo-sms') {
+    await hideKeyboard();
+    await snap('otp');
+  } else {
+    n += 1; // the later screenshots keep their numbers
+    console.log('  (signed in before the code screen could be captured)');
+  }
   await waitFor({ id: 'auth-name' }, 20000);
   await typeInto({ id: 'name-input' }, 'Priya Sharma');
   await hideKeyboard();

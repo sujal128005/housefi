@@ -52,7 +52,15 @@ export function onScreen(n) {
   return n.x2 > n.x1 && n.y2 > n.y1;
 }
 
+/** `sel` is { id, text, contains }, or { anyOf: [sel, ...] } for whichever of several appears first in the list. */
 export function find(nodes, sel, { visibleOnly = false } = {}) {
+  if (sel.anyOf) {
+    for (const s of sel.anyOf) {
+      const hit = find(nodes, s, { visibleOnly });
+      if (hit) return hit;
+    }
+    return undefined;
+  }
   return nodes.find((n) => (sel.id ? n.id === sel.id : true) && (sel.text ? n.text === sel.text || n.desc === sel.text : true)
     && (sel.contains ? (n.text + ' ' + n.desc).includes(sel.contains) : true) && (!visibleOnly || onScreen(n)));
 }
