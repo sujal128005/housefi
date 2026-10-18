@@ -1,11 +1,18 @@
-# Backend: weekly dependency updates (security fixes arrive as they are published). Prisma and the PGlite test packages are
-# pinned on purpose (README "Decisions taken in step 1"): review those updates by hand.
+# Weekly updates, minor and patch versions only: a major version (Prisma 7, TypeScript 7, ...) changes behaviour and
+# is planned by hand, not merged from a bot. Security fixes arrive separately, as soon as they are published.
+# Prisma and the PGlite test packages are pinned on purpose (backend/README "Decisions taken in step 1").
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /backend
     schedule: { interval: weekly, day: monday }
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "prisma"
+      - dependency-name: "@prisma/client"
+      - dependency-name: "@electric-sql/*"
     groups:
       nestjs: { patterns: ["@nestjs/*"] }
       lint: { patterns: ["eslint*", "@eslint/*", "typescript-eslint", "prettier"] }
@@ -17,4 +24,7 @@ updates:
     open-pull-requests-limit: 0
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly, day: monday }
+    schedule: { interval: monthly }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
