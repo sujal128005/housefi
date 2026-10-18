@@ -13,7 +13,7 @@ export class UploadsController {
 
   @Post('photos')
   @HttpCode(200)
-  @Roles('CUSTOMER', 'TECHNICIAN')
+  @Roles('CUSTOMER', 'TECHNICIAN', 'COORDINATOR')
   @RateLimit({ limit: 30, windowSec: 60 })
   photo(@CurrentUser() user: AuthUser, @Body(new ZodValidationPipe(PhotoTicketBody)) body: z.infer<typeof PhotoTicketBody>): Promise<UploadTicketDto> {
     return this.uploads.ticket({ id: user.id, role: user.role }, 'PHOTO', body);

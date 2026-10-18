@@ -31,6 +31,29 @@ export interface SearchingJobDto {
   readonly searchingSince: number | null;
 }
 
+export interface QueueEntryDto {
+  readonly bookingId: string;
+  readonly code: string;
+  readonly serviceId: string;
+  readonly categoryId: string;
+  readonly area: string;
+  readonly pincode: string;
+  readonly reason: string;
+  readonly enteredAt: number;
+  readonly claimedBy: string | null;
+  readonly claimedAt: number | null;
+}
+
+export interface OfferHistoryDto {
+  readonly offerId: string;
+  readonly technicianId: string;
+  readonly channel: string;
+  readonly state: string;
+  readonly createdAt: number;
+  readonly respondedAt: number | null;
+  readonly calls: readonly { readonly state: string; readonly keypad: string | null; readonly requestedAt: number; readonly durationS: number | null }[];
+}
+
 export interface CoordinatorJobsDto {
   readonly searching: readonly SearchingJobDto[];
   /** Active jobs of the technicians linked to this coordinator, as those technicians would see them. */
@@ -76,6 +99,65 @@ export class CoordinatorService {
     };
   }
 
+  // ---------- manual queue (no app or phone technician took the booking) ----------
+
+  /** Open queue entries, oldest first, with who is handling each. Demo bookings are left out. */
+  async queue(): Promise<QueueEntryDto[]> {
+    const rows = await this.prisma.dispatchQueueEntry.findMany({
+      where: { resolvedAt: null, booking: { status: { in: [...ASSIGNABLE] }, isDemo: false } },
+      orderBy: { enteredAt: 'asc' },
+      include: { booking: true },
+      take: 100,
+    });
+    return rows.map((q) => ({
+      bookingId: q.bookingId,
+      code: q.booking.code,
+      serviceId: q.booking.serviceId,
+      categoryId: q.booking.categoryId,
+      area: q.booking.locality && q.booking.locality !== q.booking.city ? `${q.booking.locality}, ${q.booking.city}` : q.booking.city,
+      pincode: q.booking.pincode.trim(),
+      reason: q.reason,
+      enteredAt: q.enteredAt.getTime(),
+      claimedBy: q.claimedBy,
+      claimedAt: q.claimedAt?.getTime() ?? null,
+    }));
+  }
+
+  /** One coordinator at a time handles an entry: CONFLICT when another holds it (claims older than 15 minutes lapse). */
+  async claim(coordinatorId: string, bookingId: string): Promise<void> {
+    if (!UUID.test(bookingId)) throw new AppError('NOT_FOUND');
+    const now = new Date(this.clock.now());
+    const stale = new Date(now.getTime() - 15 * 60_000);
+    const r = await this.prisma.dispatchQueueEntry.updateMany({
+      where: { bookingId, resolvedAt: null, OR: [{ claimedBy: null }, { claimedBy: coordinatorId }, { claimedAt: { lt: stale } }] },
+      data: { claimedBy: coordinatorId, claimedAt: now },
+    });
+    if (r.count === 0) {
+      const exists = await this.prisma.dispatchQueueEntry.findFirst({ where: { bookingId, resolvedAt: null }, select: { bookingId: true } });
+      throw exists ? new AppError('CONFLICT', {}, 'another coordinator is handling it') : new AppError('NOT_FOUND');
+    }
+  }
+
+  async release(coordinatorId: string, bookingId: string): Promise<void> {
+    if (!UUID.test(bookingId)) throw new AppError('NOT_FOUND');
+    await this.prisma.dispatchQueueEntry.updateMany({ where: { bookingId, claimedBy: coordinatorId, resolvedAt: null }, data: { claimedBy: null, claimedAt: null } });
+  }
+
+  /** The offers made for a booking, with every phone call and its outcome (no phone numbers). */
+  async offers(bookingId: string): Promise<OfferHistoryDto[]> {
+    if (!UUID.test(bookingId)) throw new AppError('NOT_FOUND');
+    const rows = await this.prisma.jobOffer.findMany({ where: { bookingId }, orderBy: { createdAt: 'asc' }, include: { callAttempts: { orderBy: { requestedAt: 'asc' } } } });
+    return rows.map((o) => ({
+      offerId: o.id,
+      technicianId: o.technicianId,
+      channel: o.channel,
+      state: o.state,
+      createdAt: o.createdAt.getTime(),
+      respondedAt: o.respondedAt?.getTime() ?? null,
+      calls: o.callAttempts.map((c) => ({ state: c.state, keypad: c.keypadResult, requestedAt: c.requestedAt.getTime(), durationS: c.durationS })),
+    }));
+  }
+
   /** Gives a searching booking to one of this coordinator's technicians (approved, with the skill, not busy). */
   async assign(coordinatorId: string, bookingId: string, technicianId: string): Promise<JobDto> {
     if (!UUID.test(bookingId) || !UUID.test(technicianId)) throw new AppError('NOT_FOUND');
@@ -95,6 +177,7 @@ export class CoordinatorService {
       await this.dispatch.withdrawOpen(tx, b.id);
       const now = new Date(this.clock.now());
       await this.core.transition(tx, b, 'ASSIGNED', { technician: { connect: { userId: technicianId } }, assignedAt: now }, actor, { assignedBy: 'COORDINATOR' });
+      await tx.dispatchQueueEntry.updateMany({ where: { bookingId: b.id, resolvedAt: null }, data: { resolvedAt: now } });
       await this.audit.record(
         { actorType: 'COORDINATOR', actorId: coordinatorId, action: 'coordinator.assign', entity: 'booking', entityId: b.id, before: { status: b.status }, after: { status: 'ASSIGNED', technicianId } },
         tx,

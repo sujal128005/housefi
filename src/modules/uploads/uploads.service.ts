@@ -54,7 +54,9 @@ export class UploadsService {
       // Customers describe the problem; technicians photograph the inspection and the finished work, and upload their
       // registration photo (PROFILE).
       stage = input.stage ?? (owner.role === 'TECHNICIAN' ? 'INSPECTION' : 'PROBLEM');
-      const allowed = owner.role === 'TECHNICIAN' ? stage !== 'PROBLEM' : stage === 'PROBLEM';
+      // Coordinators upload only the registration photo of a keypad-phone technician they register.
+      if (owner.role === 'COORDINATOR') stage = 'PROFILE';
+      const allowed = owner.role === 'COORDINATOR' || (owner.role === 'TECHNICIAN' ? stage !== 'PROBLEM' : stage === 'PROBLEM');
       if (!allowed) throw new AppError('VALIDATION', { fields: { stage: 'INVALID' } }, `a ${owner.role.toLowerCase()} cannot upload ${stage} photos`);
     }
     const now = this.clock.now();

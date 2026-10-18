@@ -10,7 +10,7 @@ import { BookingCore, SYSTEM, UUID } from '../bookings/booking-core';
 import { TECH_ACTIVE } from '../bookings/booking-status';
 import type { JobDto } from '../bookings/job-view';
 import { Notifier } from '../notifications/notifier';
-import { istDate, istDayStart, windowStartMs } from '../slots/slot-rules';
+import { istDate, istDayStart, istHour as istHourOf, windowStartMs } from '../slots/slot-rules';
 import { type JobOfferDto, toJobOfferDto } from './offer-view';
 
 /** Offers not answered this many times in a row take the technician offline (README §4). */
@@ -22,6 +22,17 @@ export const SCHEDULED_START_BEFORE_MIN = 30;
 
 const SEARCHING: readonly BookingStatus[] = ['MATCHING', 'MATCHING_DELAYED'];
 const BATCH = 100;
+
+/**
+ * Phone offers for keypad-phone technicians, provided by the telephony module when calls are switched on
+ * (TELEPHONY_PROVIDER). Kept as a hook so dispatch does not depend on telephony (no module cycle).
+ */
+export interface PhoneOffers {
+  /** Calls can be placed right now (provider configured, circuit breaker closed). */
+  available(): boolean;
+  /** Places the call for a new IVR offer (after its transaction committed). Never throws. */
+  place(offerId: string): Promise<void>;
+}
 
 export interface TickResult {
   readonly expired: number;
@@ -40,6 +51,13 @@ export interface TickResult {
 @Injectable()
 export class DispatchService {
   private readonly log = new Logger(DispatchService.name);
+
+  private phone: PhoneOffers | null = null;
+
+  /** Called by the telephony module at start-up. */
+  usePhoneOffers(phone: PhoneOffers): void {
+    this.phone = phone;
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -63,12 +81,19 @@ export class DispatchService {
         if (!b || !SEARCHING.includes(b.status)) return false;
         if (await tx.jobOffer.findFirst({ where: { bookingId, state: 'OPEN' }, select: { id: true } })) return false;
         const candidate = await this.bestCandidate(tx, b);
-        if (!candidate) return false;
+        if (!candidate) {
+          // Nobody reachable by app or phone call: a coordinator may still reach technicians without a phone.
+          await this.queueIfPeopleCanHelp(tx, b);
+          return false;
+        }
         const now = this.clock.now();
-        const expiresAt = now + this.config.OFFER_TIMEOUT_SEC * 1000;
+        const byPhone = candidate.phone_type === 'KEYPAD';
+        // A phone offer covers ringing plus the spoken offer (IVR_OFFER_TIMEOUT_SEC, about 90 s).
+        const expiresAt = now + (byPhone ? this.config.IVR_OFFER_TIMEOUT_SEC : this.config.OFFER_TIMEOUT_SEC) * 1000;
         const offer = await tx.jobOffer.create({
-          data: { bookingId, technicianId: candidate.id, distanceM: candidate.distance_m, createdAt: new Date(now), expiresAt: new Date(expiresAt) },
+          data: { bookingId, technicianId: candidate.id, channel: byPhone ? 'IVR' : 'APP', distanceM: candidate.distance_m, createdAt: new Date(now), expiresAt: new Date(expiresAt) },
         });
+        if (byPhone) return { phoneOfferId: offer.id };
         // High priority with sound, dropped by the push service once the offer has expired (notifications.service.ts).
         await this.notifier.enqueue(tx, [
           {
@@ -78,9 +103,10 @@ export class DispatchService {
             params: { code: b.code, offerId: offer.id, serviceId: b.serviceId, earning: this.config.TECH_VISIT_SHARE_RUPEES, expiresAt },
           },
         ]);
-        return true;
+        return { phoneOfferId: null };
       });
-      return offered;
+      if (offered && typeof offered === 'object' && offered.phoneOfferId && this.phone) await this.phone.place(offered.phoneOfferId);
+      return offered !== false;
     } catch (err) {
       this.log.warn(`offer for booking ${bookingId} failed (${(err as Error).message}); retrying on the next sweep`);
       return false;
@@ -92,10 +118,14 @@ export class DispatchService {
    * so two bookings never pick the same technician at once). Order: women-rated first when the customer asked, then
    * distance, rating and fewest jobs accepted today (fairness).
    */
-  private async bestCandidate(tx: Prisma.TransactionClient, b: Booking): Promise<{ id: string; distance_m: number | null } | null> {
+  private async bestCandidate(tx: Prisma.TransactionClient, b: Booking): Promise<{ id: string; distance_m: number | null; phone_type: string } | null> {
     const dayStart = new Date(istDayStart(this.clock.now()));
-    const rows = await tx.$queryRaw<{ id: string; distance_m: number | null }[]>`
-      SELECT t.user_id::text AS id,
+    // Keypad-phone technicians are offered by phone call only when calls work right now, they agreed to job calls and
+    // set a PIN, and it is within their calling hours (IST). Technicians without a phone go through their coordinator.
+    const phoneOk = this.phone?.available() ?? false;
+    const hour = istHourOf(this.clock.now());
+    const rows = await tx.$queryRaw<{ id: string; distance_m: number | null; phone_type: string }[]>`
+      SELECT t.user_id::text AS id, t.phone_type::text AS phone_type,
         CASE WHEN t.last_location IS NOT NULL AND b.location IS NOT NULL THEN ST_Distance(t.last_location, b.location)::int END AS distance_m
       FROM technicians t
       JOIN bookings b ON b.id = ${b.id}::uuid
@@ -104,6 +134,10 @@ export class DispatchService {
       WHERE t.verification = 'APPROVED' AND t.online AND u.status = 'ACTIVE'
         -- Demo bookings go only to the team's demo technicians, real bookings only to real technicians.
         AND u.is_demo = b.is_demo
+        AND (t.phone_type = 'SMARTPHONE' OR (
+          ${phoneOk} AND t.phone_type = 'KEYPAD' AND t.ivr_pin_hash IS NOT NULL AND t.ivr_consent_at IS NOT NULL
+          AND COALESCE(t.call_hours_start, 8) <= ${hour} AND ${hour} < COALESCE(t.call_hours_end, 20)
+        ))
         AND (t.pincode = b.pincode OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = b.pincode))
         AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))
         AND NOT EXISTS (SELECT 1 FROM job_offers o WHERE o.technician_id = t.user_id AND o.state = 'OPEN')
@@ -117,6 +151,31 @@ export class DispatchService {
       LIMIT 1
       FOR UPDATE OF t SKIP LOCKED`;
     return rows[0] ?? null;
+  }
+
+  /**
+   * The manual queue: a booking nobody could be offered to goes to coordinators when one of their technicians could
+   * do it (approved, the skill, the area, free) but is reachable only by a person (no phone, or calls unavailable).
+   */
+  private async queueIfPeopleCanHelp(tx: Prisma.TransactionClient, b: Booking): Promise<void> {
+    const [row] = await tx.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*)::bigint AS n FROM technicians t
+      JOIN technician_skills s ON s.technician_id = t.user_id AND s.category_id = ${b.categoryId}::category_id
+      JOIN users u ON u.id = t.user_id
+      WHERE t.verification = 'APPROVED' AND t.coordinator_id IS NOT NULL AND t.phone_type <> 'SMARTPHONE'
+        AND u.status = 'ACTIVE' AND u.is_demo = ${b.isDemo}
+        AND (t.pincode = ${b.pincode} OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = ${b.pincode}))
+        AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))`;
+    if (Number(row?.n ?? 0) > 0) await this.enqueue(tx, b.id, 'no app or phone technician available; a coordinator can call theirs');
+  }
+
+  /** Puts a booking in the coordinators' queue (once; a resolved entry is reopened). */
+  async enqueue(tx: Prisma.TransactionClient, bookingId: string, reason: string): Promise<void> {
+    const now = new Date(this.clock.now());
+    await tx.$executeRaw`
+      INSERT INTO dispatch_queue (booking_id, reason, entered_at) VALUES (${bookingId}::uuid, ${reason}, ${now})
+      ON CONFLICT (booking_id) DO UPDATE SET reason = EXCLUDED.reason, entered_at = EXCLUDED.entered_at, claimed_by = NULL, claimed_at = NULL, resolved_at = NULL
+      WHERE dispatch_queue.resolved_at IS NOT NULL`;
   }
 
   /** Inside the caller's transaction: closes the booking's open offer (customer cancelled, rescheduled, gave up). */
@@ -137,12 +196,33 @@ export class DispatchService {
 
   /**
    * Accepts in one transaction with the booking, offer and technician rows locked: the offer must still be open and
-   * within its 45 s, the booking still searching, the technician approved and free. Otherwise OFFER_EXPIRED (410).
+   * within its time, the booking still searching, the technician approved and free. Otherwise OFFER_EXPIRED (410).
+   * The app's Accept and a keypad accept on a phone call both come here, so exactly one acceptance can ever win.
    */
   async accept(technicianId: string, offerId: string): Promise<JobDto> {
     const offer0 = await this.ownOffer(technicianId, offerId);
+    await this.acceptInTx(technicianId, offerId, offer0.bookingId, 'APP');
+    this.core.updates.publish(offer0.bookingId);
+    return this.core.getJob(technicianId, offer0.bookingId);
+  }
+
+  /** A keypad accept on an answered offer call (after the PIN). False when the job is no longer available. */
+  async acceptByPhone(technicianId: string, offerId: string): Promise<boolean> {
+    const offer0 = await this.prisma.jobOffer.findUnique({ where: { id: offerId } });
+    if (!offer0 || offer0.technicianId !== technicianId || offer0.channel !== 'IVR') return false;
+    try {
+      await this.acceptInTx(technicianId, offerId, offer0.bookingId, 'IVR');
+    } catch (err) {
+      if (err instanceof AppError && err.code === 'OFFER_EXPIRED') return false;
+      throw err;
+    }
+    this.core.updates.publish(offer0.bookingId);
+    return true;
+  }
+
+  private async acceptInTx(technicianId: string, offerId: string, bookingId: string, via: 'APP' | 'IVR'): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      const b = await this.core.lock(tx, offer0.bookingId);
+      const b = await this.core.lock(tx, bookingId);
       await tx.$queryRaw`SELECT user_id FROM technicians WHERE user_id = ${technicianId}::uuid FOR UPDATE`;
       const offer = await tx.jobOffer.findUniqueOrThrow({ where: { id: offerId } });
       const tech = await tx.technician.findUnique({ where: { userId: technicianId }, select: { verification: true } });
@@ -152,11 +232,10 @@ export class DispatchService {
         throw new AppError('OFFER_EXPIRED');
       }
       await tx.jobOffer.update({ where: { id: offerId }, data: { state: 'ACCEPTED', respondedAt: now } });
-      await this.core.transition(tx, b, 'ASSIGNED', { technician: { connect: { userId: technicianId } }, assignedAt: now }, { type: 'TECHNICIAN', id: technicianId }, { offerId });
+      await this.core.transition(tx, b, 'ASSIGNED', { technician: { connect: { userId: technicianId } }, assignedAt: now }, { type: 'TECHNICIAN', id: technicianId }, { offerId, ...(via === 'IVR' ? { via: 'IVR' } : {}) });
       await tx.technician.update({ where: { userId: technicianId }, data: { missedOffersInRow: 0 } });
+      await tx.dispatchQueueEntry.updateMany({ where: { bookingId, resolvedAt: null }, data: { resolvedAt: now } });
     });
-    this.core.updates.publish(offer0.bookingId);
-    return this.core.getJob(technicianId, offer0.bookingId);
   }
 
   /** Declines (optional reason); the next technician is offered at once. Answering an offer that is no longer open is a no-op. */
@@ -181,7 +260,15 @@ export class DispatchService {
     const { delayed, unfulfilled } = await this.escalate();
     const reassigned = await this.reassignLate();
     const offered = await this.offerUnoffered();
+    await this.closeQueueEntries();
     return { expired, delayed, unfulfilled, reassigned, offered };
+  }
+
+  /** Queue entries whose booking was assigned, cancelled or given up on are resolved. */
+  async closeQueueEntries(): Promise<number> {
+    return this.prisma.$executeRaw`
+      UPDATE dispatch_queue q SET resolved_at = ${new Date(this.clock.now())}
+      FROM bookings b WHERE b.id = q.booking_id AND q.resolved_at IS NULL AND b.status NOT IN ('MATCHING', 'MATCHING_DELAYED')`;
   }
 
   /** Offers past 45 s: EXPIRED, counted as a miss (3 in a row: offline), and the next technician is offered. */
@@ -232,6 +319,8 @@ export class DispatchService {
         let wasDelayed = false;
         if (b.status === 'MATCHING' && b.matchingStartedAt <= delayAt) {
           await this.core.transition(tx, b, 'MATCHING_DELAYED', {}, SYSTEM, { minutes: this.config.MATCHING_DELAYED_AFTER_MIN });
+          // Still nobody after ~10 minutes: a coordinator looks at it too.
+          await this.enqueue(tx, id, `no technician accepted within ${this.config.MATCHING_DELAYED_AFTER_MIN} minutes`);
           b = (await tx.booking.findUniqueOrThrow({ where: { id } })) as Booking;
           wasDelayed = true;
         }

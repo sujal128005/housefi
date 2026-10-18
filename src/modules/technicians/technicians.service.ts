@@ -3,6 +3,7 @@ import { Prisma, type Technician, type TechnicianSkill, type User } from '@prism
 import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { FieldCipher } from '../../common/crypto/field-cipher';
+import { Hashing } from '../../common/crypto/hashing';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { MediaUrls } from '../../common/storage/object-store';
@@ -57,6 +58,7 @@ export class TechniciansService {
     private readonly prisma: PrismaService,
     private readonly cipher: FieldCipher,
     private readonly audit: AuditService,
+    private readonly hashing: Hashing,
     @InjectClock() private readonly clock: Clock,
     // API only (the command-line tools load this service without storage).
     @Optional() private readonly uploads?: UploadsService,
@@ -126,15 +128,16 @@ export class TechniciansService {
    * document) and the registration photo, plus the QR verification token. Later submissions cannot change the name or
    * photo (POST /tech/identity-corrections asks support); a new photo is taken only after support allowed one.
    */
-  async submit(userId: string, input: TechProfileInput): Promise<TechProfileDto> {
+  async submit(userId: string, input: TechProfileInput, opts: { photoOwnerId?: string; actor?: { type: 'TECHNICIAN' | 'COORDINATOR'; id: string } } = {}): Promise<TechProfileDto> {
     const user = await this.user(userId);
+    const actor = opts.actor ?? { type: 'TECHNICIAN' as const, id: userId };
     const existing = await this.prisma.technician.findUnique({ where: { userId }, select: { techCode: true, photoUploadId: true } });
     const first = !existing?.techCode;
     const needsPhoto = !existing?.photoUploadId;
     let photoId: string | null = null;
     if (needsPhoto && this.uploads) {
       if (!input.photoUploadId) throw new AppError('VALIDATION', { fields: { photoUploadId: 'REQUIRED' } }, 'a registration photo is needed');
-      const [photo] = await this.uploads.ready(userId, [input.photoUploadId], 'PHOTO', 'photoUploadId', 'PROFILE');
+      const [photo] = await this.uploads.ready(opts.photoOwnerId ?? userId, [input.photoUploadId], 'PHOTO', 'photoUploadId', 'PROFILE');
       photoId = photo?.id ?? null;
     }
     const vehicleEnc = input.vehicle ? await this.cipher.encrypt('technicians.vehicle', input.vehicle) : new Uint8Array(0);
@@ -175,7 +178,7 @@ export class TechniciansService {
           await this.clearLocation(tx, userId);
           await this.withdrawOffers(tx, userId);
           await this.audit.record(
-            { actorType: 'TECHNICIAN', actorId: userId, action: 'tech.profile_submitted', entity: 'technician', entityId: userId, before: { verification: before?.verification ?? null }, after: { verification: 'PENDING', skills: input.skills, ...(photoId ? { newPhoto: true } : {}) } },
+            { actorType: actor.type, actorId: actor.id, action: 'tech.profile_submitted', entity: 'technician', entityId: userId, before: { verification: before?.verification ?? null }, after: { verification: 'PENDING', skills: input.skills, ...(photoId ? { newPhoto: true } : {}) } },
             tx,
           );
         });
@@ -187,6 +190,30 @@ export class TechniciansService {
       }
     }
     return this.profileOf(await this.prisma.user.findUniqueOrThrow({ where: { id: user.id } }));
+  }
+
+  /**
+   * A coordinator registers a technician who has no smartphone (they cannot use the app): the account for their
+   * number, linked to this coordinator, and the profile, which goes to verification like any other. CONFLICT if the
+   * number already has a technician profile.
+   */
+  async registerForCoordinator(coordinatorId: string, phone: string, input: TechProfileInput, phoneType: 'KEYPAD' | 'NONE'): Promise<TechProfileDto> {
+    const phoneHash = this.hashing.phone(phone);
+    let user = await this.prisma.user.findUnique({ where: { role_phoneHash: { role: 'TECHNICIAN', phoneHash } } });
+    if (user && (await this.prisma.technician.findUnique({ where: { userId: user.id }, select: { userId: true } }))) {
+      throw new AppError('CONFLICT', {}, 'this number already has a technician profile');
+    }
+    if (!user) {
+      try {
+        user = await this.prisma.user.create({ data: { role: 'TECHNICIAN', phoneHash, phoneEnc: await this.cipher.encrypt('users.phone', phone) } });
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new AppError('CONFLICT', {}, 'registered meanwhile');
+        throw e;
+      }
+    }
+    const profile = await this.submit(user.id, input, { photoOwnerId: coordinatorId, actor: { type: 'COORDINATOR', id: coordinatorId } });
+    await this.prisma.technician.update({ where: { userId: user.id }, data: { coordinatorId, phoneType } });
+    return { ...profile, phoneType };
   }
 
   /** Online = ready for job offers. Only APPROVED technicians may go online (else NOT_VERIFIED). */

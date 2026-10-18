@@ -171,10 +171,35 @@ export const envSchema = z
     /** Optional: required only when "enhanced push security" is turned on in the Expo project. */
     EXPO_ACCESS_TOKEN: z.string().optional(),
 
+    /**
+     * Phone calls (docs/TELEPHONY.md): off = no calls (keypad technicians are served by coordinators); exotel = real
+     * calls; fake = recorded only (development and tests).
+     */
+    TELEPHONY_PROVIDER: z.enum(['off', 'fake', 'exotel']).default('off'),
     EXOTEL_SID: z.string().optional(),
     EXOTEL_API_KEY: z.string().optional(),
     EXOTEL_API_TOKEN: z.string().optional(),
-    EXOTEL_CALLER_ID: z.string().optional(),
+    /** api.exotel.com (Singapore cluster) or api.in.exotel.com (Mumbai cluster), as on the Exotel dashboard. */
+    EXOTEL_SUBDOMAIN: z.string().regex(/^[a-z0-9.-]+$/).default('api.in.exotel.com'),
+    /** The Housefi ExoPhone: caller ID for every call, and the number customers and technicians dial for masked calls. */
+    EXOTEL_CALLER_ID: z.string().regex(/^\+?[0-9]{8,15}$/).optional(),
+    /** The Exotel app (call flow) that plays a job offer and collects the keypresses. */
+    EXOTEL_OFFER_FLOW_ID: z.string().regex(/^[0-9]+$/).optional(),
+    /** Secret part of the callback URLs Exotel calls (at least 32 characters). */
+    EXOTEL_WEBHOOK_SECRET: z.string().min(32).optional(),
+    /** Optional: only these addresses may call the telephony callbacks (Exotel's published IPs). */
+    TELEPHONY_ALLOWED_IPS: csv,
+    /** A job offer by phone call lasts this long (ringing plus the spoken offer). */
+    IVR_OFFER_TIMEOUT_SEC: int(90, 30, 600),
+    /** How long the phone rings before the call counts as not answered. */
+    IVR_RING_TIMEOUT_SEC: int(30, 10, 120),
+    /** Calls that fail to be placed in a row before calling pauses (circuit breaker), and for how long. */
+    IVR_CIRCUIT_FAILURES: int(3, 1, 20),
+    IVR_CIRCUIT_OPEN_MIN: int(5, 1, 120),
+    /** How long a masked-call permission lasts after the app asks for it. */
+    MASKED_CALL_GRANT_MIN: int(30, 5, 240),
+    /** MSG91 template (DLT approved) for the job details SMS after a phone acceptance. Optional. */
+    MSG91_JOB_TEMPLATE_ID: z.string().optional(),
 
     ANTHROPIC_API_KEY: z.string().optional(),
     AI_CHAT_MODEL: z.string().default('claude-sonnet-5-5'),
@@ -228,6 +253,14 @@ export const envSchema = z
     }
     if (e.DEMO_OTP_CODE !== undefined && weakCode(e.DEMO_OTP_CODE)) {
       ctx.addIssue({ code: 'custom', path: ['DEMO_OTP_CODE'], message: 'too easy to guess (repeated or sequential digits)' });
+    }
+    if (e.TELEPHONY_PROVIDER === 'exotel') {
+      for (const k of ['EXOTEL_SID', 'EXOTEL_API_KEY', 'EXOTEL_API_TOKEN', 'EXOTEL_CALLER_ID', 'EXOTEL_OFFER_FLOW_ID', 'EXOTEL_WEBHOOK_SECRET'] as const) {
+        require(k, 'when TELEPHONY_PROVIDER=exotel');
+      }
+    }
+    if (e.TELEPHONY_PROVIDER === 'fake' && e.NODE_ENV === 'production') {
+      ctx.addIssue({ code: 'custom', path: ['TELEPHONY_PROVIDER'], message: 'must be exotel or off in production' });
     }
     if (e.NODE_ENV === 'production') {
       const keys = [

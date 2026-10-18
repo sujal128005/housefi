@@ -139,7 +139,7 @@ export function latest(payments: Payment[], kind: Payment['kind']): Payment | un
 
 const SKILL_ORDER: readonly CategoryId[] = ['PLUMBING', 'ELECTRICAL', 'AC', 'APPLIANCE', 'CLEANING', 'CARPENTRY'];
 
-export async function technicianDto(t: Technician & { user: User; skills: TechnicianSkill[] }, cipher: FieldCipher, media: PhotoSigner): Promise<TechnicianDto> {
+export async function technicianDto(t: Technician & { user: User; skills: TechnicianSkill[] }, cipher: FieldCipher, media: PhotoSigner, maskedPhone = ''): Promise<TechnicianDto> {
   const name = t.user.nameEnc ? await cipher.decrypt('users.name', t.user.nameEnc) : '';
   return {
     id: t.userId,
@@ -150,7 +150,7 @@ export async function technicianDto(t: Technician & { user: User; skills: Techni
     years: t.experienceYears,
     womenRated: t.womenRated,
     vehicle: t.vehicleEnc.length > 0 ? await cipher.decrypt('technicians.vehicle', t.vehicleEnc) : '',
-    maskedPhone: '',
+    maskedPhone,
     demo: t.user.isDemo,
     techCode: t.techCode ?? '',
     photo: t.photoUploadId && t.photoStatus === 'APPROVED' ? await media.photoUrl(t.photoUploadId) : null,
@@ -168,7 +168,7 @@ function visibleQuote(quotes: QuoteRow[], which: 'MAIN' | 'EXTRA'): QuoteDto | n
 
 export const EMPTY_ADDRESS: AddressDto = { id: '', label: 'OTHER', house: '', street: '', landmark: '', city: '', pincode: '' };
 
-export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: PhotoSigner): Promise<BookingDto> {
+export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: PhotoSigner, maskedPhone = ''): Promise<BookingDto> {
   const visit = latest(b.payments, 'VISIT');
   if (!visit) throw new Error(`booking ${b.id} has no visit payment`);
   const final = latest(b.payments, 'FINAL');
@@ -188,7 +188,7 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
         : { mode: 'INSTANT', window: null },
     preferWomenRated: b.preferWomenRated,
     status: b.status,
-    technician: b.technician ? await technicianDto(b.technician, cipher, media) : null,
+    technician: b.technician ? await technicianDto(b.technician, cipher, media, maskedPhone) : null,
     arrivalOtp,
     etaMin: b.etaMin,
     visitPayment: payment(visit),

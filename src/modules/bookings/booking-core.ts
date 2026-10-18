@@ -134,7 +134,7 @@ export class BookingCore {
     const row = await this.prisma.booking.findFirst({ where: { id, customerId }, select: { status: true, createdAt: true } });
     if (!row) throw new AppError('NOT_FOUND');
     if (this.isOverdueUnpaid(row)) await this.expireOne(id);
-    return toBookingDto(await this.prisma.booking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE }), this.cipher, this.media);
+    return toBookingDto(await this.prisma.booking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE }), this.cipher, this.media, this.maskedPhone());
   }
 
   async list(customerId: string, scope: 'active' | 'past' | 'all'): Promise<BookingDto[]> {
@@ -151,7 +151,7 @@ export class BookingCore {
       take: LIST_LIMIT,
       include: BOOKING_INCLUDE,
     });
-    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher, this.media)));
+    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher, this.media, this.maskedPhone())));
   }
 
   // ---------- technician reads ----------
@@ -181,7 +181,13 @@ export class BookingCore {
       now: this.clock.now(),
       ...this.shares(),
       startCodeMaxAttempts: this.config.START_CODE_MAX_ATTEMPTS,
+      maskedPhone: this.maskedPhone(),
     };
+  }
+
+  /** The Housefi number customers and technicians dial for masked calls (POST .../call), or '' when calls are off. */
+  private maskedPhone(): string {
+    return this.config.TELEPHONY_PROVIDER !== 'off' && this.config.EXOTEL_CALLER_ID ? this.config.EXOTEL_CALLER_ID : '';
   }
 
   // ---------- unpaid expiry ----------

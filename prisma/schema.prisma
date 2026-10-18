@@ -361,9 +361,9 @@ model Booking {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  service       Service          @relation(fields: [serviceId], references: [id])
-  customer      User             @relation(fields: [customerId], references: [id])
-  technician    Technician?      @relation(fields: [technicianId], references: [userId])
+  service       Service             @relation(fields: [serviceId], references: [id])
+  customer      User                @relation(fields: [customerId], references: [id])
+  technician    Technician?         @relation(fields: [technicianId], references: [userId])
   events        BookingEvent[]
   payments      Payment[]
   offers        JobOffer[]
@@ -373,6 +373,8 @@ model Booking {
   rating        Rating?
   uploads       Upload[]
   notifications Notification[]
+  queueEntry    DispatchQueueEntry?
+  callGrants    CallGrant[]
 
   @@unique([customerId, idempotencyKey])
   @@index([customerId, createdAt(sort: Desc)])
@@ -558,6 +560,14 @@ model Technician {
   /// HMAC of name, birth date, gender and last 4 digits: one person, one technician account.
   aadhaarFingerprint Bytes?                                 @unique @map("aadhaar_fingerprint")
   aadhaarVerifiedAt  DateTime?                              @map("aadhaar_verified_at") @db.Timestamptz(6)
+  /// 4-digit PIN for accepting jobs by phone (keypad phones), stored only as an HMAC.
+  ivrPinHash         Bytes?                                 @map("ivr_pin_hash")
+  ivrConsentAt       DateTime?                              @map("ivr_consent_at") @db.Timestamptz(6)
+  /// Agreed calling hours (IST), e.g. 8 to 20.
+  callHoursStart     Int?                                   @map("call_hours_start") @db.SmallInt
+  callHoursEnd       Int?                                   @map("call_hours_end") @db.SmallInt
+  /// APP, IVR, COORDINATOR or SYSTEM: who last set online / offline.
+  availabilitySource String?                                @map("availability_source")
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -654,6 +664,8 @@ model JobOffer {
 
   booking    Booking    @relation(fields: [bookingId], references: [id])
   technician Technician @relation(fields: [technicianId], references: [userId])
+
+  callAttempts OfferCallAttempt[]
 
   @@index([bookingId, technicianId])
   @@index([technicianId, state, respondedAt])
@@ -1032,4 +1044,88 @@ model Upload {
   @@index([bookingId])
   @@index([state, createdAt])
   @@map("uploads")
+}
+
+// ---------- telephony (docs/TELEPHONY.md) ----------
+
+enum CallState {
+  REQUESTED
+  RINGING
+  ANSWERED
+  COMPLETED
+  NO_ANSWER
+  BUSY
+  FAILED
+  CANCELLED
+
+  @@map("call_state")
+}
+
+enum KeypadResult {
+  ACCEPT
+  REJECT
+  NONE
+  INVALID
+  PIN_FAILED
+  TOO_LATE
+
+  @@map("keypad_result")
+}
+
+/// One phone call made for a job offer. The call state never moves the offer by itself.
+model OfferCallAttempt {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  offerId        String        @map("offer_id") @db.Uuid
+  provider       String
+  providerCallId String?       @unique @map("provider_call_id")
+  state          CallState     @default(REQUESTED)
+  keypadResult   KeypadResult? @map("keypad_result")
+  pinAttempts    Int           @default(0) @map("pin_attempts") @db.SmallInt
+  requestedAt    DateTime      @map("requested_at") @db.Timestamptz(6)
+  answeredAt     DateTime?     @map("answered_at") @db.Timestamptz(6)
+  endedAt        DateTime?     @map("ended_at") @db.Timestamptz(6)
+  durationS      Int?          @map("duration_s")
+  failureReason  String?       @map("failure_reason")
+
+  offer JobOffer @relation(fields: [offerId], references: [id])
+
+  @@index([offerId], map: "offer_call_attempts_offer_idx")
+  @@map("offer_call_attempts")
+}
+
+/// Bookings waiting for a coordinator to assign them.
+model DispatchQueueEntry {
+  bookingId  String    @id @map("booking_id") @db.Uuid
+  reason     String
+  enteredAt  DateTime  @map("entered_at") @db.Timestamptz(6)
+  claimedBy  String?   @map("claimed_by") @db.Uuid
+  claimedAt  DateTime? @map("claimed_at") @db.Timestamptz(6)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("dispatch_queue")
+}
+
+/// Masked calls: who may call whom through the Housefi number, for one booking, for a short time.
+model CallGrant {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  callerId  String   @map("caller_id") @db.Uuid
+  calleeId  String   @map("callee_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @map("created_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([callerId, expiresAt(sort: Desc)], map: "call_grants_caller_idx")
+  @@map("call_grants")
+}
+
+/// Provider callbacks already handled (providers retry).
+model TelephonyEvent {
+  eventId    String   @id @map("event_id")
+  receivedAt DateTime @map("received_at") @db.Timestamptz(6)
+
+  @@map("telephony_events")
 }

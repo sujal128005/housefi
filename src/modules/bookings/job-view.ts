@@ -50,6 +50,8 @@ export interface JobViewOptions {
   readonly visitShareRupees: number;
   readonly labourSharePercent: number;
   readonly startCodeMaxAttempts: number;
+  /** The Housefi number for masked calls ('' when calls are off). */
+  readonly maskedPhone: string;
 }
 
 const tech = (q: Parameters<typeof toQuoteDto>[0] | undefined) => (q ? toQuoteDto(q) : null);
@@ -91,7 +93,7 @@ export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOpti
     problem: await toProblemDto(b, media),
     customerName: fullName.split(/\s+/)[0] ?? '',
     address,
-    maskedPhone: '',
+    maskedPhone: opts.maskedPhone,
     time:
       b.timeMode === 'SCHEDULED' && b.windowDate && b.windowStartHour !== null && b.windowEndHour !== null
         ? { mode: 'SCHEDULED', window: { date: b.windowDate.toISOString().slice(0, 10), startHour: b.windowStartHour, endHour: b.windowEndHour } }

@@ -43,6 +43,15 @@ export class IdentityController {
     return this.identity.verifyAadhaar(user.id, body.qr, { type: 'TECHNICIAN', id: user.id });
   }
 
+  /** A coordinator scans the Aadhaar QR of one of their technicians (keypad phones cannot use the app). */
+  @Post('coordinator/technicians/:technicianId/aadhaar')
+  @Roles('COORDINATOR')
+  @HttpCode(200)
+  @RateLimit({ limit: 30, windowSec: 3600 })
+  coordinatorAadhaar(@CurrentUser() user: AuthUser, @Param('technicianId') id: string, @Body(new ZodValidationPipe(AadhaarBody)) body: z.infer<typeof AadhaarBody>): Promise<AadhaarResultDto> {
+    return this.identity.verifyAadhaar(id, body.qr, { type: 'COORDINATOR', id: user.id });
+  }
+
   @Get('bookings/:bookingId/technician-card')
   @Roles('CUSTOMER')
   @Header('Cache-Control', 'no-store')

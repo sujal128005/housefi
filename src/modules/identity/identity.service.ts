@@ -187,8 +187,10 @@ export class IdentityService {
    * itself is never stored or logged.
    */
   async verifyAadhaar(technicianId: string, qrText: string, actor: IdentityActor): Promise<AadhaarResultDto> {
-    const t = await this.tech(technicianId);
-    if (!t?.techCode) throw new AppError('NOT_FOUND', {}, 'submit the profile first');
+    const t = UUID.test(technicianId) ? await this.tech(technicianId) : null;
+    // A coordinator only for their own technicians.
+    if (!t || (actor.type === 'COORDINATOR' && t.coordinatorId !== actor.id)) throw new AppError('NOT_FOUND');
+    if (!t.techCode) throw new AppError('NOT_FOUND', {}, 'submit the profile first');
     const key = this.uidaiKey();
     if (!key) throw new AppError('INTERNAL', {}, 'Aadhaar verification is not configured (UIDAI_QR_CERT_PEM_B64)');
     let details;
