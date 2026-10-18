@@ -3,6 +3,9 @@
 No AWS needed. Everything runs in DigitalOcean's **BLR1** region (Bangalore), so data stays in India and the app is
 fast in Hyderabad. Expected cost at launch is about US$45–60 a month (Droplet + Managed PostgreSQL + Spaces).
 
+**Free alternative for the pilot:** [`DEPLOY-ORACLE.md`](DEPLOY-ORACLE.md) runs the same server on Oracle Cloud's Always
+Free tier (₹0), with the database on the same machine.
+
 | Part | DigitalOcean product | Notes |
 |---|---|---|
 | API (this repo, Docker) + HTTPS | Droplet, Basic, 2 vCPU / 4 GB, Ubuntu 24.04, BLR1 | Caddy gets the certificate for `api.housefi.tech` |

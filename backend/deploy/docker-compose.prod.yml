@@ -40,6 +40,9 @@ services:
     command: ["node_modules/.bin/prisma", "migrate", "deploy"]
     networks: [internal]
     restart: "no"
+    # With --profile local-db, wait for the database on this machine; without it (managed database) this is skipped.
+    depends_on:
+      postgres: { condition: service_healthy, required: false }
 
   redis:
     image: redis:7.4-alpine
@@ -71,7 +74,9 @@ services:
   # Only with --profile local-db (when not using Managed PostgreSQL).
   postgres:
     profiles: [local-db]
-    image: postgis/postgis:16-3.4
+    # Built from deploy/postgis.Dockerfile: runs on amd64 and arm64 (Oracle Cloud's free Ampere servers).
+    build: { context: ., dockerfile: postgis.Dockerfile }
+    image: housefi-postgis:16
     restart: unless-stopped
     environment:
       POSTGRES_DB: housefi

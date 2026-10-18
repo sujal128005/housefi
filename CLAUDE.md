@@ -96,7 +96,8 @@ PostgreSQL 16, build, `npm audit`). Dependabot proposes minor/patch updates only
 - Settings: every environment variable is defined and checked in `src/config/env.ts`; listed with comments in
   `.env.example`; production values only in `.env.production` on the server.
 - Database: `prisma/schema.prisma` + `prisma/migrations/`; seed catalogue `src/cli/seed.ts`.
-- Docs: `docs/DEPLOY.md` (server, step by step), `docs/TELEPHONY.md` (Exotel), `docs/REPORT.md` (security review),
+- Docs: `docs/DEPLOY.md` (server on DigitalOcean, step by step), `docs/DEPLOY-ORACLE.md` (free pilot on Oracle Cloud
+  Always Free, arm64: `deploy/postgis.Dockerfile`, `--profile local-db`), `docs/TELEPHONY.md` (Exotel), `docs/REPORT.md` (security review),
   `docs/STATE-MACHINE.md` (booking statuses), `docs/openapi.yaml`.
 - Launch checklist for the owner: `LAUNCH-GUIDE.md` (repo root).
 

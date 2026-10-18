@@ -46,7 +46,10 @@ GitHub. They go only into `backend/.env.production` on the server (Part 3).
 
 ## Part 3. Put the server online (half a day, once)
 
-Follow `backend/docs/DEPLOY.md` from top to bottom. In short:
+**No budget yet?** Use [`backend/docs/DEPLOY-ORACLE.md`](backend/docs/DEPLOY-ORACLE.md) instead: the same server on Oracle
+Cloud's Always Free tier (₹0), with free settings (AI rules, no calls, team demo numbers only until SMS is live).
+
+With a budget, follow `backend/docs/DEPLOY.md` from top to bottom (DigitalOcean). In short:
 
 1. **DigitalOcean:** create the Droplet, database and Space (step 1).
 2. **DNS:** where housefi.tech's DNS is managed, add an `A` record `api` → the Droplet's IP (step 2).
