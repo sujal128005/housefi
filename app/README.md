@@ -46,7 +46,7 @@ src/
   state/          app state (language, interface, both sessions) and the booking draft
   i18n/           English and Telugu strings and formatting
   ui/             shared components (incl. live alerts for quotes and job offers)
-tools/            Android emulator journey driver
+tools/            Android emulator launch check, 3D icon studio, sound generator
 docs/             reports, screenshots, backend handoff
 ```
 
@@ -71,13 +71,15 @@ npx expo start --web
 
 then open http://localhost:8081 and use the browser's phone-size view (Chrome DevTools → device toolbar).
 
-End-to-end journey on a running Android emulator, customer and technician (screenshots into `docs/screens/app/`):
+Launch check on a running Android emulator with the release build installed (first screens in both languages,
+offline strip, no crash; screenshots into `docs/screens/app/launch/`). GitHub runs it on every pull request:
 
 ```bash
-node tools/app-journey.mjs en
-node tools/app-journey.mjs te
-node tools/recovery-check.mjs   # offline strip and the branded error screen (after a journey)
+node tools/launch-check.mjs
 ```
+
+The full customer + technician journey needs the API (sign-in is by SMS code); it is tested against a local API, see
+[`docs/backend/INTEGRATION.md`](docs/backend/INTEGRATION.md).
 
 ## Settings (build time)
 
