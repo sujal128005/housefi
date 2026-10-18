@@ -27,7 +27,7 @@ jobs:
     name: Typecheck, tests, expo-doctor
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -44,7 +44,7 @@ jobs:
     needs: checks
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -100,7 +100,7 @@ jobs:
     # A clean Release build compiles every native module from source; it took longer than an hour on the hosted runner.
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22

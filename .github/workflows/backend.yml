@@ -42,7 +42,7 @@ jobs:
       DATABASE_URL_TEST: postgresql://housefi:housefi@localhost:5432/housefi?schema=public
       REDIS_URL: redis://localhost:6379
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version-file: backend/.nvmrc
