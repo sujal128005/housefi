@@ -7,3 +7,9 @@ coverage/
 !.env.example
 .DS_Store
 .data/
+
+node_modules/
+dist/
+build/
+coverage/
+.env
