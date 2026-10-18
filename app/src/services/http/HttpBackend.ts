@@ -184,6 +184,13 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     await vault.forget(handle);
   }
 
+  /** DELETE /me, then forget the session on this phone. */
+  async function deleteAccount(handle: string): Promise<void> {
+    await call(handle, 'DELETE', apiPath`/me`, decodeNothing);
+    uploader.forget(handle);
+    await vault.forget(handle);
+  }
+
   /** null when the session has ended; other failures (no network) are thrown so the app can retry. */
   async function restoreWith<T>(handle: string, role: Role, read: () => Promise<T>): Promise<T | null> {
     if (roleOf(handle) !== role || !(await vault.has(handle))) return null;
@@ -304,6 +311,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
       },
       restore: (handle) => restoreWith(handle, 'technician', async () => ({ token: handle, profile: await tech.me(handle) })),
       signOut,
+      deleteAccount,
     },
     me: (handle) => call(handle, 'GET', apiPath`/tech/me`, decodeProfile),
     async submitProfile(handle, input) {
@@ -353,6 +361,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
       restore: (handle) => restoreWith(handle, 'customer', async () => ({ token: handle, customer: await call(handle, 'GET', apiPath`/me`, decodeCustomer) })),
       updateName: (handle, name) => call(handle, 'PATCH', apiPath`/me`, decodeCustomer, { name }),
       signOut,
+      deleteAccount,
     },
     catalog: {
       categories: () => publicCall('GET', apiPath`/catalog/categories`, (j) => list(j, decodeCategory, 'categories')),

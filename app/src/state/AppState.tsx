@@ -42,9 +42,12 @@ interface AppStateValue {
   readonly signIn: (s: Session) => void;
   readonly updateCustomer: (c: Customer) => void;
   readonly signOut: () => Promise<void>;
+  /** Deletes the customer account on the server, then signs out here. Throws if the server refuses. */
+  readonly deleteAccount: () => Promise<void>;
   readonly techSignIn: (s: TechSession) => void;
   readonly updateTech: (p: TechProfile) => void;
   readonly techSignOut: () => Promise<void>;
+  readonly techDeleteAccount: () => Promise<void>;
 }
 
 const Ctx = createContext<AppStateValue | null>(null);
@@ -153,6 +156,12 @@ export function AppStateProvider({ store, secrets, backend, deviceLocale, childr
       update({ token: null });
       if (token) await backend.auth.signOut(token).catch(() => undefined);
     },
+    deleteAccount: async () => {
+      const token = session?.token;
+      if (token) await backend.auth.deleteAccount(token);
+      setSession(null);
+      update({ token: null });
+    },
     techSignIn: (s) => {
       setTechSession(s);
       update({ techToken: s.token });
@@ -163,6 +172,12 @@ export function AppStateProvider({ store, secrets, backend, deviceLocale, childr
       setTechSession(null);
       update({ techToken: null });
       if (token) await backend.tech.auth.signOut(token).catch(() => undefined);
+    },
+    techDeleteAccount: async () => {
+      const token = techSession?.token;
+      if (token) await backend.tech.auth.deleteAccount(token);
+      setTechSession(null);
+      update({ techToken: null });
     },
   }), [ready, failed, prefs, session, techSession, deviceLocale, update, backend]);
 

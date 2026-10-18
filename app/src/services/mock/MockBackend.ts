@@ -913,6 +913,14 @@ export function createMockBackend(opts: MockOptions): Backend {
         delete s.sessions[token];
         await save();
       },
+
+      async deleteAccount(token) {
+        const s = await load();
+        const cid = s.sessions[token];
+        for (const [phone, c] of Object.entries(s.customers)) if (c.id === cid) delete s.customers[phone];
+        delete s.sessions[token];
+        await save();
+      },
     },
 
     catalog: {
@@ -1182,6 +1190,13 @@ export function createMockBackend(opts: MockOptions): Backend {
           const tid = s.techSessions[token];
           const tech = techById(tid ?? null);
           if (tech) putTech({ ...tech, online: false });
+          delete s.techSessions[token];
+          await save();
+        },
+        async deleteAccount(token) {
+          const s = await load();
+          const tech = techById(s.techSessions[token] ?? null);
+          if (tech) delete s.techs[tech.phone];
           delete s.techSessions[token];
           await save();
         },

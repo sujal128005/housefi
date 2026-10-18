@@ -6,19 +6,34 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatPhone } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
+import { isApiError } from '../../services/api';
 import { openWeb } from '../../services/links';
 import { useAppState, useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
 import { colors, GUTTER, radius, space } from '../../theme/tokens';
-import { Card, ConfirmSheet, DemoPill, Divider, ListRow, Screen, Tap, Txt, Wash } from '../../ui';
+import { Banner, Card, ConfirmSheet, DemoPill, Divider, ListRow, Screen, Tap, Txt, Wash } from '../../ui';
 
 export default function Account() {
   const { t, locale } = useI18n();
   const insets = useSafeAreaInsets();
   const session = useSession();
-  const { signOut, setRole, prefs, setFeedback } = useAppState();
+  const { signOut, deleteAccount, setRole, prefs, setFeedback } = useAppState();
   const draft = useDraft();
   const [confirm, setConfirm] = useState(false);
+  const [deleting, setDeleting] = useState<'ASK' | 'BUSY' | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const removeAccount = async () => {
+    setDeleting('BUSY');
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+      draft.reset();
+      resetTo('/auth/phone');
+    } catch (e) {
+      setDeleting('ASK');
+      setDeleteError(isApiError(e, 'CONFLICT') ? t('account.deleteBusy') : t('account.deleteFailed'));
+    }
+  };
   const c = session.customer;
   const version = Constants.expoConfig?.version ?? '0.1.0';
 
@@ -66,6 +81,8 @@ export default function Account() {
 
       <Card style={styles.list}>
         <ListRow icon="log-out-outline" title={t('account.signOut')} tone="danger" onPress={() => setConfirm(true)} testID="account-signout" />
+        <Divider />
+        <ListRow icon="trash-outline" title={t('account.delete')} tone="danger" onPress={() => setDeleting('ASK')} testID="account-delete" />
       </Card>
 
       <Txt variant="footnote" color="inkSubtle" align="center">{t('account.version', { v: version })}</Txt>
@@ -77,6 +94,10 @@ export default function Account() {
           void signOut();
           resetTo('/auth/phone');
         }} />
+      <ConfirmSheet visible={deleting !== null} title={t('account.deleteTitle')} body={t('account.deleteBody')} icon="trash-outline" confirmLabel={t('account.delete')}
+        confirmVariant="danger" busy={deleting === 'BUSY'} onCancel={() => { setDeleting(null); setDeleteError(null); }} onConfirm={() => void removeAccount()}>
+        {deleteError ? <Banner tone="warning" text={deleteError} testID="account-delete-error" /> : null}
+      </ConfirmSheet>
     </Screen>
   );
 }

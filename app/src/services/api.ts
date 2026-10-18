@@ -76,6 +76,8 @@ export interface AuthApi {
   restore(token: string): Promise<Session | null>;
   updateName(token: string, name: string): Promise<Customer>;
   signOut(token: string): Promise<void>;
+  /** Deletes the account for good (personal data erased, past bookings anonymised). CONFLICT while a booking is open. */
+  deleteAccount(token: string): Promise<void>;
 }
 
 export interface CatalogApi {
@@ -247,6 +249,8 @@ export interface TechAuthApi {
   verifyOtp(challengeId: string, code: string): Promise<{ readonly session: TechSession; readonly isNew: boolean }>;
   restore(token: string): Promise<TechSession | null>;
   signOut(token: string): Promise<void>;
+  /** Deletes the technician account for good. CONFLICT while a job is in progress. */
+  deleteAccount(token: string): Promise<void>;
 }
 
 /** Everything the technician app does. Technician accounts and tokens are separate from customer ones. */

@@ -11,6 +11,7 @@ import { Art3D } from '../../../illustrations/Art3D';
 import { formatPhone } from '../../../i18n/format';
 import { useI18n } from '../../../i18n/I18n';
 import { resetTo } from '../../../navigation';
+import { isApiError } from '../../../services/api';
 import { useBackend, useIsDemo } from '../../../services/ServicesProvider';
 import { feedback } from '../../../services/feedback';
 import { openWeb } from '../../../services/links';
@@ -26,12 +27,25 @@ export default function TechProfile() {
   const insets = useSafeAreaInsets();
   const session = useTechSession();
   const care = useCareCall(session.token);
-  const { techSignOut, setRole, prefs, setFeedback, updateTech } = useAppState();
+  const { techSignOut, techDeleteAccount, setRole, prefs, setFeedback, updateTech } = useAppState();
   const backend = useBackend();
   /** Labels about simulated backend outcomes show only with the demo backend. */
   const isDemo = useIsDemo();
   const toast = useToast();
   const [confirm, setConfirm] = useState(false);
+  const [deleting, setDeleting] = useState<'ASK' | 'BUSY' | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const removeAccount = async () => {
+    setDeleting('BUSY');
+    setDeleteError(null);
+    try {
+      await techDeleteAccount();
+      resetTo('/auth/phone');
+    } catch (e) {
+      setDeleting('ASK');
+      setDeleteError(isApiError(e, 'CONFLICT') ? t('tprofile.deleteBusy') : t('account.deleteFailed'));
+    }
+  };
   const [fix, setFix] = useState(false);
   const [fixKind, setFixKind] = useState<'NAME' | 'PHOTO'>('NAME');
   const [fixNote, setFixNote] = useState('');
@@ -156,6 +170,8 @@ export default function TechProfile() {
 
       <Card style={styles.list}>
         <ListRow icon="log-out-outline" title={t('account.signOut')} tone="danger" onPress={() => setConfirm(true)} testID="tprofile-signout" />
+        <Divider />
+        <ListRow icon="trash-outline" title={t('account.delete')} tone="danger" onPress={() => setDeleting('ASK')} testID="tprofile-delete" />
       </Card>
       <Txt variant="footnote" color="inkSubtle" align="center">{t('account.version', { v: version })}</Txt>
 
@@ -180,6 +196,10 @@ export default function TechProfile() {
           void techSignOut();
           resetTo('/auth/phone');
         }} />
+      <ConfirmSheet visible={deleting !== null} title={t('account.deleteTitle')} body={t('tprofile.deleteBody')} icon="trash-outline" confirmLabel={t('account.delete')}
+        confirmVariant="danger" busy={deleting === 'BUSY'} onCancel={() => { setDeleting(null); setDeleteError(null); }} onConfirm={() => void removeAccount()}>
+        {deleteError ? <Banner tone="warning" text={deleteError} testID="tprofile-delete-error" /> : null}
+      </ConfirmSheet>
     </Screen>
   );
 }

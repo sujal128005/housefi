@@ -47,6 +47,7 @@ function server() {
     },
     'GET /me': (c) => (c.headers.authorization === `Bearer ${accessOk}` ? json(200, CUSTOMER) : json(401, { error: { code: 'UNAUTHENTICATED' } })),
     'POST /auth/logout': () => json(204, undefined),
+    'DELETE /me': () => new Response(null, { status: 204 }),
     'POST /uploads/photos': (c) => json(200, { id: `up-${(c.body as { stage: string }).stage}-${calls.length}`, uploadUrl: 'https://files.test/u/x?sig', expiresAt: 1 }),
     'POST /uploads/audio': () => json(200, { id: 'audio-1', uploadUrl: 'https://files.test/u/a?sig', expiresAt: 1 }),
     'PUT https://files.test/u/x?sig': () => new Response('', { status: 200 }),
@@ -136,6 +137,18 @@ describe('live client: sessions', () => {
     const session = await signIn(t.backend);
     await t.backend.auth.signOut(session.token);
     expect(t.calls.at(-1)).toMatchObject({ url: '/auth/logout', body: { refreshToken: 'ref1' } });
+    expect(await t.backend.auth.restore(session.token)).toBeNull();
+  });
+
+  it('deletes the account on the server, then forgets the session; a refusal keeps the person signed in', async () => {
+    const t = setup();
+    t.routes['DELETE /me'] = () => json(409, { error: { code: 'CONFLICT' } });
+    const session = await signIn(t.backend);
+    await expect(t.backend.auth.deleteAccount(session.token)).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(await t.backend.auth.restore(session.token)).not.toBeNull();
+    t.routes['DELETE /me'] = () => new Response(null, { status: 204 });
+    await t.backend.auth.deleteAccount(session.token);
+    expect(t.calls.some((c) => c.method === 'DELETE' && c.url === '/me' && c.headers.authorization === 'Bearer acc1')).toBe(true);
     expect(await t.backend.auth.restore(session.token)).toBeNull();
   });
 });
