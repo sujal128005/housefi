@@ -87,7 +87,7 @@ ownership checks on every customer and technician route were reviewed and are co
 
 ## 4. App connection (done)
 
-The app (`sujal128005/housefi`, branch `final-integration`) now talks to this API for everything; its demo mode is
+The app (`app/` in this repository) now talks to this API for everything; its demo mode is
 gone. Every field and endpoint that used to be listed here is handled: demo-account badge, live map while the
 technician is on the way, technician ID card and Aadhaar Secure QR scan, masked calls, registration photo upload,
 the new notification kinds, the rating toggle, 30-second voice notes, and the 2-unpaid-bookings limit. Payments run
@@ -95,7 +95,7 @@ through the website page `housefi.tech/pay/` (`sujal128005/housefi-website`, bra
 Razorpay's checkout and hands the result back to the app; the API then verifies it as before. The whole journey
 (sign-in, booking with photo, visit fee, technician approval, offer, trip, arrival code, quote, completion, final
 payment, rating, SOS) was run in a browser against a local copy of this API. How the app connects:
-`docs/backend/INTEGRATION.md` in the app repository.
+`app/docs/backend/INTEGRATION.md`.
 
 ## 5. Left for the team (needs accounts, money or a person)
 

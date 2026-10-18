@@ -5,7 +5,7 @@ interface in one app. The app talks to the Housefi API (`api.housefi.tech`) for 
 bookings, Razorpay payments, live technician location, masked calls, push notifications, Aadhaar QR verification,
 AI photo reading and voice notes. It has no built-in demo data.
 
-The API is in the backend repository; its contract is `docs/openapi.yaml` there. How the app connects is in
+The API server is in `../backend/` (same repository); its contract is `backend/docs/openapi.yaml`. How the app connects is in
 [`docs/backend/INTEGRATION.md`](docs/backend/INTEGRATION.md).
 
 ## Stack

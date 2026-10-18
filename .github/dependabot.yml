@@ -1,15 +1,20 @@
-# Weekly dependency updates (security fixes arrive as they are published). Prisma and the PGlite test packages are
+# Backend: weekly dependency updates (security fixes arrive as they are published). Prisma and the PGlite test packages are
 # pinned on purpose (README "Decisions taken in step 1"): review those updates by hand.
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: /
+    directory: /backend
     schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 10
     groups:
       nestjs: { patterns: ["@nestjs/*"] }
       lint: { patterns: ["eslint*", "@eslint/*", "typescript-eslint", "prettier"] }
       test: { patterns: ["jest", "@jest/*", "@swc/*", "supertest", "@types/supertest"] }
+  # The app: Expo keeps its packages in step (`npx expo install --fix`), so only security updates arrive by themselves.
+  - package-ecosystem: npm
+    directory: /app
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 0
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly, day: monday }

@@ -1,17 +1,24 @@
-name: CI
+name: App
 
 on:
   pull_request:
+    paths: ['app/**', '.github/workflows/app.yml']
   push:
     branches: ['**']
+    paths: ['app/**', '.github/workflows/app.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: app-${{ github.ref }}
   cancel-in-progress: true
+
+# The app lives in app/; every command runs there.
+defaults:
+  run:
+    working-directory: app
 
 jobs:
   checks:
@@ -23,6 +30,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: app/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm test -- --ci
@@ -39,6 +47,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: app/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -56,7 +65,7 @@ jobs:
           done
           test -f "$ANDROID_HOME/ndk/$NDK/source.properties"
       - name: Build release APK (debug-signed, JS bundled in)
-        working-directory: android
+        working-directory: app/android
         run: ./gradlew app:assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
       - name: Enable KVM
         run: |
@@ -71,6 +80,7 @@ jobs:
           target: google_apis
           profile: pixel_6
           disable-animations: true
+          working-directory: app
           script: |
             adb logcat -c
             adb install -r android/app/build/outputs/apk/release/app-release.apk
@@ -81,7 +91,7 @@ jobs:
         if: always()
         with:
           name: android-app-screens
-          path: ci-screens
+          path: app/ci-screens
 
   ios:
     name: iOS simulator build
@@ -95,6 +105,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: app/package-lock.json
       - run: npm ci
       - run: npx expo prebuild --platform ios
       - name: Xcode version and Swift package resolution
@@ -130,5 +141,5 @@ jobs:
         with:
           name: ios-screens
           path: |
-            ios-screens
-            ios-build.log
+            app/ios-screens
+            app/ios-build.log

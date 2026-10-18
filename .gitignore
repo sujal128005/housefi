@@ -1,0 +1,6 @@
+# Safety net for both folders (each also has its own .gitignore).
+node_modules
+.env
+.env.*
+!.env.example
+.DS_Store

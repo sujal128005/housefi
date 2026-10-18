@@ -3,7 +3,7 @@
 # Dumps the database, encrypts it with a passphrase (BACKUP_PASSPHRASE), keeps 14 days on the server and, when
 # s3cmd is configured for Spaces, copies it to a separate private Space.
 #
-#   crontab -e  →  30 21 * * *  cd /opt/housefi && deploy/backup.sh >> /var/log/housefi-backup.log 2>&1
+#   crontab -e  →  30 21 * * *  cd /opt/housefi/backend && deploy/backup.sh >> /var/log/housefi-backup.log 2>&1
 #   (21:30 UTC = 03:00 IST)
 #
 # Restore: gpg -d housefi-YYYYMMDD.sql.gz.gpg | gunzip | docker compose -f deploy/docker-compose.prod.yml \

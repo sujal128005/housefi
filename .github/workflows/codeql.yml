@@ -1,8 +1,9 @@
 name: CodeQL
 
+# Scans the whole repository: the app and the backend.
 on:
   push:
-    branches: [main]
+    branches: [main, path1/customer-booking]
   pull_request:
   schedule:
     - cron: "17 3 * * 1"

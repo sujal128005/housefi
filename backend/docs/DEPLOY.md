@@ -51,9 +51,12 @@ ssh root@<droplet-ip>
 curl -fsSL https://get.docker.com | sh
 adduser --disabled-password --gecos "" housefi && usermod -aG docker housefi
 apt-get install -y unattended-upgrades gnupg && dpkg-reconfigure -plow unattended-upgrades
+mkdir -p /opt/housefi && chown housefi:housefi /opt/housefi
 su - housefi
-git clone git@github.com:sujal128005/backendwork.git /opt/housefi   # the repository must be PRIVATE
-cd /opt/housefi
+# The repository holds the app and the backend; the server needs only backend/ (the repository must be PRIVATE).
+git clone --filter=blob:none --sparse git@github.com:sujal128005/housefi.git /opt/housefi
+cd /opt/housefi && git sparse-checkout set backend
+cd /opt/housefi/backend
 ```
 
 ## 4. Secrets
@@ -103,7 +106,7 @@ keep the generated `DATABASE_URL`, and set up the nightly backup in step 8.
 
 ## 6. Operating it
 
-All commands run in `/opt/housefi`. Shorthand used below:
+All commands run in `/opt/housefi/backend`. Shorthand used below:
 `dc() { docker compose -f deploy/docker-compose.prod.yml --env-file .env.production "$@"; }`
 
 | Task | Command |
