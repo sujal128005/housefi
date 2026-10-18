@@ -146,8 +146,8 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 
 export function createMockBackend(opts: MockOptions): Backend {
   const now = opts.now ?? (() => Date.now());
-  // Ids and codes in the test double come from the platform's secure generator, like the real backend's.
-  const random = opts.random ?? (() => globalThis.crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32);
+  // A small seeded generator (mulberry32): the test double needs varied ids, not secrecy; it never runs in the app.
+  const random = opts.random ?? seeded(Date.now());
   const randomBytes = opts.randomBytes ?? defaultRandomBytes;
   const [minLat, maxLat] = opts.latency ?? [300, 700];
   const pollMs = opts.pollMs ?? 1000;
@@ -1687,5 +1687,16 @@ export function memoryStore(): KeyValueStore & { readonly data: Map<string, stri
     async remove(k) {
       data.delete(k);
     },
+  };
+}
+
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
