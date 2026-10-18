@@ -157,3 +157,5 @@ Put `housefi_app` in `DATABASE_URL`. Keep the `doadmin` URL in the password mana
       Have a lawyer confirm the consent text and your obligations under the Aadhaar Act / DPDP Act before launch.
 - [ ] Uptime alert on `/v1/health/ready` is active.
 - [ ] The website's CORS origin (`https://housefi.tech`) is in `CORS_ORIGINS`, so the Technician ID check page works.
+- [ ] The website's `app-pages` branch is merged and deployed, so `https://housefi.tech/pay/` (payments) and
+      `https://housefi.tech/t/` (Technician ID check) exist before the app is released.

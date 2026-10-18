@@ -95,7 +95,7 @@ describe('uploads (e2e)', () => {
       expect(res.body.problem).toEqual({
         issueIds: [],
         notes: 'Tap leaking',
-        voiceNote: { durationSec: 10, transcript: '', audioId: voice }, // the recording's real length, not the 3 s claimed
+        voiceNote: { durationSec: 10, transcript: '', audioId: voice, url: `https://uploads.test/v/${voice}?op=get&expires=300` }, // the recording's real length, not the 3 s claimed
         photos: [{ id: photo, url: `https://uploads.test/v/${photo}?op=get&expires=300` }],
       });
       expect(hasBytes(t.store.stored(photo)!, GPS_LATITUDE)).toBe(false);

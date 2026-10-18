@@ -21,11 +21,11 @@ export interface PhotoSigner {
   photoUrl(uploadId: string): Promise<string>;
 }
 
-/** openapi.yaml ProblemDescription, as responses carry it: photos with a 5-minute signed URL, the voice note's audio id. */
+/** openapi.yaml ProblemDescription, as responses carry it: photos and the voice note with a 5-minute signed URL. */
 export interface ProblemDto {
   readonly issueIds: readonly string[];
   readonly notes: string;
-  readonly voiceNote: { readonly durationSec: number; readonly transcript: string; readonly audioId?: string } | null;
+  readonly voiceNote: { readonly durationSec: number; readonly transcript: string; readonly audioId?: string; readonly url?: string } | null;
   readonly photos: readonly { readonly id: string; readonly url: string }[];
 }
 
@@ -36,7 +36,9 @@ export async function toProblemDto(b: BookingRow, media: PhotoSigner): Promise<P
     issueIds: b.issueIds,
     notes: b.notes,
     voiceNote:
-      b.voiceDurationSec !== null ? { durationSec: b.voiceDurationSec, transcript: b.voiceTranscript ?? '', ...(audio ? { audioId: audio.id } : {}) } : null,
+      b.voiceDurationSec !== null
+        ? { durationSec: b.voiceDurationSec, transcript: b.voiceTranscript ?? '', ...(audio ? { audioId: audio.id, url: await media.photoUrl(audio.id) } : {}) }
+        : null,
     photos: await Promise.all(photos.map(async (p) => ({ id: p.id, url: await media.photoUrl(p.id) }))),
   };
 }

@@ -1051,6 +1051,7 @@ components:
         durationSec: { type: integer, maximum: 60 }
         transcript: { type: string, maxLength: 1000 }
         audioId: { type: string }
+        url: { type: string, description: 'In responses only: a 5-minute signed URL to play the recording' }
     Photo:
       type: object
       required: [id]
