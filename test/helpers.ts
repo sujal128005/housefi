@@ -15,7 +15,7 @@ import { type Env, parseEnv } from '../src/config/env';
 import { configureApp, createAdapter } from '../src/http';
 import { SMS_SENDER, type SmsSender } from '../src/modules/auth/sms';
 import { TechVerificationService } from '../src/modules/technicians/tech-verification.service';
-import { OBJECT_STORE, ObjectTooLarge, type ObjectStore, uploadKey } from '../src/common/storage/object-store';
+import { OBJECT_STORE, ObjectTooLarge, type ObjectStore, uploadKey, verifiedKey } from '../src/common/storage/object-store';
 import { PUSH_SENDER, PushUnavailable, type PushMessage, type PushSender, type PushTicket } from '../src/modules/notifications/push-sender';
 import { jpegWithGps } from './media-fixtures';
 import { RAZORPAY_CLIENT, RazorpayError, type RazorpayClient, type RzpOrder, type RzpPayment, type RzpPaymentStatus, type RzpRefund } from '../src/modules/payments/razorpay.client';
@@ -175,8 +175,9 @@ export class FakeObjectStore implements ObjectStore {
     this.objects.set(uploadKey(uploadId), { bytes: new Uint8Array(bytes), contentType });
   }
 
+  /** The file as served: the checked copy once checked, the uploaded original before. */
   stored(uploadId: string): Uint8Array | undefined {
-    return this.objects.get(uploadKey(uploadId))?.bytes;
+    return (this.objects.get(verifiedKey(uploadId)) ?? this.objects.get(uploadKey(uploadId)))?.bytes;
   }
 }
 

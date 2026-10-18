@@ -29,6 +29,8 @@ setup if you prefer it; only steps 1–2 change.
    - Outbound: all.
 5. **Spaces**: a bucket named `housefi-uploads` in BLR1, **File listing: Restricted** (private).
    - Spaces Keys → generate a key → `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`.
+   - Lifecycle rule (Settings → Lifecycle, or `s3cmd setlifecycle`): expire objects under the prefix `u/` after 1
+     day. Uploads land in `u/`; checked files are moved to `v/`, so `u/` only ever holds leftovers.
    - Optional: a second private Space `housefi-backups` for extra database dumps.
 
 ## 2. DNS

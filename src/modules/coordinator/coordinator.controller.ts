@@ -36,8 +36,8 @@ export class CoordinatorController {
 
   /** Bookings no app or phone technician took: one coordinator claims one, calls a technician, then assigns. */
   @Get('dispatch-queue')
-  queue(): Promise<QueueEntryDto[]> {
-    return this.coordinator.queue();
+  queue(@CurrentUser() user: AuthUser): Promise<QueueEntryDto[]> {
+    return this.coordinator.queue(user.id);
   }
 
   @Post('dispatch-queue/:bookingId/claim')
@@ -53,8 +53,8 @@ export class CoordinatorController {
   }
 
   @Get('jobs/:jobId/offers')
-  offers(@Param('jobId') id: string): Promise<OfferHistoryDto[]> {
-    return this.coordinator.offers(id);
+  offers(@CurrentUser() user: AuthUser, @Param('jobId') id: string): Promise<OfferHistoryDto[]> {
+    return this.coordinator.offers(user.id, id);
   }
 
   @Post('jobs/:jobId/assign')

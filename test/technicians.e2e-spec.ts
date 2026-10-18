@@ -59,7 +59,7 @@ describe('technicians (e2e)', () => {
         identity: {
           techCode: expect.stringMatching(/^N9-HF-T-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/),
           legalName: 'Swathi Naidu',
-          photo: `https://uploads.test/u/${photoUploadId}?op=get&expires=300`,
+          photo: `https://uploads.test/v/${photoUploadId}?op=get&expires=300`,
           photoStatus: 'PENDING',
           simulated: false,
           correctionRequest: null,

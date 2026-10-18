@@ -35,13 +35,20 @@ All 14 build steps (`docs/STARTER-PROMPT.md`) are done:
     trip-overdue and bill-unpaid watchdog, `npm audit` clean (dev included), CodeQL v4 + Dependabot, and
     `test/journeys.e2e-spec.ts` (the full happy path and every failure path in STATE-MACHINE.md).
 
-**What is left** is outside the build order:
-- After the build order: `POST /v1/uploads/photos` and `/uploads/audio` (pre-signed S3 uploads, checked files, photo
-  location removed). The one contract endpoint still missing is `POST /bookings/{id}/call` (Exotel, later).
-- The team's answers in `docs/QUESTIONS.md`, and the production setup (AWS Mumbai, live provider keys, alerting,
-  backups).
-- CI on PostgreSQL 16 has not run yet (no GitHub remote). Local tests use PGlite.
-- See "Security checklist status" below and `docs/LATER.md`.
+**Added after the build order** (details in [`docs/REPORT.md`](docs/REPORT.md)):
+- Sign-in hardening: whole-service SMS budget, progressive lock per number (5 wrong → 10 min, 3 → 1 h, 1 → 24 h,
+  1 → 21 days), team demo numbers (`DEMO_PHONES`), proxy-safe IP limits, tokens die at logout or block.
+- Technician identity: permanent Technician ID, locked legal name and photo, ID card, QR code checked publicly on
+  `housefi.tech/t/`, Aadhaar offline verification (Secure QR), suspension and re-issue, women-rated badge.
+- Phone calls (Exotel, [`docs/TELEPHONY.md`](docs/TELEPHONY.md)): job offers by automatic call for keypad-phone
+  technicians (1 + PIN), masked calls, coordinator queue for technicians without a phone.
+- Real AI: Claude for the support chat and problem photos, Sarvam for Telugu voice notes, each with the rules as
+  fallback. Live technician location for the customer while on the way. Reminders.
+- Uploads and coordinator scope hardened; versioned data keys (no cloud KMS needed).
+- Deployment on DigitalOcean Bangalore: [`docs/DEPLOY.md`](docs/DEPLOY.md) (Dockerfile, `deploy/`, secrets script).
+
+**Still to do by the team:** provider accounts and keys (DEPLOY.md step 4), the app's screens for the new fields,
+legal review of the Aadhaar consent text, and CI on PostgreSQL 16 (local tests use PGlite).
 
 ## Run it locally
 
@@ -77,11 +84,12 @@ minute); the per-phone OTP limits live in Postgres and always apply.
 | `npm run db:local` | Local PGlite + PostGIS database for development without Docker |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run build` then `npm start` | Production build in `dist/` |
+| `npm run secrets:prod` | Create `.env.production` with fresh production secrets (docs/DEPLOY.md) |
 | `npm run db:migrate` / `npm run db:deploy` | Create a migration (development) / apply migrations |
 | `npm run db:seed` | Load `catalog.data.json` into the database; idempotent, run it on every deploy after `db:deploy` |
-| `npm run tech -- pending` / `approve <id\|phone>` / `correct <id\|phone> "<note>" ["<te>"]` | Review technician profiles (every decision goes to `audit_log`) |
+| `npm run tech -- pending` / `approve <id\|phone>` / `correct <id\|phone> "<note>" ["<te>"]` / `suspend` / `reinstate` / `reject` / `name` / `new-photo` / `reissue-qr` | Review technician profiles and identity (every decision goes to `audit_log`) |
 | `npm run payouts -- prepare` / `list [STATE]` / `paid <id> <ref>` / `failed <id>` | Monday payouts: create them, list them, record the transfer (audited) |
-| `npm run support -- open` / `resolve <id> "<what was done>"` | The support queue, most urgent first (audited) |
+| `npm run support -- open` / `resolve <id> "<what was done>"` / `unlock <phone>` | The support queue, most urgent first; unlock a locked number (audited) |
 | `npm run coordinators -- add <phone> "<name>"` / `link <tech> <coord>` / `unlink <tech>` / `block <coord>` / `list` | Coordinator accounts and the technicians they look after (audited) |
 | `npm run catalog:import` | Re-import the catalog from the app's `catalog.ts` (default `docs/app-contract/catalog.ts`) into `catalog.data.json` |
 
@@ -91,9 +99,11 @@ minute); the per-phone OTP limits live in Postgres and always apply.
   - The 3rd wrong guess locks the code. Every guess is counted atomically before it is checked, so parallel
     guesses cannot get extra tries.
   - Resend after 30 s, and the new code replaces the old one.
-  - At most 5 codes per phone per hour (across both roles), plus per-IP limits.
+  - At most 5 codes per phone per hour (across both roles), plus per-IP limits and a whole-service SMS budget.
+  - Wrong codes add up per number across codes: `OTP_LOCK_STEPS` locks sign-in for longer each time; support can
+    unlock (`npm run support -- unlock <phone>`).
 - **Accounts:** one per role per phone, so a phone can have a customer account and a technician account. Phone
-  numbers are stored encrypted (AES-256-GCM envelope, local key in development, AWS KMS in production), plus an
+  numbers are stored encrypted (AES-256-GCM envelope; versioned master keys `DATA_KEYS_B64`, or AWS KMS), plus an
   HMAC column for lookups.
 - **Access tokens:** EdDSA (Ed25519) JWTs, valid 15 minutes, carrying `sub`, `role` and `sid`. A global guard
   requires one on every route not marked `@Public()`. `@Roles(...)` limits routes by role; other roles get

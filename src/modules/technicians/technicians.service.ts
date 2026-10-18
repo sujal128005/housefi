@@ -195,13 +195,17 @@ export class TechniciansService {
   /**
    * A coordinator registers a technician who has no smartphone (they cannot use the app): the account for their
    * number, linked to this coordinator, and the profile, which goes to verification like any other. CONFLICT if the
-   * number already has a technician profile.
+   * number already has a technician profile or has signed in to the technician app (that account is theirs).
    */
   async registerForCoordinator(coordinatorId: string, phone: string, input: TechProfileInput, phoneType: 'KEYPAD' | 'NONE'): Promise<TechProfileDto> {
     const phoneHash = this.hashing.phone(phone);
     let user = await this.prisma.user.findUnique({ where: { role_phoneHash: { role: 'TECHNICIAN', phoneHash } } });
     if (user && (await this.prisma.technician.findUnique({ where: { userId: user.id }, select: { userId: true } }))) {
       throw new AppError('CONFLICT', {}, 'this number already has a technician profile');
+    }
+    // Someone who has signed in to the technician app with this number owns that account: they register themselves.
+    if (user && (await this.prisma.refreshToken.count({ where: { userId: user.id } })) > 0) {
+      throw new AppError('CONFLICT', {}, 'this number already uses the technician app');
     }
     if (!user) {
       try {

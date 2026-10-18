@@ -148,8 +148,28 @@ describe('telephony (e2e)', () => {
     const queue = (await api().get('/v1/coordinator/dispatch-queue').set(as(coordinator)).expect(200)).body;
     expect(queue).toEqual([expect.objectContaining({ bookingId, area: 'Banjara Hills, Hyderabad' })]);
     await api().post(`/v1/coordinator/dispatch-queue/${bookingId}/claim`).set(as(coordinator)).expect(204);
+
+    // A second coordinator sees the queue but cannot take a claimed booking; they see offers only of queued bookings
+    // or their own technicians' jobs.
+    await t.app.get(CoordinatorAccountsService).add('9876511122', 'Second Coordinator', ADMIN);
+    const other = (await signIn(t, '9876511122', 'COORDINATOR')).accessToken;
+    await api().get(`/v1/coordinator/jobs/${bookingId}/offers`).set(as(other)).expect(200);
+    await api().post(`/v1/coordinator/dispatch-queue/${bookingId}/claim`).set(as(other)).expect(409);
+    await api().post(`/v1/coordinator/jobs/${bookingId}/assign`).set(as(other)).send({ technicianId: keypadId }).expect(404); // not their technician
+
     await api().post(`/v1/coordinator/jobs/${bookingId}/assign`).set(as(coordinator)).send({ technicianId: keypadId }).expect(200);
     expect((await api().get('/v1/coordinator/dispatch-queue').set(as(coordinator)).expect(200)).body).toEqual([]);
+    // Assigned to the first coordinator's technician and out of the queue: the second one no longer sees its offers.
+    await api().get(`/v1/coordinator/jobs/${bookingId}/offers`).set(as(other)).expect(404);
+    await api().get(`/v1/coordinator/jobs/${bookingId}/offers`).set(as(coordinator)).expect(200);
+  });
+
+  it('does not let a coordinator register a number that already uses the technician app', async () => {
+    await signIn(t, '9876500033', 'TECHNICIAN');
+    const ticket = await api().post('/v1/uploads/photos').set(as(coordinator)).send({ contentType: 'image/jpeg', bytes: jpegWithGps().length, stage: 'PROFILE' }).expect(200);
+    t.store.upload(ticket.body.id, jpegWithGps(), 'image/jpeg');
+    const res = await api().post('/v1/coordinator/technicians').set(as(coordinator)).send({ ...TECH_PROFILE, phone: '9876500033', phoneType: 'KEYPAD', photoUploadId: ticket.body.id }).expect(409);
+    expect(res.body.error.code).toBe('CONFLICT');
   });
 
   it('refuses forged callbacks (wrong secret looks like a missing route)', async () => {

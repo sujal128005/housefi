@@ -22,6 +22,11 @@ export const OBJECT_STORE = Symbol('OBJECT_STORE');
 
 /** Object keys carry no personal data: who uploaded what is only in the database. */
 export const uploadKey = (uploadId: string) => `u/${uploadId}`;
+/**
+ * Where a file lives once checked. Upload URLs only ever point at uploadKey, so a checked file cannot be replaced
+ * (the app could otherwise PUT different bytes to the same URL until it expires). Everything reads this key.
+ */
+export const verifiedKey = (uploadId: string) => `v/${uploadId}`;
 
 /** README security checklist: photo URLs in responses live 5 minutes. */
 export const READ_URL_TTL_SEC = 300;
@@ -83,7 +88,7 @@ export class MediaUrls {
   constructor(@Inject(OBJECT_STORE) private readonly store: ObjectStore) {}
 
   photoUrl(uploadId: string): Promise<string> {
-    return this.store.presignGet(uploadKey(uploadId), READ_URL_TTL_SEC);
+    return this.store.presignGet(verifiedKey(uploadId), READ_URL_TTL_SEC);
   }
 }
 

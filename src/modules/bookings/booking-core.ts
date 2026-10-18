@@ -96,16 +96,21 @@ export class BookingCore {
     customerId: string,
     id: string,
     fn: (tx: Prisma.TransactionClient, b: Booking) => Promise<{ changed: boolean; result: T }>,
+    /** For work that calls a provider while holding the lock (a Razorpay order): longer than that call's timeout. */
+    opts: { timeoutMs?: number } = {},
   ): Promise<T> {
     if (!UUID.test(id)) throw new AppError('NOT_FOUND');
     const before = await this.prisma.booking.findFirst({ where: { id, customerId }, select: { status: true, createdAt: true } });
     if (!before) throw new AppError('NOT_FOUND');
     if (this.isOverdueUnpaid(before)) await this.expireOne(id);
-    const { changed, result } = await this.prisma.$transaction(async (tx) => {
-      const b = await this.lock(tx, id);
-      if (!b || b.customerId !== customerId) throw new AppError('NOT_FOUND');
-      return fn(tx, b);
-    });
+    const { changed, result } = await this.prisma.$transaction(
+      async (tx) => {
+        const b = await this.lock(tx, id);
+        if (!b || b.customerId !== customerId) throw new AppError('NOT_FOUND');
+        return fn(tx, b);
+      },
+      opts.timeoutMs ? { timeout: opts.timeoutMs } : undefined,
+    );
     if (changed) this.updates.publish(id);
     return result;
   }
@@ -241,7 +246,8 @@ export class BookingCore {
     return changed;
   }
 
-  private unpaidCutoff(): Date {
+  /** Unpaid bookings created at or before this instant have expired (the sweep may not have caught them yet). */
+  unpaidCutoff(): Date {
     return new Date(this.clock.now() - this.config.UNPAID_BOOKING_EXPIRY_MIN * 60_000);
   }
 

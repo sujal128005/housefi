@@ -3,7 +3,7 @@ import type { Prisma, Upload, UploadKind, UploadStage, UserRole } from '@prisma/
 import { type Clock, InjectClock } from '../../common/clock';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
-import { OBJECT_STORE, type ObjectStore, ObjectTooLarge, uploadKey } from '../../common/storage/object-store';
+import { OBJECT_STORE, type ObjectStore, ObjectTooLarge, uploadKey, verifiedKey } from '../../common/storage/object-store';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { type AudioType, audioDurationSec, isType, MediaError, type PhotoType, stripLocation } from './media';
@@ -114,7 +114,7 @@ export class UploadsService {
       // The row goes first, and only if it is still unused: a booking cannot attach it any more.
       const gone = await this.prisma.upload.deleteMany({ where: { id, bookingId: null, profileOf: { is: null } } });
       if (gone.count === 0) continue;
-      await this.store.delete(uploadKey(id)).catch((err: Error) => this.log.warn(`could not delete object for upload ${id} (${err.message})`));
+      await this.removeObjects(id);
       n++;
     }
     return n;
@@ -128,7 +128,7 @@ export class UploadsService {
   }
 
   async deleteObjects(ids: readonly string[]): Promise<void> {
-    for (const id of ids) await this.store.delete(uploadKey(id)).catch((err: Error) => this.log.warn(`could not delete object for upload ${id} (${err.message})`));
+    for (const id of ids) await this.removeObjects(id);
   }
 
   /** The one-time check of an uploaded file (outside any transaction: it reads and may rewrite the object). */
@@ -146,20 +146,29 @@ export class UploadsService {
     const type = u.contentType as PhotoType | AudioType;
     if (!isType(bytes, type)) return this.reject(u, `not a ${type} file`);
     let durationSec: number | null = null;
+    let checked: Uint8Array = bytes;
     try {
       if (u.kind === 'AUDIO') {
         durationSec = audioDurationSec(bytes, type as AudioType);
         if (durationSec > MAX_AUDIO_SEC) return this.reject(u, `longer than ${MAX_AUDIO_SEC} s`);
       } else {
-        const clean = stripLocation(bytes, type as PhotoType);
-        if (Buffer.compare(clean, bytes) !== 0) await this.store.put(key, clean, u.contentType);
+        checked = stripLocation(bytes, type as PhotoType);
       }
     } catch (err) {
       if (err instanceof MediaError) return this.reject(u, `unreadable file (${err.message})`);
       throw err;
     }
+    // The checked bytes move to a key no upload URL can write; the uploaded original is deleted.
+    await this.store.put(verifiedKey(u.id), checked, u.contentType);
     await this.prisma.upload.updateMany({ where: { id: u.id, state: 'PENDING' }, data: { state: 'READY', durationSec, verifiedAt: new Date(this.clock.now()) } });
+    await this.store.delete(key).catch(() => undefined);
     return this.prisma.upload.findUniqueOrThrow({ where: { id: u.id } });
+  }
+
+  private async removeObjects(id: string): Promise<void> {
+    for (const key of [uploadKey(id), verifiedKey(id)]) {
+      await this.store.delete(key).catch((err: Error) => this.log.warn(`could not delete object for upload ${id} (${err.message})`));
+    }
   }
 
   private async reject(u: Upload, reason: string): Promise<Upload> {

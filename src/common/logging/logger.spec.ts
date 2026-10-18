@@ -43,6 +43,7 @@ describe('logger redaction', () => {
   it('logs request paths without query strings', () => {
     expect(stripQuery('/v1/slots?serviceId=plumb-tap&date=2026-10-17')).toBe('/v1/slots');
     expect(stripQuery('/v1/health')).toBe('/v1/health');
+    expect(stripQuery('/v1/webhooks/telephony/exotel/s3cr3t-value/pin?digits=1')).toBe('/v1/webhooks/telephony/exotel/[REDACTED]/pin');
   });
 
   it('is silent in tests', () => {

@@ -5,7 +5,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Locale } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.module';
-import { OBJECT_STORE, type ObjectStore, uploadKey } from '../../common/storage/object-store';
+import { OBJECT_STORE, type ObjectStore, verifiedKey } from '../../common/storage/object-store';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { MAX_BYTES } from '../uploads/uploads.service';
@@ -37,7 +37,7 @@ export class SarvamSpeechToText implements SpeechToText {
     const upload = await this.prisma.upload.findUnique({ where: { id: input.audioId }, select: { ownerId: true, state: true, contentType: true, durationSec: true } });
     if (!upload || upload.ownerId !== input.customerId || upload.state !== 'READY') return '';
     if ((upload.durationSec ?? Infinity) > SARVAM_MAX_SEC) return '';
-    const bytes = await this.store.get(uploadKey(input.audioId), MAX_BYTES.AUDIO);
+    const bytes = await this.store.get(verifiedKey(input.audioId), MAX_BYTES.AUDIO);
     if (!bytes) return '';
 
     const form = new FormData();

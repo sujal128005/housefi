@@ -17,6 +17,12 @@ import { verifyCheckoutSignature, verifyWebhookSignature } from './razorpay.sign
 
 /** A PROCESSING order younger than this is reused when the customer reopens the payment sheet. */
 const ORDER_REUSE_MIN = 15;
+/**
+ * The Razorpay order is created while the booking is locked (so two taps cannot create two orders). The transaction
+ * outlives the order call (8 s timeout): a slow Razorpay ends in a clean "provider unavailable", never in an
+ * expired transaction with an order nobody knows about.
+ */
+const ORDER_TX_TIMEOUT_MS = 15_000;
 /** PENDING / PROCESSING payments are re-checked with Razorpay at most this often. */
 const RECHECK_EVERY_MIN = 10;
 /** A PROCESSING order with no payment after this long is abandoned (FAILED). */
@@ -158,7 +164,7 @@ export class PaymentsService {
         data: { state: 'PROCESSING', method, provider: 'RAZORPAY', providerOrderId: orderId, orderedAt: now, idempotencyKey },
       });
       return { changed: true, result: this.startResult(updated) };
-    });
+    }, { timeoutMs: ORDER_TX_TIMEOUT_MS });
     return result;
   }
 
@@ -330,9 +336,12 @@ export class PaymentsService {
         return { ...done, outcome, changed: p.state !== 'PENDING' };
       }
       if (p.state === 'FAILED') return { ...done, outcome, changed: false };
+      // Another attempt on the same order failed while this row waits for a payment that went through (authorized,
+      // capture to retry): that failure says nothing about it.
+      if (p.state === 'PENDING' && p.providerPaymentId && p.providerPaymentId !== rp.id) return { ...done, outcome: 'PENDING' as Outcome, changed: false };
       await tx.payment.update({
         where: { id: p.id },
-        data: { state: 'FAILED', providerPaymentId: rp.id, method, failureCode: rp.error_code ?? 'FAILED', settledAt: now },
+        data: { state: 'FAILED', providerPaymentId: rp.id, method, failureCode: rp.status === 'refunded' ? 'REFUNDED_UNCAPTURED' : (rp.error_code ?? 'FAILED'), settledAt: now },
       });
       if (p.kind === 'VISIT' && b.status === 'PAYMENT_PENDING') await this.core.transition(tx, b, 'AWAITING_PAYMENT', {}, SYSTEM, { paymentId: p.id });
       return { ...done, outcome, changed: true };
@@ -346,7 +355,13 @@ export class PaymentsService {
 
   private outcomeOf(p: Payment, rp: RzpPayment): Outcome {
     if (rp.status === 'failed') return 'FAILED';
-    if (rp.status === 'captured' || rp.status === 'refunded') {
+    // Our row is not PAID (settle returns earlier), so Razorpay gave the money back on its own (an authorization that
+    // was never captured): nothing was paid.
+    if (rp.status === 'refunded') {
+      this.log.warn(`payment ${p.id}: Razorpay refunded ${rp.id} before it was settled here; treated as not paid`);
+      return 'FAILED';
+    }
+    if (rp.status === 'captured') {
       if (rp.amount === Number(p.amountPaise) && rp.currency === 'INR') return 'PAID';
       this.log.error(`payment ${p.id}: Razorpay captured ${rp.amount} ${rp.currency}, expected ${p.amountPaise} INR; held for review`);
     }
@@ -437,7 +452,7 @@ export class PaymentsService {
     for (const p of rows) {
       try {
         const payments = await this.razorpay.fetchOrderPayments(p.providerOrderId as string);
-        const rank = { captured: 4, refunded: 4, authorized: 3, created: 2, failed: 1 } as const;
+        const rank = { captured: 4, authorized: 3, created: 2, refunded: 1, failed: 1 } as const;
         const best = [...payments].sort((a, b) => rank[b.status] - rank[a.status])[0];
         // A 'created' payment is a checkout that was opened and abandoned: it says nothing, so it changes nothing
         // (otherwise the booking would wait in PAYMENT_PENDING forever instead of expiring).

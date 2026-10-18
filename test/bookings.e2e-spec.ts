@@ -61,6 +61,17 @@ describe('bookings (e2e)', () => {
   });
 
   describe('POST /v1/bookings', () => {
+    it('allows at most 2 unpaid bookings at a time (unpaid bookings hold slots)', async () => {
+      await book().expect(201);
+      const second = (await book().expect(201)).body;
+      expect((await book().expect(409)).body.error.code).toBe('CONFLICT');
+      await api().post(`/v1/bookings/${second.id}/cancel`).set('Authorization', `Bearer ${token}`).send({ reason: 'MISTAKE' }).expect(200);
+      const third = (await book().expect(201)).body;
+      // An unpaid booking past its 30 minutes no longer counts.
+      await t.prisma.booking.update({ where: { id: third.id }, data: { createdAt: new Date(t.clock.now() - 31 * 60_000) } });
+      await book().expect(201);
+    });
+
     it('creates an instant booking waiting for the visit fee, in the contract shape', async () => {
       const res = await book().expect(201);
       expect(res.body).toEqual({

@@ -96,7 +96,7 @@ describe('uploads (e2e)', () => {
         issueIds: [],
         notes: 'Tap leaking',
         voiceNote: { durationSec: 10, transcript: '', audioId: voice }, // the recording's real length, not the 3 s claimed
-        photos: [{ id: photo, url: `https://uploads.test/u/${photo}?op=get&expires=300` }],
+        photos: [{ id: photo, url: `https://uploads.test/v/${photo}?op=get&expires=300` }],
       });
       expect(hasBytes(t.store.stored(photo)!, GPS_LATITUDE)).toBe(false);
       expect(await t.prisma.upload.findMany({ where: { bookingId: res.body.id }, orderBy: { kind: 'asc' } })).toEqual([
@@ -117,7 +117,7 @@ describe('uploads (e2e)', () => {
       expect(offer.photoCount).toBe(1);
       expect(JSON.stringify(offer)).not.toContain('uploads.test');
       const job = (await api().post(`/v1/tech/offers/${offer.id}/accept`).set(as(tech.token)).expect(200)).body;
-      expect(job.problem.photos).toEqual([{ id: photo, url: expect.stringContaining(`/u/${photo}?op=get`) }]);
+      expect(job.problem.photos).toEqual([{ id: photo, url: expect.stringContaining(`/v/${photo}?op=get`) }]);
     });
 
     it('a file not uploaded yet is refused until it is there', async () => {
@@ -161,6 +161,11 @@ describe('uploads (e2e)', () => {
       const photo = await upload('photos', jpegWithGps(), 'image/jpeg');
       expect((await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId: photo }).expect(200)).body.serviceId).toBeNull();
       expect(hasBytes(t.store.stored(photo)!, GPS_LATITUDE)).toBe(false);
+      // Uploading again to the same URL after the check changes nothing that is served or sent anywhere.
+      const served = Buffer.from(t.store.stored(photo)!);
+      t.store.upload(photo, Buffer.alloc(served.length, 0x41), 'image/jpeg');
+      await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId: photo }).expect(200);
+      expect(Buffer.from(t.store.stored(photo)!).equals(served)).toBe(true);
       const voice = await upload('audio', adts(430), 'audio/aac');
       expect((await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId: voice, locale: 'te' }).expect(200)).body).toEqual({ text: '' });
       await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId: randomUUID() }).expect(404);
@@ -180,7 +185,7 @@ describe('uploads (e2e)', () => {
       t.clock.advance(25 * HOUR);
       expect(await uploads.sweep()).toBe(1); // the unused one
       expect((await t.prisma.upload.findMany()).map((u) => u.id)).toEqual([used]);
-      expect([...t.store.objects.keys()]).toEqual([`u/${used}`]);
+      expect([...t.store.objects.keys()]).toEqual([`v/${used}`]);
     });
 
     it('account deletion deletes every upload of the person, files included', async () => {

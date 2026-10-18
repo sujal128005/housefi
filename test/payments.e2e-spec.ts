@@ -205,6 +205,29 @@ describe('payments (e2e)', () => {
       expect(await booking(id)).toMatchObject({ status: 'AWAITING_PAYMENT', visitPayment: { state: 'FAILED' } });
     });
 
+    it('ignores the failure of another attempt while a payment that went through is pending', async () => {
+      const id = await newBooking();
+      const order = (await start(id).expect(200)).body;
+      const first = t.razorpay.pay(order.orderId, 'created');
+      await verify(order.paymentId, order.orderId, first).expect(200);
+      const second = t.razorpay.pay(order.orderId, 'failed');
+      await webhook('payment.failed', { ...second, error_code: 'BAD_REQUEST_ERROR' }).expect(200);
+      expect(await booking(id)).toMatchObject({ status: 'PAYMENT_PENDING', visitPayment: { state: 'PENDING' } });
+      await webhook('payment.captured', { ...first, status: 'captured' }).expect(200);
+      expect(await booking(id)).toMatchObject({ status: 'MATCHING', visitPayment: { state: 'PAID' } });
+    });
+
+    it('does not count a payment Razorpay refunded on its own (never captured) as paid', async () => {
+      const id = await newBooking();
+      const order = (await start(id).expect(200)).body;
+      const rp = t.razorpay.pay(order.orderId, 'created');
+      await verify(order.paymentId, order.orderId, rp).expect(200);
+      t.razorpay.payments.set(rp.id, { ...rp, status: 'refunded' });
+      await later(11 * 60_000);
+      await payments().reconcile();
+      expect(await booking(id)).toMatchObject({ status: 'AWAITING_PAYMENT', visitPayment: { state: 'FAILED' } });
+    });
+
     it('confirms a payment even if the app never called verify', async () => {
       const id = await newBooking();
       const order = (await start(id).expect(200)).body;

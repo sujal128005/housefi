@@ -15,7 +15,7 @@ import { z } from 'zod';
 import { type Clock, InjectClock } from '../../common/clock';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectRedis } from '../../common/redis/redis.module';
-import { OBJECT_STORE, type ObjectStore, uploadKey } from '../../common/storage/object-store';
+import { OBJECT_STORE, type ObjectStore, verifiedKey } from '../../common/storage/object-store';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { CANCELLABLE, REFUND_ON_CANCEL, RESCHEDULABLE } from '../bookings/booking-status';
@@ -223,7 +223,7 @@ export class ClaudePhotoClassifier implements PhotoClassifier {
       if (!upload || upload.ownerId !== input.customerId || upload.state !== 'READY') return fallback();
       const mediaType = VISION_TYPES[upload.contentType as keyof typeof VISION_TYPES];
       if (!mediaType) return fallback();
-      const bytes = await this.store.get(uploadKey(input.photoId), MAX_BYTES.PHOTO);
+      const bytes = await this.store.get(verifiedKey(input.photoId), MAX_BYTES.PHOTO);
       if (!bytes || bytes.length > MAX_VISION_BYTES) return fallback();
 
       const entries = await this.services();

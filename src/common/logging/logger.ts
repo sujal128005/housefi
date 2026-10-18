@@ -25,11 +25,24 @@ export const REDACT_PATHS: readonly string[] = [
   ...SENSITIVE_FIELDS.flatMap((f) => [f, `*.${f}`, `*.*.${f}`]),
 ];
 
-/** Logs the path only: query strings can carry identifiers. */
+/** Path segments that are secrets themselves (the Exotel callback URLs carry EXOTEL_WEBHOOK_SECRET). */
+const SECRET_PATH = /(\/webhooks\/telephony\/[^/]+\/)[^/]+/;
+
+/** Logs the path only (query strings can carry identifiers), with secret path segments hidden. */
 export function stripQuery(url: string | undefined): string {
   if (!url) return '';
   const q = url.indexOf('?');
-  return q < 0 ? url : url.slice(0, q);
+  return (q < 0 ? url : url.slice(0, q)).replace(SECRET_PATH, '$1[REDACTED]');
+}
+
+/** Readable logs on a developer's machine, when pino-pretty is installed (not in the production image). */
+function prettyAvailable(): boolean {
+  try {
+    require.resolve('pino-pretty');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function loggerOptions(env: Pick<Env, 'LOG_LEVEL' | 'NODE_ENV'>): LoggerOptions {
@@ -42,7 +55,7 @@ export function loggerOptions(env: Pick<Env, 'LOG_LEVEL' | 'NODE_ENV'>): LoggerO
       req: (req: IncomingMessage) => ({ method: req.method, url: stripQuery(req.url) }),
       res: (res: ServerResponse) => ({ statusCode: res.statusCode }),
     },
-    ...(env.NODE_ENV === 'development'
+    ...(env.NODE_ENV === 'development' && prettyAvailable()
       ? { transport: { target: 'pino-pretty', options: { translateTime: 'SYS:HH:MM:ss', ignore: 'pid,hostname,service' } } }
       : {}),
   };

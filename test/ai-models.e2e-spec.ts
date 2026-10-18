@@ -157,7 +157,7 @@ describe('AI with models (e2e)', () => {
       const [image, catalog] = call.body.messages[0].content;
       expect(image).toMatchObject({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg' } });
       // The photo sent is the stored one, its location already removed.
-      expect(Buffer.from(image.source.data, 'base64').equals(Buffer.from(t.store.objects.get(`u/${photoId}`)!.bytes))).toBe(true);
+      expect(Buffer.from(image.source.data, 'base64').equals(Buffer.from(t.store.stored(photoId)!))).toBe(true);
       expect(catalog.text).toContain('plumb-tap');
       expect(call.body.output_config.format.schema.properties.serviceId).toBeDefined();
 

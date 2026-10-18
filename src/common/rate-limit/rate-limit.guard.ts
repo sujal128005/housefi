@@ -38,8 +38,9 @@ export const RateLimit = (limit: RouteLimit): MethodDecorator & ClassDecorator =
 export const SkipRateLimit = (): MethodDecorator & ClassDecorator => SetMetadata(RATE_LIMIT_KEY, false);
 
 /**
- * Global per-IP limit. Per-phone and per-user limits (OTP, payments) are applied inside the services with
- * RateLimitService, because they need the parsed body or the signed-in user.
+ * Global per-IP limit. Limits that need the parsed body or the signed-in user live in the services, counted in the
+ * database: sign-in codes per phone and the SMS budget (otp.service.ts), unpaid bookings per customer
+ * (bookings.service.ts), PIN tries per technician (telephony.service.ts), upload tickets per person.
  */
 @Injectable()
 export class RateLimitGuard implements CanActivate {

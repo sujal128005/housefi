@@ -17,6 +17,8 @@ import { BOOKING_INCLUDE, type BookingDto, type BookingRow } from './booking-vie
 import type { NewBooking, VisitTime } from './bookings.schemas';
 
 const CODE_ATTEMPTS = 10;
+/** Open unpaid bookings per customer (each holds a slot until paid or expired). */
+export const MAX_UNPAID_BOOKINGS = 2;
 
 export interface CreateResult {
   readonly booking: BookingDto;
@@ -58,7 +60,7 @@ export class BookingsService {
   // ---------- create ----------
 
   /**
-   * Creates a booking in AWAITING_PAYMENT with a DUE visit fee. Idempotent per customer and Idempotency-Key: the
+   * Creates a booking in AWAITING_PAYMENT (at most MAX_UNPAID_BOOKINGS at a time per customer) with a DUE visit fee. Idempotent per customer and Idempotency-Key: the
    * same key with the same body returns the original booking; with a different body it is CONFLICT.
    */
   async create(customerId: string, idempotencyKey: string, input: NewBooking): Promise<CreateResult> {
@@ -89,6 +91,10 @@ export class BookingsService {
       const code = `HF-${randomInt(attempt < 6 ? 10_000 : 100_000, attempt < 6 ? 100_000 : 1_000_000)}`;
       try {
         const id = await this.prisma.$transaction(async (tx) => {
+          // Unpaid bookings hold slots: one person must not be able to fill every window without paying.
+          await tx.$queryRaw`SELECT id FROM users WHERE id = ${customerId}::uuid FOR UPDATE`;
+          const unpaid = await tx.booking.count({ where: { customerId, status: 'AWAITING_PAYMENT', createdAt: { gt: this.core.unpaidCutoff() } } });
+          if (unpaid >= MAX_UNPAID_BOOKINGS) throw new AppError('CONFLICT', {}, 'pay for or cancel your unpaid booking first');
           await this.slots.hold(tx, { categoryId: service.categoryId, pincode: address.pincode }, input.time);
           const b = await tx.booking.create({
             data: {
