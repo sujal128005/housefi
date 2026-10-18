@@ -180,6 +180,16 @@ export const envSchema = z
     AI_CHAT_MODEL: z.string().default('claude-sonnet-5-5'),
     SPEECH_TO_TEXT_PROVIDER: z.string().optional(),
 
+    /**
+     * Where the QR code on a Technician ID card points; the token is appended. The default page on the Housefi website
+     * reads the token after "#", so it never reaches any server log.
+     */
+    VERIFY_PAGE_URL: z.url().default('https://housefi.tech/t/#'),
+    /** UIDAI's certificate for Aadhaar Secure QR signatures (PEM, base64). Without it Aadhaar checks are unavailable. */
+    UIDAI_QR_CERT_PEM_B64: z.string().optional(),
+    /** Technicians need a verified Aadhaar (Secure QR) before they can be approved. */
+    AADHAAR_REQUIRED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+
     VISIT_FEE_RUPEES: int(49, 1),
     QUOTE_MIN_RUPEES: int(100, 1),
     TECH_VISIT_SHARE_RUPEES: int(30, 0),

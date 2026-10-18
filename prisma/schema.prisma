@@ -485,8 +485,20 @@ enum Verification {
   PENDING
   APPROVED
   NEEDS_CORRECTION
+  /// Not accepted (e.g. the identity check failed).
+  REJECTED
+  /// Was approved; access withdrawn. The QR verification page shows "not active".
+  SUSPENDED
 
   @@map("verification")
+}
+
+enum TechPhotoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("tech_photo_status")
 }
 
 enum PhoneType {
@@ -499,37 +511,58 @@ enum PhoneType {
 
 /// A technician's work profile (the name lives on users, shared with /me). Created by the first PUT /tech/profile.
 model Technician {
-  userId            String                                 @id @map("user_id") @db.Uuid
-  gender            Gender
-  experienceYears   Int                                    @map("experience_years")
-  city              String
-  pincode           String                                 @db.Char(6)
+  userId             String                                 @id @map("user_id") @db.Uuid
+  gender             Gender
+  experienceYears    Int                                    @map("experience_years")
+  city               String
+  pincode            String                                 @db.Char(6)
   /// Localities they cover, free text.
-  areas             String
+  areas              String
   /// Vehicle and registration number, encrypted (customers see it only for their assigned technician).
-  vehicleEnc        Bytes                                  @map("vehicle_enc")
-  phoneType         PhoneType                              @default(SMARTPHONE) @map("phone_type")
+  vehicleEnc         Bytes                                  @map("vehicle_enc")
+  phoneType          PhoneType                              @default(SMARTPHONE) @map("phone_type")
   /// For technicians without a smartphone (coordinator-assisted jobs, step 13).
-  coordinatorId     String?                                @map("coordinator_id") @db.Uuid
-  verification      Verification
-  correctionNoteEn  String?                                @map("correction_note_en")
-  correctionNoteTe  String?                                @map("correction_note_te")
-  online            Boolean                                @default(false)
-  missedOffersInRow Int                                    @default(0) @map("missed_offers_in_row")
-  ratingAvg         Decimal?                               @map("rating_avg") @db.Decimal(3, 2)
-  ratingCount       Int                                    @default(0) @map("rating_count")
-  womenRated        Boolean                                @default(false) @map("women_rated")
-  jobsDone          Int                                    @default(0) @map("jobs_done")
+  coordinatorId      String?                                @map("coordinator_id") @db.Uuid
+  verification       Verification
+  correctionNoteEn   String?                                @map("correction_note_en")
+  correctionNoteTe   String?                                @map("correction_note_te")
+  online             Boolean                                @default(false)
+  missedOffersInRow  Int                                    @default(0) @map("missed_offers_in_row")
+  ratingAvg          Decimal?                               @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount        Int                                    @default(0) @map("rating_count")
+  womenRated         Boolean                                @default(false) @map("women_rated")
+  jobsDone           Int                                    @default(0) @map("jobs_done")
   /// Only while online or on a job; cleared when going offline.
-  lastLocation      Unsupported("geography(Point, 4326)")? @map("last_location")
-  lastLocationAt    DateTime?                              @map("last_location_at") @db.Timestamptz(6)
-  lastAccuracyM     Int?                                   @map("last_accuracy_m")
-  submittedAt       DateTime                               @map("submitted_at") @db.Timestamptz(6)
-  verifiedAt        DateTime?                              @map("verified_at") @db.Timestamptz(6)
-  createdAt         DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastLocation       Unsupported("geography(Point, 4326)")? @map("last_location")
+  lastLocationAt     DateTime?                              @map("last_location_at") @db.Timestamptz(6)
+  lastAccuracyM      Int?                                   @map("last_accuracy_m")
+  submittedAt        DateTime                               @map("submitted_at") @db.Timestamptz(6)
+  verifiedAt         DateTime?                              @map("verified_at") @db.Timestamptz(6)
+  /// Permanent Housefi Technician ID (N9-HF-T-XXXXXX): random, unique, never reused. Not a credential.
+  techCode           String?                                @unique @map("tech_code")
+  /// Legal name as on the identity document; locked after the first submission (corrections through support).
+  legalNameEnc       Bytes?                                 @map("legal_name_enc")
+  photoUploadId      String?                                @unique @map("photo_upload_id") @db.Uuid
+  photoStatus        TechPhotoStatus                        @default(PENDING) @map("photo_status")
+  /// QR verification token: SHA-256 for lookup, encrypted so the ID card shows the same link until it is re-issued.
+  verifyTokenHash    Bytes?                                 @unique @map("verify_token_hash")
+  verifyTokenEnc     Bytes?                                 @map("verify_token_enc")
+  correctionKind     String?                                @map("correction_kind")
+  correctionNote     String?                                @map("correction_note")
+  correctionAt       DateTime?                              @map("correction_at") @db.Timestamptz(6)
+  /// Aadhaar Secure QR (offline verification). Never the Aadhaar number: only its last 4 digits.
+  aadhaarLast4       String?                                @map("aadhaar_last4") @db.Char(4)
+  aadhaarYearOfBirth Int?                                   @map("aadhaar_year_of_birth") @db.SmallInt
+  aadhaarGender      String?                                @map("aadhaar_gender") @db.Char(1)
+  aadhaarNameMatch   Boolean?                               @map("aadhaar_name_match")
+  /// HMAC of name, birth date, gender and last 4 digits: one person, one technician account.
+  aadhaarFingerprint Bytes?                                 @unique @map("aadhaar_fingerprint")
+  aadhaarVerifiedAt  DateTime?                              @map("aadhaar_verified_at") @db.Timestamptz(6)
+  createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user        User              @relation("TechnicianUser", fields: [userId], references: [id])
+  photoUpload Upload?           @relation("TechnicianPhoto", fields: [photoUploadId], references: [id], onDelete: SetNull)
   coordinator User?             @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
   skills      TechnicianSkill[]
   bookings    Booking[]
@@ -928,6 +961,8 @@ model Rating {
   /// From: onTime, polite, clean, fair, explained, fixed.
   tags         String[] @default([])
   comment      String   @default("")
+  /// Self-declared "I'm a woman": only feeds the technician's women-rated badge. Never returned to anyone.
+  byWoman      Boolean  @default(false) @map("by_woman")
   createdAt    DateTime @map("created_at") @db.Timestamptz(6)
 
   booking    Booking     @relation(fields: [bookingId], references: [id])
@@ -951,6 +986,8 @@ enum UploadStage {
   PROBLEM
   INSPECTION
   COMPLETION
+  /// A technician's registration photo (ID card).
+  PROFILE
 
   @@map("upload_stage")
 }
@@ -986,8 +1023,10 @@ model Upload {
   urlExpiresAt DateTime     @map("url_expires_at") @db.Timestamptz(6)
   verifiedAt   DateTime?    @map("verified_at") @db.Timestamptz(6)
 
-  owner   User     @relation(fields: [ownerId], references: [id])
-  booking Booking? @relation(fields: [bookingId], references: [id])
+  owner     User        @relation(fields: [ownerId], references: [id])
+  booking   Booking?    @relation(fields: [bookingId], references: [id])
+  /// Set when this is a technician's registration photo (kept while it is in use).
+  profileOf Technician? @relation("TechnicianPhoto")
 
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([bookingId])

@@ -17,6 +17,7 @@ import { SMS_SENDER, type SmsSender } from '../src/modules/auth/sms';
 import { TechVerificationService } from '../src/modules/technicians/tech-verification.service';
 import { OBJECT_STORE, ObjectTooLarge, type ObjectStore, uploadKey } from '../src/common/storage/object-store';
 import { PUSH_SENDER, PushUnavailable, type PushMessage, type PushSender, type PushTicket } from '../src/modules/notifications/push-sender';
+import { jpegWithGps } from './media-fixtures';
 import { RAZORPAY_CLIENT, RazorpayError, type RazorpayClient, type RzpOrder, type RzpPayment, type RzpPaymentStatus, type RzpRefund } from '../src/modules/payments/razorpay.client';
 
 const keys = generateKeyPairSync('ed25519', {
@@ -41,6 +42,8 @@ export function testEnv(overrides: NodeJS.ProcessEnv = {}): Env {
   return parseEnv({
     NODE_ENV: 'test',
     CORS_ORIGINS: 'http://localhost:8081',
+    // Most tests approve technicians directly; the Aadhaar gate has its own tests.
+    AADHAAR_REQUIRED: 'false',
     DATABASE_URL: process.env.DATABASE_URL_TEST ?? 'postgresql://unused:unused@127.0.0.1:1/unused',
     ...TEST_SECRETS,
     ...overrides,
@@ -271,6 +274,18 @@ export const TECH_PROFILE = {
   vehicle: 'Scooter · TS 08 CD 4521',
 } as const;
 
+/** The technician's registration photo, uploaded as the app does (ticket, then PUT to storage). */
+export async function uploadProfilePhoto(t: TestApp, accessToken: string): Promise<string> {
+  const bytes = jpegWithGps();
+  const res = await request(t.app.getHttpServer())
+    .post('/v1/uploads/photos')
+    .set('Authorization', `Bearer ${accessToken}`)
+    .send({ contentType: 'image/jpeg', bytes: bytes.length, stage: 'PROFILE' })
+    .expect(200);
+  t.store.upload(res.body.id, bytes, 'image/jpeg');
+  return res.body.id as string;
+}
+
 /** A technician who signed in and submitted a profile, approved by default (as an admin would with npm run tech). */
 export async function createTechnician(
   t: TestApp,
@@ -279,10 +294,11 @@ export async function createTechnician(
 ): Promise<{ id: string; token: string }> {
   const auth = await signIn(t, phone, 'TECHNICIAN');
   const id = auth.technician!.id;
+  const photoUploadId = await uploadProfilePhoto(t, auth.accessToken);
   await request(t.app.getHttpServer())
     .put('/v1/tech/profile')
     .set('Authorization', `Bearer ${auth.accessToken}`)
-    .send({ ...TECH_PROFILE, ...opts.profile })
+    .send({ ...TECH_PROFILE, photoUploadId, ...opts.profile })
     .expect(200);
   if (opts.approve !== false) await t.app.get(TechVerificationService).approve(id, { type: 'ADMIN', id: null, via: 'test' });
   return { id, token: auth.accessToken };

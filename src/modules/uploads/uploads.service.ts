@@ -51,7 +51,8 @@ export class UploadsService {
   async ticket(owner: { id: string; role: UserRole }, kind: UploadKind, input: TicketInput): Promise<UploadTicketDto> {
     let stage: UploadStage | null = null;
     if (kind === 'PHOTO') {
-      // Customers describe the problem; technicians photograph the inspection and the finished work.
+      // Customers describe the problem; technicians photograph the inspection and the finished work, and upload their
+      // registration photo (PROFILE).
       stage = input.stage ?? (owner.role === 'TECHNICIAN' ? 'INSPECTION' : 'PROBLEM');
       const allowed = owner.role === 'TECHNICIAN' ? stage !== 'PROBLEM' : stage === 'PROBLEM';
       if (!allowed) throw new AppError('VALIDATION', { fields: { stage: 'INVALID' } }, `a ${owner.role.toLowerCase()} cannot upload ${stage} photos`);
@@ -101,14 +102,15 @@ export class UploadsService {
   async sweep(batch = 200): Promise<number> {
     const now = this.clock.now();
     const old = await this.prisma.upload.findMany({
-      where: { bookingId: null, OR: [{ createdAt: { lt: new Date(now - UNUSED_UPLOAD_TTL_MS) } }, { state: 'REJECTED' }] },
+      // A technician's registration photo in use is kept.
+      where: { bookingId: null, profileOf: { is: null }, OR: [{ createdAt: { lt: new Date(now - UNUSED_UPLOAD_TTL_MS) } }, { state: 'REJECTED' }] },
       select: { id: true },
       take: batch,
     });
     let n = 0;
     for (const { id } of old) {
       // The row goes first, and only if it is still unused: a booking cannot attach it any more.
-      const gone = await this.prisma.upload.deleteMany({ where: { id, bookingId: null } });
+      const gone = await this.prisma.upload.deleteMany({ where: { id, bookingId: null, profileOf: { is: null } } });
       if (gone.count === 0) continue;
       await this.store.delete(uploadKey(id)).catch((err: Error) => this.log.warn(`could not delete object for upload ${id} (${err.message})`));
       n++;

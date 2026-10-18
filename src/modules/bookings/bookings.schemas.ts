@@ -68,6 +68,8 @@ export const RatingInput = z
     stars: z.number().int().min(1).max(5),
     tags: z.array(z.enum(RATING_TAGS)).max(RATING_TAGS.length).transform((t) => [...new Set(t)]),
     comment: z.string().trim().max(500),
+    /** Self-declared "I'm a woman": only feeds the women-rated badge; never returned or shown. */
+    byWoman: z.boolean().default(false),
   })
   .strict();
 

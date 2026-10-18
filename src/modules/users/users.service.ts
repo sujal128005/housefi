@@ -52,7 +52,11 @@ export class UsersService {
   }
 
   async update(userId: string, change: ProfileUpdate): Promise<CustomerDto> {
-    await this.active(userId);
+    const current = await this.active(userId);
+    // A technician's name is their verified legal name: it changes only through support (identity corrections).
+    if (change.name !== undefined && current.role === 'TECHNICIAN') {
+      throw new AppError('CONFLICT', {}, 'a technician\'s legal name is locked; ask for a correction instead');
+    }
     const data: { nameEnc?: Uint8Array<ArrayBuffer>; locale?: Locale } = {};
     if (change.name !== undefined) data.nameEnc = await this.cipher.encrypt('users.name', change.name);
     if (change.locale !== undefined) data.locale = change.locale;

@@ -37,6 +37,10 @@ function isUniqueViolation(e: unknown): e is Prisma.PrismaClientKnownRequestErro
 }
 
 /** The customer's booking actions. Shared mechanics (locks, transitions, reads, expiry) live in BookingCore. */
+/** The women-rated badge: at least this many ratings from women customers, averaging at least WOMEN_RATED_AVG stars. */
+export const WOMEN_RATED_MIN = 5;
+export const WOMEN_RATED_AVG = 4.5;
+
 @Injectable()
 export class BookingsService {
   constructor(
@@ -167,17 +171,23 @@ export class BookingsService {
 
   /**
    * The customer rates a finished visit (COMPLETED or CLOSED_NO_REPAIR), once. The technician's average and count are
-   * recomputed from all their ratings in the same transaction (exact, never drifting).
+   * recomputed from all their ratings in the same transaction (exact, never drifting), and so is the women-rated badge:
+   * at least WOMEN_RATED_MIN ratings from customers who said "I'm a woman", averaging WOMEN_RATED_AVG stars or more.
    */
-  async rate(customerId: string, id: string, input: { satisfied: boolean; stars: number; tags: string[]; comment: string }): Promise<BookingDto> {
+  async rate(customerId: string, id: string, input: { satisfied: boolean; stars: number; tags: string[]; comment: string; byWoman: boolean }): Promise<BookingDto> {
     await this.core.mutateOwned(customerId, id, async (tx, b) => {
       if (b.status !== 'COMPLETED' && b.status !== 'CLOSED_NO_REPAIR') throw new AppError('CONFLICT', {}, 'only a finished visit can be rated');
       if (await tx.rating.findUnique({ where: { bookingId: b.id }, select: { bookingId: true } })) throw new AppError('CONFLICT', {}, 'already rated');
       await tx.rating.create({ data: { bookingId: b.id, customerId, technicianId: b.technicianId, ...input, createdAt: this.core.now() } });
       if (b.technicianId) {
         await tx.$executeRaw`
-          UPDATE technicians t SET rating_count = r.n, rating_avg = r.avg
-          FROM (SELECT COUNT(*)::int AS n, ROUND(AVG(stars)::numeric, 2) AS avg FROM ratings WHERE technician_id = ${b.technicianId}::uuid) r
+          UPDATE technicians t SET rating_count = r.n, rating_avg = r.avg,
+            women_rated = (r.women_n >= ${WOMEN_RATED_MIN} AND r.women_avg >= ${WOMEN_RATED_AVG})
+          FROM (
+            SELECT COUNT(*)::int AS n, ROUND(AVG(stars)::numeric, 2) AS avg,
+                   COUNT(*) FILTER (WHERE by_woman)::int AS women_n, COALESCE(AVG(stars) FILTER (WHERE by_woman), 0)::float AS women_avg
+            FROM ratings WHERE technician_id = ${b.technicianId}::uuid
+          ) r
           WHERE t.user_id = ${b.technicianId}::uuid`;
       }
       return { changed: true, result: undefined };

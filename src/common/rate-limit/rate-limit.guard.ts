@@ -56,7 +56,9 @@ export class RateLimitGuard implements CanActivate {
     const { limit, windowSec, onStoreError } = route ?? { limit: this.config.RATE_LIMIT_PER_MIN, windowSec: 60 };
     const req = ctx.switchToHttp().getRequest<FastifyRequest>();
     const scope = route ? `${ctx.getClass().name}.${ctx.getHandler().name}` : 'default';
-    await this.limits.consume(`ip:${scope}:${ipBucket(req.ip)}`, { limit, windowSec, onStoreError });
+    // On a developer's machine Redis is optional, so sign-in keeps working without it.
+    const failMode = this.config.NODE_ENV === 'development' ? 'open' : onStoreError;
+    await this.limits.consume(`ip:${scope}:${ipBucket(req.ip)}`, { limit, windowSec, onStoreError: failMode });
     return true;
   }
 }

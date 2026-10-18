@@ -3,7 +3,7 @@ import request from 'supertest';
 import { runTechCommand, USAGE } from '../src/cli/technicians';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
 import { TechVerificationService, type VerificationActor } from '../src/modules/technicians/tech-verification.service';
-import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, TECH_PROFILE, type TestApp } from './helpers';
+import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, TECH_PROFILE, type TestApp, uploadProfilePhoto } from './helpers';
 
 const ADMIN: VerificationActor = { type: 'ADMIN', id: null, via: 'cli:asha' };
 const PHONE = '9876500011';
@@ -44,7 +44,11 @@ describe('technicians (e2e)', () => {
       const empty = await api().get('/v1/tech/me').set(as(auth.accessToken)).expect(200);
       expect(empty.body).toEqual(auth.technician);
 
-      const res = await api().put('/v1/tech/profile').set(as(auth.accessToken)).send({ ...TECH_PROFILE, skills: ['CLEANING', 'PLUMBING'] }).expect(200);
+      // The first submission needs the registration photo.
+      const noPhoto = await api().put('/v1/tech/profile').set(as(auth.accessToken)).send(TECH_PROFILE).expect(422);
+      expect(noPhoto.body.error.fields).toEqual({ photoUploadId: 'REQUIRED' });
+      const photoUploadId = await uploadProfilePhoto(t, auth.accessToken);
+      const res = await api().put('/v1/tech/profile').set(as(auth.accessToken)).send({ ...TECH_PROFILE, photoUploadId, skills: ['CLEANING', 'PLUMBING'] }).expect(200);
       expect(res.body).toEqual({
         id: auth.technician!.id,
         phone: PHONE,
@@ -52,6 +56,15 @@ describe('technicians (e2e)', () => {
         skills: ['PLUMBING', 'CLEANING'],
         phoneType: 'SMARTPHONE',
         verification: 'PENDING',
+        identity: {
+          techCode: expect.stringMatching(/^N9-HF-T-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/),
+          legalName: 'Swathi Naidu',
+          photo: `https://uploads.test/u/${photoUploadId}?op=get&expires=300`,
+          photoStatus: 'PENDING',
+          simulated: false,
+          correctionRequest: null,
+        },
+        aadhaar: null,
         correctionNote: null,
         online: false,
         rating: null,
@@ -77,7 +90,8 @@ describe('technicians (e2e)', () => {
         .expect(422);
       expect(res.body.error.fields).toEqual({ name: 'INVALID', experienceYears: 'INVALID', skills: 'INVALID', pincode: 'INVALID', areas: 'REQUIRED' });
       expect((await api().put('/v1/tech/profile').set(as(auth.accessToken)).send({ ...TECH_PROFILE, skills: [] }).expect(422)).body.error.fields).toEqual({ skills: 'INVALID' });
-      const ok = await api().put('/v1/tech/profile').set(as(auth.accessToken)).send({ ...TECH_PROFILE, phoneType: 'NONE' }).expect(200);
+      const photoUploadId = await uploadProfilePhoto(t, auth.accessToken);
+      const ok = await api().put('/v1/tech/profile').set(as(auth.accessToken)).send({ ...TECH_PROFILE, phoneType: 'NONE', photoUploadId }).expect(200);
       expect(ok.body.phoneType).toBe('SMARTPHONE');
     });
 

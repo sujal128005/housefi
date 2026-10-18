@@ -17,6 +17,8 @@ export const TechProfileInput = z.object({
   areas: z.string().trim().min(2).max(200),
   vehicle: z.string().trim().max(40),
   phoneType: z.enum(['SMARTPHONE', 'KEYPAD', 'NONE']).optional(),
+  /** The registration photo (POST /uploads/photos with stage PROFILE). Required on the first submission, ignored after. */
+  photoUploadId: z.uuid().optional(),
 });
 
 export type TechProfileInput = z.infer<typeof TechProfileInput>;

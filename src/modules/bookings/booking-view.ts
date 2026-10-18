@@ -1,16 +1,16 @@
 // Booking rows -> openapi.yaml Booking, as the customer sees it.
-import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Rating, Technician, Upload, User } from '@prisma/client';
+import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Rating, Technician, TechnicianSkill, Upload, User } from '@prisma/client';
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import { paiseToRupees } from '../../common/money';
 import type { AddressDto } from '../addresses/addresses.service';
 import { latestQuote, type QuoteDto, type QuoteRow, toQuoteDto } from './quote-view';
 
-export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User }) | null; quotes: QuoteRow[]; rating: Rating | null; uploads: Upload[] };
+export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User; skills: TechnicianSkill[] }) | null; quotes: QuoteRow[]; rating: Rating | null; uploads: Upload[] };
 
 export const BOOKING_INCLUDE = {
   events: { orderBy: [{ at: 'asc' }, { id: 'asc' }] },
   payments: { orderBy: { createdAt: 'asc' } },
-  technician: { include: { user: true } },
+  technician: { include: { user: true, skills: true } },
   quotes: { include: { lines: true }, orderBy: [{ which: 'asc' }, { version: 'asc' }] },
   rating: true,
   uploads: { where: { state: 'READY' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
@@ -69,6 +69,14 @@ export interface TechnicianDto {
   readonly maskedPhone: string;
   /** A team demo technician (DEMO_PHONES). */
   readonly demo: boolean;
+  /** Identity, read fresh on every request (a suspension shows at once). */
+  readonly techCode: string;
+  /** Short-lived signed URL of the APPROVED photo only. */
+  readonly photo: string | null;
+  readonly verification: Technician['verification'];
+  readonly verificationSimulated: false;
+  readonly skills: readonly CategoryId[];
+  readonly fictional: false;
 }
 
 export interface PaymentDto {
@@ -129,7 +137,9 @@ export function latest(payments: Payment[], kind: Payment['kind']): Payment | un
   return payments.filter((p) => p.kind === kind).at(-1);
 }
 
-export async function technicianDto(t: Technician & { user: User }, cipher: FieldCipher): Promise<TechnicianDto> {
+const SKILL_ORDER: readonly CategoryId[] = ['PLUMBING', 'ELECTRICAL', 'AC', 'APPLIANCE', 'CLEANING', 'CARPENTRY'];
+
+export async function technicianDto(t: Technician & { user: User; skills: TechnicianSkill[] }, cipher: FieldCipher, media: PhotoSigner): Promise<TechnicianDto> {
   const name = t.user.nameEnc ? await cipher.decrypt('users.name', t.user.nameEnc) : '';
   return {
     id: t.userId,
@@ -142,6 +152,12 @@ export async function technicianDto(t: Technician & { user: User }, cipher: Fiel
     vehicle: t.vehicleEnc.length > 0 ? await cipher.decrypt('technicians.vehicle', t.vehicleEnc) : '',
     maskedPhone: '',
     demo: t.user.isDemo,
+    techCode: t.techCode ?? '',
+    photo: t.photoUploadId && t.photoStatus === 'APPROVED' ? await media.photoUrl(t.photoUploadId) : null,
+    verification: t.verification,
+    verificationSimulated: false,
+    skills: t.skills.map((s) => s.categoryId).sort((a, b) => SKILL_ORDER.indexOf(a) - SKILL_ORDER.indexOf(b)),
+    fictional: false,
   };
 }
 
@@ -172,7 +188,7 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
         : { mode: 'INSTANT', window: null },
     preferWomenRated: b.preferWomenRated,
     status: b.status,
-    technician: b.technician ? await technicianDto(b.technician, cipher) : null,
+    technician: b.technician ? await technicianDto(b.technician, cipher, media) : null,
     arrivalOtp,
     etaMin: b.etaMin,
     visitPayment: payment(visit),

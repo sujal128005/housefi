@@ -2,6 +2,12 @@
 //   pending                              list profiles waiting for review (oldest first)
 //   approve <id|phone>                   approve; the technician can go online
 //   correct <id|phone> "<note>" ["<te>"] send the profile back with a note (English, optional Telugu)
+//   suspend <id|phone> "<reason>"        withdraw an approval (offline at once; the QR page shows "not active")
+//   reinstate <id|phone> "<reason>"      lift a suspension
+//   reject <id|phone> "<reason>"         refuse a pending profile for good
+//   name <id|phone> "<legal name>"       apply a checked legal-name correction
+//   new-photo <id|phone>                 let the technician send a new registration photo
+//   reissue-qr <id|phone>                new QR link for the ID card; the old one stops working
 // Every decision is written to audit_log with who ran it. Runs against DATABASE_URL (or .env locally).
 import { type DynamicModule, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -23,6 +29,12 @@ export const USAGE = [
   '  pending                               list profiles waiting for review',
   '  approve <id|phone>                    approve a pending profile',
   '  correct <id|phone> "<note>" ["<te>"]  send a pending profile back with a note',
+  '  suspend <id|phone> "<reason>"         withdraw an approval',
+  '  reinstate <id|phone> "<reason>"       lift a suspension',
+  '  reject <id|phone> "<reason>"          refuse a pending profile',
+  '  name <id|phone> "<legal name>"        apply a checked legal-name correction',
+  '  new-photo <id|phone>                  allow a new registration photo',
+  '  reissue-qr <id|phone>                 new QR link (the old one stops working)',
 ].join('\n');
 
 /** The command logic, separate from process wiring so it can be tested. Returns the lines to print. */
@@ -34,9 +46,20 @@ export async function runTechCommand(args: readonly string[], verification: Tech
     return rows.map(
       (t) =>
         `${t.id}  ${t.name} (${t.gender}, ${t.experienceYears} yrs)  ${t.phone}  ${t.skills.join('+')}  ${t.city} ${t.pincode} [${t.areas}]` +
-        `${t.vehicle ? `  vehicle: ${t.vehicle}` : ''}  submitted ${t.submittedAt.toISOString()}`,
+        `${t.vehicle ? `  vehicle: ${t.vehicle}` : ''}  submitted ${t.submittedAt.toISOString()}` +
+        `  ID ${t.techCode ?? '-'}  photo ${t.photo}  Aadhaar ${t.aadhaar}${t.correction ? `  correction asked: ${t.correction}` : ''}`,
     );
   }
+  const actions: Record<string, (id: string) => Promise<string>> = {
+    suspend: async (id) => (await verification.suspend(id, note ?? '', actor), `Suspended ${id}.`),
+    reinstate: async (id) => (await verification.reinstate(id, note ?? '', actor), `Reinstated ${id}.`),
+    reject: async (id) => (await verification.reject(id, note ?? '', actor), `Rejected ${id}.`),
+    name: async (id) => (await verification.correctName(id, note ?? '', actor), `Legal name corrected for ${id}; ask them to scan their Aadhaar QR again.`),
+    'new-photo': async (id) => (await verification.allowNewPhoto(id, actor), `${id} can send a new photo with their next profile submission.`),
+    'reissue-qr': async (id) => (await verification.reissueQr(id, actor), `New QR link issued for ${id}.`),
+  };
+  const action = command ? actions[command] : undefined;
+  if (action && target) return [await action(await verification.resolve(target))];
   if ((command === 'approve' || command === 'correct') && target) {
     const id = await verification.resolve(target);
     if (command === 'approve') {
