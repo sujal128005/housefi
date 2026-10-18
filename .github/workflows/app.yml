@@ -87,7 +87,7 @@ jobs:
             adb logcat -c
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             node tools/launch-check.mjs ci-screens/launch
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: android-app-screens
@@ -136,7 +136,7 @@ jobs:
       - name: Show build errors
         if: failure()
         run: grep -nE "error:|BUILD FAILED|failed" ios-build.log | head -80 || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ios-screens
