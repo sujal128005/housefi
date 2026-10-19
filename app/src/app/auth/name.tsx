@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { isValidName } from '../../domain/rules';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
-import { resetTo } from '../../navigation';
+import { backOrStart, resetTo } from '../../navigation';
 import { useBackend } from '../../services/ServicesProvider';
 import { useAppState } from '../../state/AppState';
 import { Button, ErrorBanner, Field, Header, Screen, Txt } from '../../ui';
@@ -43,7 +43,8 @@ export default function NameStep() {
     <Screen
       testID="auth-name"
       wash="peach"
-      header={<Header back={editing} />}
+      // Editing goes back to the account; during registration back leads to the customer / technician choice.
+      header={<Header onBack={editing ? undefined : backOrStart} />}
       footer={<Button label={editing ? t('common.save') : t('common.continue')} onPress={save} loading={busy} disabled={name.trim().length === 0} testID="name-save" />}
     >
       <View style={styles.art}><Art3D name="wave" size={120} float shadow /></View>

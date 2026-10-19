@@ -1,7 +1,7 @@
 // Technician profile: profile photo (required), full legal name, gender, experience, skills, service area and vehicle.
 // Submitting sends it for verification (Pending -> Approved / Needs correction). Also used to fix or edit the profile
 // (?edit=1): after the first submission the photo and legal name are shown read-only (support corrects them).
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { CATEGORIES } from '../../data/catalog';
@@ -9,7 +9,7 @@ import { isValidName, isValidPincode } from '../../domain/rules';
 import type { CategoryId, Gender } from '../../domain/types';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
-import { resetTo } from '../../navigation';
+import { backOrStart, resetTo } from '../../navigation';
 import { pickProfilePhoto } from '../../services/device';
 import { feedback } from '../../services/feedback';
 import { useBackend } from '../../services/ServicesProvider';
@@ -97,7 +97,8 @@ export default function TechSetup() {
     <Screen
       testID="tech-setup"
       wash="peach"
-      header={<Header back={edit === '1' || router.canGoBack()} title={t('tsetup.title')} />}
+      // Editing goes back to the profile; during registration back leads to the customer / technician choice.
+      header={<Header onBack={edit === '1' ? undefined : backOrStart} title={t('tsetup.title')} />}
       footer={<Button label={t('tsetup.submit')} icon="shield-checkmark" onPress={() => void submit()} loading={busy} testID="tsetup-submit" />}
     >
       <View style={styles.hero}>
