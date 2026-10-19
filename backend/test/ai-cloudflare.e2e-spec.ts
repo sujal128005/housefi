@@ -103,7 +103,9 @@ describe('AI on Cloudflare Workers AI (e2e)', () => {
 
     it('falls back to the rules when the model fails or answers off-format, and never asks it about danger', async () => {
       cf.replies.push(503);
-      expect((await chat({ message: 'cancel', locale: 'en' }).expect(200)).body.text).toContain(`You can cancel ${code} in the booking`);
+      expect((await chat({ message: 'how much does it cost', locale: 'en' }).expect(200)).body.text).toContain('The visit fee is ₹49');
+      // Cancelling never reaches the model: the rules ask for the reason.
+      expect((await chat({ message: 'cancel', locale: 'en' }).expect(200)).body.text).toContain(`Why do you want to cancel ${code}`);
 
       cf.replies.push('I cannot answer in JSON, sorry.');
       expect((await chat({ message: 'what does it cost', locale: 'en' }).expect(200)).body.text).toContain('The visit fee is ₹49');
