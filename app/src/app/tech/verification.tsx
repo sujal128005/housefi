@@ -66,7 +66,6 @@ export default function Verification() {
     { key: 'tverify.c.name', state: aadhaar ? (aadhaar.nameMatches ? 'done' : 'warn') : 'wait' },
     { key: 'tverify.c.photo', state: ready ? 'done' : 'wait' },
     { key: 'tverify.c.skills', state: ready ? 'done' : 'wait' },
-    { key: 'tverify.c.final', state: ready ? 'done' : 'wait' },
   ];
 
   const due = p.reviewBy != null ? new Date(p.reviewBy) : null;
@@ -143,7 +142,8 @@ export default function Verification() {
         </Card>
       ) : null}
       {aadhaar && !aadhaar.nameMatches && !ready ? <Banner tone="warning" icon="card" testID="tverify-aadhaar-done" text={t('aadhaar.nameDiffers')} /> : null}
-      {stage === 'CHECKING' ? <Txt variant="footnote" color="inkMuted" align="center">{t('tverify.notify')}</Txt> : null}
+      {/* Verified automatically (no person in between) once the checks pass: the window cannot be shortened. */}
+      {stage === 'CHECKING' && (!aadhaar || aadhaar.nameMatches) ? <Banner tone="info" icon="time-outline" text={t('tverify.autoNote')} testID="tverify-auto-note" /> : null}
     </Screen>
   );
 }

@@ -1,10 +1,13 @@
 // When a technician is told their profile will be confirmed. Set from the time they submitted (India time): during the
-// day the team checks within 2 hours, in the evening within 4, and at night by the same time the next day. The
+// day within 2 hours, in the evening within 4, and at night by the same time the next day; the team's own demo
+// accounts (DEMO_PHONES) wait only DEMO_REVIEW_MS, so the team can try the whole flow quickly. The
 // technician sees the approval only from then on (also its notification), even when it was given earlier; a request
 // to correct something is shown at once.
 import { istHour } from '../slots/slot-rules';
 
 const HOUR_MS = 3_600_000;
+/** The team's demo technicians see their approval this soon after submitting. */
+export const DEMO_REVIEW_MS = 10_000;
 
 /** Hours the check is promised to take for a profile submitted at `submittedAt` (ms). */
 export function reviewHours(submittedAt: number): 2 | 4 | 24 {
@@ -15,6 +18,6 @@ export function reviewHours(submittedAt: number): 2 | 4 | 24 {
 }
 
 /** When the technician is told they will hear back (ms since epoch). */
-export function reviewBy(submittedAt: number): number {
-  return submittedAt + reviewHours(submittedAt) * HOUR_MS;
+export function reviewBy(submittedAt: number, demo = false): number {
+  return submittedAt + (demo ? DEMO_REVIEW_MS : reviewHours(submittedAt) * HOUR_MS);
 }

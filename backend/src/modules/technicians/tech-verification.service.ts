@@ -16,7 +16,8 @@ import { reviewBy } from './review-window';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface VerificationActor {
-  readonly type: Extract<ActorType, 'ADMIN' | 'COORDINATOR'>;
+  /** SYSTEM: the automatic approval (AutoApproveWorker). */
+  readonly type: Extract<ActorType, 'ADMIN' | 'COORDINATOR' | 'SYSTEM'>;
   /** Null for the command line (who ran it is in `via`). */
   readonly id: string | null;
   /** e.g. 'cli:asha'. */
@@ -43,6 +44,15 @@ export interface PendingTechnician {
   readonly photo: 'none' | 'PENDING' | 'APPROVED' | 'REJECTED';
   readonly correction: string | null;
 }
+
+/** A profile the automatic approval may approve: submitted, a photo, a genuine Aadhaar whose name matches. */
+const READY_FOR_AUTO = {
+  verification: 'PENDING',
+  techCode: { not: null },
+  photoUploadId: { not: null },
+  aadhaarVerifiedAt: { not: null },
+  aadhaarNameMatch: true,
+} satisfies Prisma.TechnicianWhereInput;
 
 /**
  * Manual verification of technician profiles (README §12: "manual approve via a protected endpoint or SQL for
@@ -80,7 +90,7 @@ export class TechVerificationService {
         areas: t.areas,
         vehicle: t.vehicleEnc.length > 0 ? await this.cipher.decrypt('technicians.vehicle', t.vehicleEnc) : '',
         submittedAt: t.submittedAt,
-        reviewBy: new Date(reviewBy(t.submittedAt.getTime())),
+        reviewBy: new Date(reviewBy(t.submittedAt.getTime(), t.user.isDemo)),
         techCode: t.techCode,
         aadhaar: t.aadhaarVerifiedAt ? `xxxx-${t.aadhaarLast4} (${t.aadhaarNameMatch ? 'name matches' : 'NAME DIFFERS'})` : 'not checked',
         photo: t.photoUploadId ? t.photoStatus : 'none',
@@ -112,9 +122,35 @@ export class TechVerificationService {
       if (t && !t.aadhaarVerifiedAt) throw new AppError('CONFLICT', {}, 'Aadhaar not verified yet (the technician scans their Aadhaar QR in the app)');
       if (t && !t.aadhaarNameMatch) throw new AppError('CONFLICT', {}, 'the name on the Aadhaar differs from the legal name: correct the name first (identity name ...)');
     }
-    const submittedAt = await this.decide(technicianId, actor, 'tech.approve', { verification: 'APPROVED', verifiedAt: new Date(this.clock.now()), photoStatus: 'APPROVED' });
+    const promised = await this.decide(technicianId, actor, 'tech.approve', { verification: 'APPROVED', verifiedAt: new Date(this.clock.now()), photoStatus: 'APPROVED' });
     // The technician sees it at the review time they were given (review-window.ts), or now if that has passed.
-    return { shownFrom: new Date(Math.max(this.clock.now(), reviewBy(submittedAt.getTime()))) };
+    return { shownFrom: new Date(Math.max(this.clock.now(), promised)) };
+  }
+
+  /**
+   * Automatic approval: every profile waiting for review whose identity checks all passed (a genuine Aadhaar Secure
+   * QR, 18 or over, the name on it matching the legal name, and a registration photo) is approved, with no person in
+   * between. The technician sees it at the review time they were given. Anything else (no Aadhaar yet, a name that
+   * differs) waits for a person (npm run tech pending). Returns how many were approved.
+   */
+  async autoApprove(batch = 50): Promise<number> {
+    const ready = await this.prisma.technician.findMany({ where: READY_FOR_AUTO, select: { userId: true }, orderBy: { submittedAt: 'asc' }, take: batch });
+    let n = 0;
+    for (const t of ready) if (await this.approveIfReady(t.userId)) n++;
+    return n;
+  }
+
+  /** One technician, right after their Aadhaar check passed (no waiting for the next sweep). True when approved. */
+  async approveIfReady(technicianId: string): Promise<boolean> {
+    if (!UUID.test(technicianId) || !(await this.prisma.technician.count({ where: { ...READY_FOR_AUTO, userId: technicianId } }))) return false;
+    try {
+      await this.approve(technicianId, { type: 'SYSTEM', id: null, via: 'auto' });
+      return true;
+    } catch (err) {
+      // Decided meanwhile (a person, a resubmission): nothing to do.
+      if (err instanceof AppError && err.code === 'CONFLICT') return false;
+      throw err;
+    }
   }
 
   /** Withdraws an approval (complaints, fraud): offline at once, no offers, the QR page shows "not active". */
@@ -217,20 +253,21 @@ export class TechVerificationService {
     actor: VerificationActor,
     action: string,
     data: { verification: 'APPROVED' | 'NEEDS_CORRECTION'; verifiedAt?: Date; correctionNoteEn?: string; correctionNoteTe?: string; online?: boolean; photoStatus?: 'APPROVED' },
-  ): Promise<Date> {
+  ): Promise<number> {
     if (!UUID.test(technicianId)) throw new AppError('NOT_FOUND');
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT user_id FROM technicians WHERE user_id = ${technicianId}::uuid FOR UPDATE`;
-      const before = await tx.technician.findUnique({ where: { userId: technicianId } });
+      const before = await tx.technician.findUnique({ where: { userId: technicianId }, include: { user: { select: { isDemo: true } } } });
       if (!before) throw new AppError('NOT_FOUND');
       // Only a submitted, not yet decided profile can be decided: a stale decision must not override a resubmission.
       if (before.verification !== 'PENDING') throw new AppError('CONFLICT', {}, `profile is ${before.verification}, not PENDING`);
+      const promised = reviewBy(before.submittedAt.getTime(), before.user.isDemo);
       await tx.technician.update({ where: { userId: technicianId }, data });
       // The note itself is read from GET /tech/me; the notification only says there is one.
       await this.notifier.enqueue(tx, [
         // An approval is announced at the review time the technician was given; a correction request at once.
         data.verification === 'APPROVED'
-          ? { userId: technicianId, kind: 'PROFILE_APPROVED', bookingId: null, params: {}, at: reviewBy(before.submittedAt.getTime()) }
+          ? { userId: technicianId, kind: 'PROFILE_APPROVED', bookingId: null, params: {}, at: promised }
           : { userId: technicianId, kind: 'PROFILE_NEEDS_CORRECTION', bookingId: null, params: {} },
       ]);
       if (data.online === false) {
@@ -248,7 +285,7 @@ export class TechVerificationService {
         },
         tx,
       );
-      return before.submittedAt;
+      return promised;
     });
   }
 }
