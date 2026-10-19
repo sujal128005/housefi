@@ -11,6 +11,7 @@
 #   .\deploy\laptop.ps1 support open     # support queue: open | resolve <ticketId> "<what>" | unlock <phone> | unlock-start <booking>
 #   .\deploy\laptop.ps1 uidai <folder>   # Aadhaar checks: put the UIDAI .cer files from that folder in .env.production
 #   .\deploy\laptop.ps1 payouts prepare  # every Monday: weekly technician payouts (list | paid <id> <ref> | failed <id>)
+#   .\deploy\laptop.ps1 portal-setup   # once: Housefi HQ's secret address, recovery code, tunnel
 #   .\deploy\laptop.ps1 admin list     # super admins: create "<name>" <phone> | list | reset-password | reset-passkeys | unlock
 #   .\deploy\laptop.ps1 backup           # encrypted database backup into your housefi-backups folder
 #   .\deploy\laptop.ps1 tunnel-setup     # once: the Cloudflare Tunnel for api.housefi.tech and files.housefi.tech
@@ -25,6 +26,26 @@ function dc {
   if (-not (Test-Path .env.production)) { throw '.env.production is missing: create it first (docs/DEPLOY-LAPTOP.md, step 3).' }
   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.laptop.yml --env-file .env.production --profile local-db @args
   if ($LASTEXITCODE -ne 0) { throw "docker compose $($args -join ' ') failed (exit $LASTEXITCODE)" }
+}
+
+# A cryptographically random whole number from 0 to n-1 (Windows PowerShell 5.1 has no RandomNumberGenerator.GetInt32).
+function secureRandom([int] $n) {
+  $rng = [Security.Cryptography.RNGCryptoServiceProvider]::new(); $b = [byte[]]::new(4)
+  $limit = [uint32]::MaxValue - ([uint32]::MaxValue % [uint32]$n)
+  do { $rng.GetBytes($b); $v = [BitConverter]::ToUInt32($b, 0) } while ($v -ge $limit)
+  return [int]($v % [uint32]$n)
+}
+
+# One value of .env.production ('' when unset), and setting one (the file's other lines stay as they are).
+function envValue([string] $key) {
+  $line = Get-Content .env.production | Where-Object { $_ -match "^$key=" } | Select-Object -First 1
+  if ($line) { return ($line -replace "^$key=", '').Trim() } else { return '' }
+}
+function setEnvValue([string] $key, [string] $value) {
+  $lines = @(Get-Content .env.production)
+  if ($lines | Where-Object { $_ -match "^$key=" }) { $lines = $lines | ForEach-Object { if ($_ -match "^$key=") { "$key=$value" } else { $_ } } }
+  else { $lines += "$key=$value" }
+  [IO.File]::WriteAllLines((Resolve-Path .env.production), $lines)
 }
 
 # cloudflared with the account folder (~\.cloudflared: cert.pem from the login, one credentials file per tunnel).
@@ -53,7 +74,9 @@ switch ($Action) {
     $id = $tunnel.id
     $creds = Join-Path $CloudflaredHome "$id.json"
     if (-not (Test-Path $creds)) { throw "Tunnel $name exists but $creds is missing (made on another computer?). Delete $name in Cloudflare, then run tunnel-setup again." }
-    foreach ($h in 'api.housefi.tech', 'files.housefi.tech') { cfd tunnel route dns --overwrite-dns $name $h }
+    $adminHost = envValue 'ADMIN_HOST'
+    $hosts = @('api.housefi.tech', 'files.housefi.tech') + @($adminHost | Where-Object { $_ })
+    foreach ($h in $hosts) { cfd tunnel route dns --overwrite-dns $name $h }
     # The folder the tunnel container gets: only this tunnel's credentials and its two hostnames (never cert.pem).
     Copy-Item $creds (Join-Path $run "$id.json") -Force
     $config = @(
@@ -65,12 +88,32 @@ switch ($Action) {
       '    service: http://api:4000'
       '  - hostname: files.housefi.tech'
       '    service: http://s3:7070'
+    ) + @(if ($adminHost) { "  - hostname: $adminHost"; '    service: http://admin:8080' }) + @(
       '  - service: http_status:404'
     ) -join "`n"
     [IO.File]::WriteAllText((Join-Path $run 'config.yml'), "$config`n")
     "Tunnel $name ($id) is ready. In .env.production: CLOUDFLARED_DIR=$($run -replace '\\', '/')"
   }
-  'start' { dc up -d --build; dc ps }
+  'portal-setup' {
+    # Housefi HQ, once: a secret host name (never linked anywhere) and the code for "forgot password", kept only in
+    # .env.production. Then the tunnel learns the host name, and everything restarts with the portal.
+    $adminHost = envValue 'ADMIN_HOST'
+    if (-not $adminHost) {
+      $chars = 'abcdefghjkmnpqrstuvwxyz23456789'
+      $label = -join (1..14 | ForEach-Object { $chars[(secureRandom $chars.Length)] })
+      $adminHost = "hq-$label.housefi.tech"
+      setEnvValue 'ADMIN_HOST' $adminHost
+    }
+    if (-not (envValue 'ADMIN_RECOVERY_CODE')) {
+      $code = -join (1..8 | ForEach-Object { (secureRandom 10) })
+      setEnvValue 'ADMIN_RECOVERY_CODE' $code
+      "Recovery code for 'forgot password' (save it in Bitwarden now, it is not shown again): $code"
+    }
+    & $PSCommandPath tunnel-setup
+    dc up -d --build
+    "Housefi HQ: https://$adminHost  (save this address in Bitwarden; do not share or link it anywhere)"
+    'Next: deploy\laptop admin create "<name>" <phone>  (once for each founder)'
+  }
   'start' { dc up -d --build; dc ps }
   'status' { dc ps -a }
   'logs' { dc logs --tail 200 -f @Rest }

@@ -5,6 +5,8 @@
 # No ports are opened on the laptop and Caddy is not started: a Cloudflare Tunnel (outbound only) carries
 #   api.housefi.tech   -> http://api:4000
 #   files.housefi.tech -> http://s3:7070   (photo and voice uploads; the app uploads to presigned URLs here)
+#   <ADMIN_HOST>       -> http://admin:8080 (Housefi HQ, the super admin portal; its host name is secret, set by
+#                                           "deploy\laptop portal-setup" and kept only in .env.production)
 # Everything else stays on the private Docker network. Only works while the laptop is on and online.
 
 services:
@@ -20,8 +22,22 @@ services:
     # above) and the tunnel's own credentials file, written by "deploy\laptop tunnel-setup". The account
     # certificate (cert.pem) stays outside it and never reaches the container.
     volumes: ["${CLOUDFLARED_DIR:?set CLOUDFLARED_DIR in .env.production (deploy\\laptop tunnel-setup)}:/etc/cloudflared:ro"]
-    depends_on: [api, s3]
+    depends_on: [api, s3, admin]
     networks: [internal]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  # Housefi HQ: the portal's static site, passing only /v1/admin/ to the API (deploy/admin.nginx.conf). Reached only
+  # through the tunnel, for the secret host name.
+  admin:
+    build: { context: .., dockerfile: admin/Dockerfile }
+    image: housefi-admin:latest
+    restart: unless-stopped
+    depends_on: [api]
+    networks: [internal]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
 
   # S3-compatible storage for uploads (Versity S3 Gateway, files kept in the files-data volume). It checks every

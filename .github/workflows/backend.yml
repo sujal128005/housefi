@@ -56,3 +56,22 @@ jobs:
       # Everything, dev tools included (a compromised test or build tool runs in CI with the repository).
       - name: Dependency audit
         run: npm audit --audit-level=moderate
+
+  # Housefi HQ (the super admin portal's website): typecheck, its tests, and the production build.
+  admin-portal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend/admin
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/admin/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
