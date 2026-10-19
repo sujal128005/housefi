@@ -100,6 +100,13 @@ describe('dispatch (e2e)', () => {
       expect((await openOffer(await searching()))?.technicianId).toBe(near.id);
     });
 
+    it('includes technicians with another PIN code who are within DISPATCH_RADIUS_KM (10 km) of the customer', async () => {
+      await tech({ profile: { pincode: '500081' }, at: [17.52, 78.4482] }); // about 12 km north: too far
+      expect(await openOffer(await searching())).toBeNull();
+      const nearby = await tech({ profile: { pincode: '500081' }, at: [17.4146, 78.4482] }); // about 200 m away
+      expect((await openOffer(await searching()))?.technicianId).toBe(nearby.id);
+    });
+
     it('ranks the closest first, even over a better rating', async () => {
       await tech({ at: [17.45, 78.5], rating: 5 });
       const close = await tech({ at: [17.413, 78.4485], rating: 4 });

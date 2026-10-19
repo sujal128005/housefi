@@ -124,6 +124,7 @@ export class DispatchService {
     // set a PIN, and it is within their calling hours (IST). Technicians without a phone go through their coordinator.
     const phoneOk = this.phone?.available() ?? false;
     const hour = istHourOf(this.clock.now());
+    const radiusM = this.config.DISPATCH_RADIUS_KM * 1000;
     const rows = await tx.$queryRaw<{ id: string; distance_m: number | null; phone_type: string }[]>`
       SELECT t.user_id::text AS id, t.phone_type::text AS phone_type,
         CASE WHEN t.last_location IS NOT NULL AND b.location IS NOT NULL THEN ST_Distance(t.last_location, b.location)::int END AS distance_m
@@ -138,7 +139,10 @@ export class DispatchService {
           ${phoneOk} AND t.phone_type = 'KEYPAD' AND t.ivr_pin_hash IS NOT NULL AND t.ivr_consent_at IS NOT NULL
           AND COALESCE(t.call_hours_start, 8) <= ${hour} AND ${hour} < COALESCE(t.call_hours_end, 20)
         ))
-        AND (t.pincode = b.pincode OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = b.pincode))
+        -- The area: the same PIN, a neighbouring PIN, or (while online, the app shares where they are) within
+        -- DISPATCH_RADIUS_KM of the customer, so a PIN boundary between two streets does not hide a nearby technician.
+        AND (t.pincode = b.pincode OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = b.pincode)
+          OR (${radiusM} > 0 AND t.last_location IS NOT NULL AND b.location IS NOT NULL AND ST_DWithin(t.last_location, b.location, ${radiusM})))
         AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))
         AND NOT EXISTS (SELECT 1 FROM job_offers o WHERE o.technician_id = t.user_id AND o.state = 'OPEN')
         AND NOT EXISTS (SELECT 1 FROM job_offers o WHERE o.booking_id = b.id AND o.technician_id = t.user_id)
