@@ -61,26 +61,28 @@ Open it in Notepad (`notepad .env.production`) and fill in:
 | `MSG91_OTP_TEMPLATE_ID` | Leave `pending` until DLT approves the template; then the template ID |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Razorpay → Account & Settings → API keys |
 | `RAZORPAY_WEBHOOK_SECRET` | A long random text you make up; the same text goes into Razorpay in step 7 |
-| `CLOUDFLARE_TUNNEL_TOKEN` | From step 4 |
+| `CLOUDFLARED_DIR` | Already filled in (`<your user folder>/.cloudflared/housefi`); step 4 puts the tunnel's files there |
 
 Save, then **copy the whole file into Bitwarden** (a secure note). Without `DATA_KEYS_B64` the stored data cannot be
 read. Never commit, email or paste this file anywhere else.
 
-## 4. Create the Cloudflare Tunnel
+## 4. Create the Cloudflare Tunnel (once)
 
-1. Cloudflare dashboard → **Zero Trust** → **Networks** → **Tunnels** → **Create a tunnel** → **Cloudflared**.
-   If asked to choose a Zero Trust plan, choose **Free**.
-2. Name it `housefi-laptop` → **Save tunnel**.
-3. Under "Install and run a connector", choose **Docker**. The command shown ends with `--token eyJ...`. Copy only the
-   long text after `--token` into `CLOUDFLARE_TUNNEL_TOKEN` in `.env.production`. Don't run the command itself.
-4. **Next** → add two **Public hostnames**:
+The tunnel is made from the laptop, so it needs no Zero Trust plan and no card (Cloudflare's Zero Trust sign-up asks
+for a payment method even on the free plan).
 
-   | Subdomain | Domain | Type | URL |
-   |---|---|---|---|
-   | `api` | `housefi.tech` | HTTP | `api:4000` |
-   | `files` | `housefi.tech` | HTTP | `s3:7070` |
+```powershell
+deploy\laptop tunnel-setup
+```
 
-   Cloudflare creates the two DNS records itself.
+1. The first time, it prints a link. Open it in the browser where you are signed in to Cloudflare, click
+   **housefi.tech**, then **Authorize**. ("Cloudflared has installed a certificate…" means it worked.)
+2. It then creates the tunnel `housefi-laptop`, points `api.housefi.tech` and `files.housefi.tech` at it, and writes
+   the tunnel's folder `<your user folder>\.cloudflared\housefi` (its credentials and the two addresses:
+   `api.housefi.tech` → `api:4000`, `files.housefi.tech` → `s3:7070`).
+
+`<your user folder>\.cloudflared\cert.pem` can manage tunnels and DNS for housefi.tech: keep it only on this laptop. The
+tunnel container only gets the `housefi` folder. Running `tunnel-setup` again is safe; it reuses the tunnel.
 
 ## 5. Start
 
@@ -130,7 +132,8 @@ Restore a backup (only with help): decrypt with `gpg -d`, then feed it to `psql`
 - `https://api.housefi.tech` doesn't answer: is the laptop awake and online, Docker Desktop running, and
   `deploy\laptop status` showing `tunnel` running? `deploy\laptop logs tunnel` shows the connection.
 - The API keeps restarting: `deploy\laptop logs api`. A missing setting is named in the first lines.
-- Photos don't upload: `deploy\laptop logs s3` and check the `files` hostname in the tunnel (step 4).
+- Photos don't upload: `deploy\laptop logs s3` and `deploy\laptop logs tunnel`; `deploy\laptop tunnel-setup` repairs
+  the two addresses.
 
 ## Moving to a real server later
 

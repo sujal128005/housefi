@@ -9,20 +9,64 @@
 #   .\deploy\laptop.ps1 seed             # load the service catalogue (once, after the first start)
 #   .\deploy\laptop.ps1 tech pending     # technician review: pending | approve <phone> | suspend <phone> <reason> ...
 #   .\deploy\laptop.ps1 backup           # encrypted database backup into your housefi-backups folder
+#   .\deploy\laptop.ps1 tunnel-setup     # once: the Cloudflare Tunnel for api.housefi.tech and files.housefi.tech
 param(
   [Parameter(Position = 0)] [string] $Action = 'status',
   [Parameter(Position = 1, ValueFromRemainingArguments = $true)] [string[]] $Rest = @()
 )
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
-if (-not (Test-Path .env.production)) { throw '.env.production is missing: create it first (docs/DEPLOY-LAPTOP.md, step 3).' }
 
 function dc {
+  if (-not (Test-Path .env.production)) { throw '.env.production is missing: create it first (docs/DEPLOY-LAPTOP.md, step 3).' }
   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.laptop.yml --env-file .env.production --profile local-db @args
   if ($LASTEXITCODE -ne 0) { throw "docker compose $($args -join ' ') failed (exit $LASTEXITCODE)" }
 }
 
+# cloudflared with the account folder (~\.cloudflared: cert.pem from the login, one credentials file per tunnel).
+$CloudflaredImage = 'cloudflare/cloudflared:2026.9.3'
+$CloudflaredHome = Join-Path $HOME '.cloudflared'
+function cfd {
+  docker run --rm -v "${CloudflaredHome}:/home/nonroot/.cloudflared" $CloudflaredImage @args
+  if ($LASTEXITCODE -ne 0) { throw "cloudflared $($args -join ' ') failed (exit $LASTEXITCODE)" }
+}
+
 switch ($Action) {
+  'tunnel-setup' {
+    # A locally managed tunnel: no Zero Trust plan and no card. Safe to run again (it reuses the tunnel).
+    $name = 'housefi-laptop'
+    $run = Join-Path $CloudflaredHome 'housefi'
+    New-Item -ItemType Directory -Force $run | Out-Null
+    if (-not (Test-Path (Join-Path $CloudflaredHome 'cert.pem'))) {
+      'Open the link that appears below in the browser where you are signed in to Cloudflare, choose housefi.tech and click Authorize.'
+      cfd tunnel login
+    }
+    $tunnel = (cfd tunnel list --output json | ConvertFrom-Json) | Where-Object { $_.name -eq $name } | Select-Object -First 1
+    if (-not $tunnel) {
+      cfd tunnel create $name | Out-Host
+      $tunnel = (cfd tunnel list --output json | ConvertFrom-Json) | Where-Object { $_.name -eq $name } | Select-Object -First 1
+    }
+    $id = $tunnel.id
+    $creds = Join-Path $CloudflaredHome "$id.json"
+    if (-not (Test-Path $creds)) { throw "Tunnel $name exists but $creds is missing (made on another computer?). Delete $name in Cloudflare, then run tunnel-setup again." }
+    foreach ($h in 'api.housefi.tech', 'files.housefi.tech') { cfd tunnel route dns --overwrite-dns $name $h }
+    # The folder the tunnel container gets: only this tunnel's credentials and its two hostnames (never cert.pem).
+    Copy-Item $creds (Join-Path $run "$id.json") -Force
+    $config = @(
+      '# Cloudflare Tunnel for the Housefi laptop server (deploy/docker-compose.laptop.yml mounts this folder).'
+      "tunnel: $id"
+      "credentials-file: /etc/cloudflared/$id.json"
+      'ingress:'
+      '  - hostname: api.housefi.tech'
+      '    service: http://api:4000'
+      '  - hostname: files.housefi.tech'
+      '    service: http://s3:7070'
+      '  - service: http_status:404'
+    ) -join "`n"
+    [IO.File]::WriteAllText((Join-Path $run 'config.yml'), "$config`n")
+    "Tunnel $name ($id) is ready. In .env.production: CLOUDFLARED_DIR=$($run -replace '\\', '/')"
+  }
+  'start' { dc up -d --build; dc ps }
   'start' { dc up -d --build; dc ps }
   'status' { dc ps -a }
   'logs' { dc logs --tail 200 -f @Rest }
@@ -48,5 +92,5 @@ switch ($Action) {
     try { dc cp postgres:/tmp/housefi-backup.gpg $file } finally { dc exec -T postgres rm -f /tmp/housefi-backup.gpg }
     "Backup written: $file ({0:N1} MB). Copy it somewhere off this laptop too (e.g. Google Drive)." -f ((Get-Item $file).Length / 1MB)
   }
-  default { 'Use: start | status | logs [service] | stop | update | seed | tech <command> | backup' }
+  default { 'Use: start | status | logs [service] | stop | update | seed | tech <command> | backup | tunnel-setup' }
 }
