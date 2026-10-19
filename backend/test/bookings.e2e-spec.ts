@@ -85,6 +85,7 @@ describe('bookings (e2e)', () => {
         preferWomenRated: true,
         status: 'AWAITING_PAYMENT',
         technician: null,
+        preferredTechnician: null,
         arrivalOtp: '',
         etaMin: null,
         technicianLocation: null,

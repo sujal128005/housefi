@@ -313,69 +313,72 @@ enum ActorType {
 
 /// One booking = one job. The customer sees it as a Booking, the assigned technician as a Job (same id).
 model Booking {
-  id                 String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                    String                                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Short human code, "HF-48291".
-  code               String                                 @unique
-  customerId         String                                 @map("customer_id") @db.Uuid
-  serviceId          String                                 @map("service_id")
-  categoryId         CategoryId                             @map("category_id")
+  code                  String                                 @unique
+  customerId            String                                 @map("customer_id") @db.Uuid
+  serviceId             String                                 @map("service_id")
+  categoryId            CategoryId                             @map("category_id")
   /// The full address at booking time (encrypted JSON), so later edits or deletion of the saved address
   /// do not change the booking.
-  addressSnapshotEnc Bytes                                  @map("address_snapshot_enc")
+  addressSnapshotEnc    Bytes                                  @map("address_snapshot_enc")
   /// Shown to offered technicians before they accept.
-  locality           String
-  city               String
-  pincode            String                                 @db.Char(6)
-  location           Unsupported("geography(Point, 4326)")?
-  issueIds           String[]                               @default([]) @map("issue_ids")
-  notes              String                                 @default("")
-  voiceTranscript    String?                                @map("voice_transcript")
-  voiceObjectKey     String?                                @map("voice_object_key")
-  voiceDurationSec   Int?                                   @map("voice_duration_sec")
-  timeMode           BookingMode                            @map("time_mode")
-  windowDate         DateTime?                              @map("window_date") @db.Date
-  windowStartHour    Int?                                   @map("window_start_hour") @db.SmallInt
-  windowEndHour      Int?                                   @map("window_end_hour") @db.SmallInt
-  preferWomenRated   Boolean                                @default(false) @map("prefer_women_rated")
+  locality              String
+  city                  String
+  pincode               String                                 @db.Char(6)
+  location              Unsupported("geography(Point, 4326)")?
+  issueIds              String[]                               @default([]) @map("issue_ids")
+  notes                 String                                 @default("")
+  voiceTranscript       String?                                @map("voice_transcript")
+  voiceObjectKey        String?                                @map("voice_object_key")
+  voiceDurationSec      Int?                                   @map("voice_duration_sec")
+  timeMode              BookingMode                            @map("time_mode")
+  windowDate            DateTime?                              @map("window_date") @db.Date
+  windowStartHour       Int?                                   @map("window_start_hour") @db.SmallInt
+  windowEndHour         Int?                                   @map("window_end_hour") @db.SmallInt
+  preferWomenRated      Boolean                                @default(false) @map("prefer_women_rated")
   /// Made by a team demo account: simulated payments, demo technicians only, no payouts.
-  isDemo             Boolean                                @default(false) @map("is_demo")
-  status             BookingStatus
+  isDemo                Boolean                                @default(false) @map("is_demo")
+  status                BookingStatus
   /// The assigned technician.
-  technicianId       String?                                @map("technician_id") @db.Uuid
+  technicianId          String?                                @map("technician_id") @db.Uuid
+  /// "Book the same technician again": offered to this technician first (from the customer's earlier booking with them).
+  preferredTechnicianId String?                                @map("preferred_technician_id") @db.Uuid
   /// 4 digits the customer reads out at the door; encrypted because the customer must see it.
-  arrivalCodeEnc     Bytes                                  @map("arrival_code_enc")
-  startCodeAttempts  Int                                    @default(0) @map("start_code_attempts")
-  etaMin             Int?                                   @map("eta_min")
+  arrivalCodeEnc        Bytes                                  @map("arrival_code_enc")
+  startCodeAttempts     Int                                    @default(0) @map("start_code_attempts")
+  etaMin                Int?                                   @map("eta_min")
   /// When the current search for a technician started (MATCHING_DELAYED after 10 min, UNFULFILLED after 30).
-  matchingStartedAt  DateTime?                              @map("matching_started_at") @db.Timestamptz(6)
+  matchingStartedAt     DateTime?                              @map("matching_started_at") @db.Timestamptz(6)
   /// When the current technician accepted (instant visits are reassigned if the trip has not started 10 min later).
-  assignedAt         DateTime?                              @map("assigned_at") @db.Timestamptz(6)
-  workStarted        Boolean                                @default(false) @map("work_started")
-  cancelReason       CancelReason?                          @map("cancel_reason")
-  closeReason        CloseReason?                           @map("close_reason")
-  idempotencyKey     String                                 @map("idempotency_key")
+  assignedAt            DateTime?                              @map("assigned_at") @db.Timestamptz(6)
+  workStarted           Boolean                                @default(false) @map("work_started")
+  cancelReason          CancelReason?                          @map("cancel_reason")
+  closeReason           CloseReason?                           @map("close_reason")
+  idempotencyKey        String                                 @map("idempotency_key")
   /// SHA-256 of the create request, so a reused Idempotency-Key with a different body is refused.
-  idempotencyHash    Bytes                                  @map("idempotency_hash")
+  idempotencyHash       Bytes                                  @map("idempotency_hash")
   /// Incremented on every change.
-  version            Int                                    @default(0)
-  createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  version               Int                                    @default(0)
+  createdAt             DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  service       Service             @relation(fields: [serviceId], references: [id])
-  customer      User                @relation(fields: [customerId], references: [id])
-  technician    Technician?         @relation(fields: [technicianId], references: [userId])
-  events        BookingEvent[]
-  payments      Payment[]
-  offers        JobOffer[]
-  quotes        Quote[]
-  tickets       SupportTicket[]
-  ledger        EarningsLedger[]
-  rating        Rating?
-  reminders     BookingReminder[]
-  uploads       Upload[]
-  notifications Notification[]
-  queueEntry    DispatchQueueEntry?
-  callGrants    CallGrant[]
+  service             Service             @relation(fields: [serviceId], references: [id])
+  customer            User                @relation(fields: [customerId], references: [id])
+  technician          Technician?         @relation("BookingTechnician", fields: [technicianId], references: [userId])
+  preferredTechnician Technician?         @relation("BookingPreferredTechnician", fields: [preferredTechnicianId], references: [userId], onDelete: SetNull)
+  events              BookingEvent[]
+  payments            Payment[]
+  offers              JobOffer[]
+  quotes              Quote[]
+  tickets             SupportTicket[]
+  ledger              EarningsLedger[]
+  rating              Rating?
+  reminders           BookingReminder[]
+  uploads             Upload[]
+  notifications       Notification[]
+  queueEntry          DispatchQueueEntry?
+  callGrants          CallGrant[]
 
   @@unique([customerId, idempotencyKey])
   @@index([customerId, createdAt(sort: Desc)])
@@ -589,7 +592,8 @@ model Technician {
   photoUpload Upload?           @relation("TechnicianPhoto", fields: [photoUploadId], references: [id], onDelete: SetNull)
   coordinator User?             @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
   skills      TechnicianSkill[]
-  bookings    Booking[]
+  bookings    Booking[]         @relation("BookingTechnician")
+  preferredIn Booking[]         @relation("BookingPreferredTechnician")
   offers      JobOffer[]
   ledger      EarningsLedger[]
   payouts     Payout[]

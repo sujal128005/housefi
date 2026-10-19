@@ -120,6 +120,39 @@ describe('dispatch (e2e)', () => {
       expect((await openOffer(await searching()))?.technicianId).toBe(nearby.id);
     });
 
+    it('book the same technician again: asks them first, from any area; then the search goes on as usual', async () => {
+      const close = await tech({ at: [17.413, 78.4485] });
+      // Lives 15 km away in another PIN: outside the area, but they have worked for this customer before.
+      const favourite = await tech({ at: [17.55, 78.4482], profile: { pincode: '500081', name: 'Ravi Kumar' } });
+      const earlier = await searching();
+      await t.prisma.jobOffer.updateMany({ where: { bookingId: earlier }, data: { state: 'WITHDRAWN' } });
+      await t.prisma.booking.update({ where: { id: earlier }, data: { status: 'COMPLETED', technicianId: favourite.id } });
+
+      const again = await searching({ repeatOf: earlier });
+      const first = await openOffer(again);
+      expect(first?.technicianId).toBe(favourite.id);
+      expect((await booking(again)).preferredTechnician).toEqual({ name: 'Ravi Kumar' });
+      await api().post(`/v1/tech/offers/${first!.id}/reject`).set(as(favourite.token)).send({ reason: 'BUSY' }).expect(204);
+      expect((await openOffer(again))?.technicianId).toBe(close.id);
+    });
+
+    it('book again only from your own visit that took place', async () => {
+      const someone = await tech();
+      const unfinished = await searching();
+      const body = (repeatOf: string) => ({
+        serviceId: 'plumb-tap', problem: { issueIds: ['tap-leak'], notes: '', voiceNote: null, photos: [] }, addressId,
+        time: { mode: 'INSTANT', window: null }, preferWomenRated: false, repeatOf,
+      });
+      // Still searching (no visit yet): refused.
+      const res = await api().post('/v1/bookings').set(as(customer)).set('Idempotency-Key', randomUUID()).send(body(unfinished)).expect(422);
+      expect(res.body.error.fields).toMatchObject({ repeatOf: expect.any(String) });
+      // Someone else's finished booking: refused the same way (nothing tells it exists).
+      await t.prisma.booking.update({ where: { id: unfinished }, data: { status: 'COMPLETED', technicianId: someone.id } });
+      const other = (await signIn(t, '9876543211')).accessToken;
+      const otherAddress = (await api().post('/v1/addresses').set(as(other)).send(HOME).expect(201)).body.id;
+      await api().post('/v1/bookings').set(as(other)).set('Idempotency-Key', randomUUID()).send({ ...body(unfinished), addressId: otherAddress }).expect(422);
+    });
+
     it('ranks the closest first, even over a better rating', async () => {
       await tech({ at: [17.45, 78.5], rating: 5 });
       const close = await tech({ at: [17.413, 78.4485], rating: 4 });

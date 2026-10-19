@@ -991,7 +991,11 @@ export function createMockBackend(opts: MockOptions): Backend {
         const address = (s.addresses[c.id] ?? []).find((a) => a.id === input.addressId);
         if (!address) throw new ApiError('VALIDATION');
         assertTimeOpen(input.serviceId, input.time);
-        const b = newBooking(c.id, input, address, now());
+        // "Book the same technician again": only from the customer's own visit that took place.
+        const earlier = input.repeatOf ? (s.bookings[c.id] ?? []).find((x) => x.id === input.repeatOf) : undefined;
+        if (input.repeatOf && (!earlier?.technician || (earlier.status !== 'COMPLETED' && earlier.status !== 'CLOSED_NO_REPAIR'))) throw new ApiError('VALIDATION');
+        const fresh = newBooking(c.id, input, address, now());
+        const b = earlier?.technician ? { ...fresh, preferredTechnician: { name: earlier.technician.name.en } } : fresh;
         s.bookings[c.id] = [b, ...(s.bookings[c.id] ?? [])];
         rememberKey(s, c.id, 'CREATE', idempotencyKey, { input: fingerprint, bookingId: b.id, state: null });
         await save();

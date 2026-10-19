@@ -1075,6 +1075,7 @@ components:
         addressId: { type: string }
         time: { $ref: '#/components/schemas/VisitTime' }
         preferWomenRated: { type: boolean }
+        repeatOf: { type: string, format: uuid, description: "Book the same technician again: the customer's own earlier booking (completed, or closed without a repair) whose technician is offered the job first. If they decline or miss it, the search goes on as usual." }
     PaymentMethod: { type: string, enum: [UPI, CARD, NETBANKING, CASH] }
     Payment:
       type: object
@@ -1239,7 +1240,7 @@ components:
         at: { $ref: '#/components/schemas/EpochMs' }
     Booking:
       type: object
-      required: [id, code, serviceId, categoryId, problem, address, time, preferWomenRated, status, technician, arrivalOtp, etaMin, technicianLocation,
+      required: [id, code, serviceId, categoryId, problem, address, time, preferWomenRated, status, technician, preferredTechnician, arrivalOtp, etaMin, technicianLocation,
                  visitPayment, quote, extraQuote, finalPayment, rating, createdAt, history, cancelReason, closeReason, workStarted, viaTechApp, demo]
       properties:
         id: { type: string }
@@ -1252,6 +1253,10 @@ components:
         preferWomenRated: { type: boolean }
         status: { $ref: '#/components/schemas/BookingStatus' }
         technician: { oneOf: [{ $ref: '#/components/schemas/Technician' }, { type: 'null' }] }
+        preferredTechnician:
+          oneOf:
+            - { type: object, required: [name], properties: { name: { type: string } }, description: 'Book the same technician again: who is asked first' }
+            - { type: 'null' }
         arrivalOtp: { type: string, description: 4 digits; empty string until the visit fee is paid }
         etaMin: { type: [integer, 'null'] }
         technicianLocation:

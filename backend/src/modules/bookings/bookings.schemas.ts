@@ -40,6 +40,8 @@ export const NewBooking = z
     addressId: z.string().max(64),
     time: VisitTime,
     preferWomenRated: z.boolean(),
+    /** "Book the same technician again": the customer's earlier, finished booking whose technician is asked first. */
+    repeatOf: z.uuid().optional(),
   })
   .superRefine((b, ctx) => {
     const p = b.problem;

@@ -99,6 +99,8 @@ export interface NewBooking {
   readonly addressId: string;
   readonly time: VisitTime;
   readonly preferWomenRated: boolean;
+  /** "Book the same technician again": the customer's earlier finished booking; its technician is asked first. */
+  readonly repeatOf?: string;
 }
 
 export type QuoteAnswer = 'APPROVE' | 'REVISION' | 'DECLINE';

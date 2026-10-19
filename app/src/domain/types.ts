@@ -258,6 +258,8 @@ export interface Booking {
   readonly preferWomenRated: boolean;
   readonly status: BookingStatus;
   readonly technician: AssignedTechnician | null;
+  /** "Book the same technician again": who is asked first; null (or missing on older servers) otherwise. */
+  readonly preferredTechnician?: { readonly name: string } | null;
   /** 4-digit code the customer tells the technician at the door (starts the visit). */
   readonly arrivalOtp: string;
   /** Live estimate while the technician travels, in minutes. */
