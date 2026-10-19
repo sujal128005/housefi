@@ -159,6 +159,15 @@ describe('live client: bookings, uploads, payments', () => {
     problem: { issueIds: ['tap-leak'], notes: '', voiceNote: { durationSec: 6.4, transcript: 'leak', audioId: 'audio-1' }, photos: [{ id: 'local', uri: 'file:///p1.jpg' }] },
   };
 
+  it('asks for the time windows as the signed-in customer (the API refuses anyone else)', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    const slot = { id: '2026-10-20T10', date: '2026-10-20', startHour: 10, endHour: 12, state: 'OPEN' };
+    t.routes['GET /slots?serviceId=plumb-tap&date=2026-10-20'] = (c) =>
+      (c.headers.authorization === 'Bearer acc1' ? json(200, [slot]) : json(401, { error: { code: 'UNAUTHENTICATED' } }));
+    expect(await t.backend.bookings.slots(s.token, 'plumb-tap', '2026-10-20')).toEqual([slot]);
+  });
+
   it('uploads local photos once, then books with their ids and the idempotency key', async () => {
     const t = setup();
     const s = await signIn(t.backend);

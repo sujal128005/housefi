@@ -110,7 +110,8 @@ export interface PaymentResult {
 }
 
 export interface BookingApi {
-  slots(serviceId: string, date: string): Promise<readonly Slot[]>;
+  /** GET /slots: the two-hour windows for a date. Needs the signed-in customer (like every booking call). */
+  slots(token: string, serviceId: string, date: string): Promise<readonly Slot[]>;
   /**
    * Creates the booking; it waits for the ₹49 visit fee before a technician is searched. `idempotencyKey` (HTTP
    * header `Idempotency-Key`) is made once per attempt and sent again on every retry of it: the same key from the same

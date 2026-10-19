@@ -230,7 +230,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
   }
 
   const bookings: BookingApi = {
-    slots: (serviceId, date) => publicCall('GET', apiPath`/slots?serviceId=${serviceId}&date=${date}`, (j) => list(j, decodeSlot, 'slots')),
+    slots: (handle, serviceId, date) => call(handle, 'GET', apiPath`/slots?serviceId=${serviceId}&date=${date}`, (j) => list(j, decodeSlot, 'slots')),
     async create(handle, input, idempotencyKey) {
       const photos = await uploadPhotos(handle, input.problem.photos, 'PROBLEM');
       const vn = input.problem.voiceNote;
