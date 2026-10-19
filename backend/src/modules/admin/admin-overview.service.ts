@@ -33,7 +33,7 @@ export class AdminOverviewService {
     const week = new Date(istDayStart(now) - 6 * DAY);
     const fortnight = new Date(istDayStart(now) - 13 * DAY);
     const db = this.prisma;
-    const paid = (from: Date) => db.payment.aggregate({ where: { state: 'PAID', settledAt: { gte: from }, booking: { isDemo: false } }, _sum: { amountPaise: true } });
+    const paid = (from: Date) => db.payment.aggregate({ where: { state: 'PAID', settledAt: { gte: from }, booking: { isDemo: false }, OR: [{ provider: null }, { provider: { not: 'WAIVED' } }] }, _sum: { amountPaise: true } });
     const done = (from: Date) => db.bookingEvent.count({ where: { status: 'COMPLETED', at: { gte: from } } });
     const [bToday, bWeek, cToday, cWeek, rToday, rWeek, newCustomers, active, searching, online, customers, technicians, approved, waiting, sos, reports, queries, rating, daily] = await Promise.all([
       db.booking.count({ where: { createdAt: { gte: today } } }),
@@ -60,7 +60,7 @@ export class AdminOverviewService {
           (SELECT count(*) FROM bookings b WHERE (b.created_at AT TIME ZONE 'Asia/Kolkata')::date = (${fortnight}::timestamptz AT TIME ZONE 'Asia/Kolkata')::date + n) AS bookings,
           (SELECT count(*) FROM booking_events e WHERE e.status = 'COMPLETED' AND (e.at AT TIME ZONE 'Asia/Kolkata')::date = (${fortnight}::timestamptz AT TIME ZONE 'Asia/Kolkata')::date + n) AS completed,
           (SELECT COALESCE(sum(p.amount_paise), 0) FROM payments p JOIN bookings pb ON pb.id = p.booking_id
-             WHERE p.state = 'PAID' AND NOT pb.is_demo AND (p.settled_at AT TIME ZONE 'Asia/Kolkata')::date = (${fortnight}::timestamptz AT TIME ZONE 'Asia/Kolkata')::date + n)::bigint AS revenue
+             WHERE p.state = 'PAID' AND NOT pb.is_demo AND p.provider IS DISTINCT FROM 'WAIVED' AND (p.settled_at AT TIME ZONE 'Asia/Kolkata')::date = (${fortnight}::timestamptz AT TIME ZONE 'Asia/Kolkata')::date + n)::bigint AS revenue
         FROM days ORDER BY n`,
     ]);
     const rupees = (a: { _sum: { amountPaise: bigint | null } }) => paiseToRupees(a._sum.amountPaise ?? 0n);

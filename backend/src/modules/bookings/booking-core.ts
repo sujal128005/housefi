@@ -71,8 +71,11 @@ export class BookingCore {
     data: Prisma.BookingUpdateInput,
     actor: Actor,
     meta: Prisma.InputJsonObject = {},
+    /** Super admin only (the portal): outside the state machine, recorded as forced in the history and audit log. */
+    opts: { force?: boolean } = {},
   ): Promise<void> {
-    if (!canTransition(b.status, to)) throw new AppError('CONFLICT');
+    if (!canTransition(b.status, to) && !(opts.force && actor.type === 'ADMIN' && b.status !== to)) throw new AppError('CONFLICT');
+    if (!canTransition(b.status, to)) meta = { ...meta, forced: true };
     const after = await tx.booking.update({ where: { id: b.id }, data: { ...data, status: to, version: { increment: 1 } } });
     await this.event(tx, b.id, to, actor, { from: b.status, ...meta });
     await this.audit.record({ actorType: actor.type, actorId: actor.id, action: 'booking.status', entity: 'booking', entityId: b.id, before: { status: b.status }, after: { status: to, ...meta } }, tx);

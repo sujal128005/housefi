@@ -1,4 +1,5 @@
 -- Super admin portal: admin accounts (created by the command line only), their passkeys, and sign-in sessions.
+ALTER TYPE "cancel_reason" ADD VALUE IF NOT EXISTS 'BY_HOUSEFI';
 CREATE TYPE "admin_session_stage" AS ENUM ('PASSWORD_OK', 'VERIFIED');
 
 CREATE TABLE "admin_users" (
