@@ -49,6 +49,21 @@ describe('support chat rules', () => {
     expect(chatReply('నా టెక్నీషియన్ ఎక్కడ?', 'te', booking({ status: 'EN_ROUTE', technicianName: 'Swathi', etaMin: 7 }), FACTS).text).toBe('Swathi దారిలో ఉన్నారు, సుమారు 7 నిమిషాల్లో వస్తారు.');
   });
 
+  it('names the founders with their links, always the same fixed answer', () => {
+    for (const q of ['Who are the founders?', 'who made housefi', 'Who is the CEO', 'co-founder details please']) {
+      const a = en(q, booking());
+      expect(a.text).toContain('Sujal Negi and Navya, students at IIITDM Kurnool');
+      expect(a.links).toEqual([
+        { label: 'Sujal Negi', url: 'https://sujalnegi.tech' },
+        { label: 'Navya', url: 'https://www.linkedin.com/in/navya-made-7236b633a/' },
+      ]);
+      expect(a.action).toBeNull();
+    }
+    expect(chatReply('Housefi వ్యవస్థాపకులు ఎవరు?', 'te', null, FACTS).text).toContain('సుజల్ నేగి');
+    // A house owner is not a founder: a cancel request stays a cancel request.
+    expect(en('cancel, the owner of the house is not home', booking()).action).toMatchObject({ reason: 'PLANS_CHANGED' });
+  });
+
   it('cancels only with a checked reason, before the trip, and only after the customer confirms', () => {
     // A bare "cancel" asks why, with reasons to tap (each carries the request).
     const ask = en('cancel my booking', booking({ status: 'ASSIGNED' }));

@@ -128,7 +128,7 @@ export default function Support() {
               <Txt variant="callout" color={m.from === 'me' ? 'onNavy' : 'ink'}>{m.text}</Txt>
               {m.links?.map((l) => (
                 <Tap key={l.url} onPress={() => void Linking.openURL(l.url).catch(() => undefined)} accessibilityRole="link" accessibilityLabel={l.label} style={styles.link} testID={`ai-link-${l.label}`}>
-                  <Icon name="logo-linkedin" size={18} color="blue" />
+                  <Icon name={/linkedin\.com/i.test(l.url) ? 'logo-linkedin' : 'globe-outline'} size={18} color="blue" />
                   <Txt variant="label" color="blue">{l.label}</Txt>
                 </Tap>
               ))}

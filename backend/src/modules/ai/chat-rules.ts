@@ -135,6 +135,26 @@ export function wantsPerson(message: string): boolean {
   return matcher(message)(['person', 'human', 'agent', 'call', 'customer care', 'support team', 'complaint'], ['మనిషి', 'కాల్', 'ఫిర్యాదు']);
 }
 
+/** Who started Housefi: a fixed answer (always the same, never a model's guess), with their links. */
+export const FOUNDERS: { readonly text: Bi; readonly links: readonly ChatLink[] } = {
+  text: {
+    en: 'Housefi was founded by Sujal Negi and Navya, students at IIITDM Kurnool: Sujal is in the 4th year and Navya in the 3rd year. They started it to make home repairs in Hyderabad simple and trustworthy, with verified technicians and fair prices. Tap a name to know more.',
+    te: 'Housefi ను IIITDM కర్నూలు విద్యార్థులు సుజల్ నేగి (4వ సంవత్సరం), నవ్య (3వ సంవత్సరం) స్థాపించారు. హైదరాబాద్‌లో ఇంటి రిపేర్లను సులభంగా, నమ్మకంగా చేయడానికి, ధృవీకరించిన టెక్నీషియన్లు, న్యాయమైన ధరలతో దీన్ని ప్రారంభించారు. మరింత తెలుసుకోవడానికి పేరు నొక్కండి.',
+  },
+  links: [
+    { label: 'Sujal Negi', url: 'https://sujalnegi.tech' },
+    { label: 'Navya', url: 'https://www.linkedin.com/in/navya-made-7236b633a/' },
+  ],
+};
+
+/** "Who are the founders?", "who made Housefi?", "who owns this app?". */
+export function asksAboutFounders(message: string): boolean {
+  return matcher(message)(
+    ['founder', 'founders', 'co-founder', 'cofounder', 'co founder', 'who made', 'who built', 'who created', 'who started', 'who owns housefi', 'ceo', 'team behind', 'who is behind'],
+    ['వ్యవస్థాప', 'ఫౌండర్', 'ఎవరు తయారు', 'ఎవరు స్థాపించ'],
+  );
+}
+
 /** "Cancel my booking": answered by the rules (reason, checks, confirm card), never by a model. */
 export function wantsCancel(message: string): boolean {
   return matcher(message)(['cancel', 'cancellation'], ['రద్దు']);
@@ -158,9 +178,9 @@ export function cancelReasonOf(message: string): ChatAction['reason'] | null {
   return why.replace(/[.…]+/g, ' ').trim().split(/\s+/).filter((w) => w.length > 1).length >= 3 ? 'OTHER' : null;
 }
 
-/** Answered by the rules even when a model is on: danger, cancelling. */
+/** Answered by the rules even when a model is on: danger, cancelling, the founders. */
 export function answeredByRules(message: string): boolean {
-  return soundsDangerous(message) || wantsCancel(message);
+  return soundsDangerous(message) || wantsCancel(message) || asksAboutFounders(message);
 }
 
 /** The assistant's answer to one message. */
@@ -184,6 +204,9 @@ export function chatReply(message: string, locale: Locale, active: ChatBooking |
   }
   if (wantsPerson(message)) {
     return say({ en: 'Sure, I can connect you to our support team. Tap "Call customer care" below.', te: 'సరే, మా సపోర్ట్ టీమ్‌కు కనెక్ట్ చేస్తాను. కింద "కస్టమర్ కేర్‌కు కాల్" నొక్కండి.' }, [], true);
+  }
+  if (asksAboutFounders(message)) {
+    return { text: L(FOUNDERS.text), suggestions: chips.map(L), offerHuman: false, links: FOUNDERS.links, action: null };
   }
   if (wantsCancel(message)) {
     if (!active) return say({ en: "You don't have an active booking to cancel.", te: 'రద్దు చేయడానికి మీకు యాక్టివ్ బుకింగ్ లేదు.' }, chips);
