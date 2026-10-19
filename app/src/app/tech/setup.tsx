@@ -114,7 +114,7 @@ export default function TechSetup() {
       <View style={styles.block}>
         <Txt variant="label">{t('tsetup.photo')}</Txt>
         <View style={styles.photoRow}>
-          {photo ? <TechPhoto photo={photo} gender={gender ?? 'M'} size={96} /> : (
+          {photo ? <TechPhoto photo={photo} gender={gender ?? 'M'} size={96} picked={!locked} /> : (
             <View style={[styles.photoEmpty, touched && problems.photo && styles.photoMissing]} testID="tsetup-photo-empty">
               <Icon name="person" size={40} color="inkSubtle" />
             </View>

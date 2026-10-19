@@ -37,17 +37,23 @@ export function createUploader(deps: {
   const running = new Map<string, Promise<string>>();
 
   async function put(handle: string, kind: UploadKind, uri: string, stage?: PhotoStage): Promise<string> {
-    let blob: Blob;
+    // The file's bytes, not a Blob: Expo's fetch builds React Native Blobs through a native call that Expo Go may not
+    // have, while plain bytes read and upload the same way everywhere (files are at most a few MB).
+    let bytes: ArrayBuffer;
+    let declared: string;
     try {
-      blob = await (await deps.fetch(uri)).blob();
+      const file = await deps.fetch(uri);
+      declared = file.headers?.get('content-type') ?? '';
+      bytes = await file.arrayBuffer();
     } catch {
       throw new ApiError('VALIDATION', { message: 'the file could not be read' });
     }
-    const contentType = contentTypeFor(kind, uri, blob.type ?? '');
-    const t = await deps.ticket(handle, kind, { contentType, bytes: blob.size, ...(stage ? { stage } : {}) });
+    if (bytes.byteLength === 0) throw new ApiError('VALIDATION', { message: 'the file is empty' });
+    const contentType = contentTypeFor(kind, uri, declared);
+    const t = await deps.ticket(handle, kind, { contentType, bytes: bytes.byteLength, ...(stage ? { stage } : {}) });
     let res: Response;
     try {
-      res = await deps.fetch(t.uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: blob });
+      res = await deps.fetch(t.uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: bytes });
     } catch {
       throw new ApiError('NETWORK');
     }

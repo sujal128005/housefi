@@ -4,7 +4,7 @@ import { isApiError, type KeyValueStore } from '../services/api';
 import { checkoutUrl, outcomeFrom } from '../services/checkout';
 import { createHttpBackend, decodeBooking, type CheckoutOrder, type CheckoutOutcome } from '../services/http/HttpBackend';
 import { parseSse } from '../services/http/liveStream';
-import { contentTypeFor } from '../services/http/uploads';
+import { contentTypeFor, createUploader } from '../services/http/uploads';
 
 const BASE = 'https://api.test/v1';
 
@@ -167,6 +167,7 @@ describe('live client: bookings, uploads, payments', () => {
     expect(t.calls.filter((c) => c.url === '/uploads/photos')).toHaveLength(1);
     expect(t.calls.find((c) => c.url === '/uploads/photos')?.body).toEqual({ contentType: 'image/jpeg', bytes: 1234, stage: 'PROBLEM' });
     expect(t.calls.find((c) => c.method === 'PUT')?.headers['content-type']).toBe('image/jpeg');
+    expect((t.calls.find((c) => c.method === 'PUT')?.body as ArrayBuffer).byteLength).toBe(1234);
     const booking = t.calls.filter((c) => c.url === '/bookings');
     expect(booking[0]?.headers['idempotency-key']).toBe('idem-12345678');
     expect(booking[0]?.body).toMatchObject({ problem: { photos: [{ id: expect.stringMatching(/^up-PROBLEM/) }], voiceNote: { durationSec: 6, transcript: 'leak', audioId: 'audio-1' } } });
@@ -221,6 +222,27 @@ describe('live client: bookings, uploads, payments', () => {
     } catch (e) {
       expect(isApiError(e, 'VALIDATION')).toBe(true);
     }
+  });
+
+  it("uploads a file's bytes even where the file cannot be turned into a Blob (Expo Go)", async () => {
+    const sent: { url: string; body: unknown }[] = [];
+    const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.startsWith('file://')) {
+        const file = new Response(new Uint8Array(321), { headers: { 'content-type': 'image/jpeg' } });
+        // As in Expo Go: reading the file works, but making a React Native Blob from it fails.
+        return Object.assign(file, { blob: () => Promise.reject(new Error('unstable_createBlobData is not a function')) });
+      }
+      sent.push({ url, body: init?.body });
+      return new Response('', { status: 200 });
+    }) as typeof fetch;
+    const uploader = createUploader({ fetch: fetchFn, ticket: async () => ({ id: 'up-1', uploadUrl: 'https://files.test/u/p?sig' }) });
+    await expect(uploader.upload('h', 'photos', 'file:///cache/ImageManipulator/A1.jpg', 'PROFILE')).resolves.toBe('up-1');
+    expect((sent[0]?.body as ArrayBuffer).byteLength).toBe(321);
+
+    const empty = (async () => new Response(new Uint8Array(0))) as unknown as typeof fetch;
+    const none = createUploader({ fetch: empty, ticket: async () => ({ id: 'x', uploadUrl: 'https://files.test/x' }) });
+    await expect(none.upload('h', 'photos', 'file:///cache/empty.jpg')).rejects.toMatchObject({ code: 'VALIDATION' });
   });
 });
 
