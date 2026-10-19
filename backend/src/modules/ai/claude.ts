@@ -22,7 +22,7 @@ import { CANCELLABLE, REFUND_ON_CANCEL, RESCHEDULABLE } from '../bookings/bookin
 import { BookingCore } from '../bookings/booking-core';
 import { MAX_BYTES } from '../uploads/uploads.service';
 import { type ChatAssistant, type ChatReplyDto, chatBooking, RuleBasedChat } from './chat';
-import { type ChatAnswer, chatReply, soundsDangerous, wantsPerson } from './chat-rules';
+import { answeredByRules, type ChatAnswer, chatReply, wantsPerson } from './chat-rules';
 import { NoModelPhotoClassifier, PHOTO_ALTERNATIVES, type PhotoClassifier, type PhotoSuggestionDto } from './models';
 
 /** The configured client, or null when AI_PROVIDER is "rules". Tests provide a client with a fake fetch. */
@@ -150,6 +150,9 @@ export function chatAnswer(out: z.infer<typeof ChatOutput>, message: string): Ch
     suggestions: out.suggestions.map((s) => clamp(s.trim(), 60)).filter((s) => s.length > 0).slice(0, MAX_SUGGESTIONS),
     // Asking for a person always gets one, whatever the model says.
     offerHuman: out.offerHuman || wantsPerson(message),
+    // Links and actions come only from the rules (cancelling, the founders), never from a model.
+    links: [],
+    action: null,
   };
 }
 
@@ -167,7 +170,7 @@ export class ClaudeChat implements ChatAssistant {
 
   async reply(input: { customerId: string; message: string; locale: Locale; conversationId: string | null }): Promise<ChatReplyDto> {
     const conversationId = input.conversationId ?? randomUUID();
-    if (!this.client || soundsDangerous(input.message)) return this.rules.reply({ ...input, conversationId });
+    if (!this.client || answeredByRules(input.message)) return this.rules.reply({ ...input, conversationId });
 
     const { policyAnswer, context } = await chatTurn(this.core, this.config, input);
     const history = await this.memory.load(input.customerId, conversationId);

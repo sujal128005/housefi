@@ -6,6 +6,7 @@ import { CANCELLABLE, REFUND_ON_CANCEL, RESCHEDULABLE } from '../bookings/bookin
 
 /** What the assistant may know about the caller's current booking (their own data only). */
 export interface ChatBooking {
+  readonly id: string;
   readonly code: string;
   readonly status: BookingStatus;
   /** First name of the assigned technician. */
@@ -15,6 +16,8 @@ export interface ChatBooking {
   readonly quoteTotal: number | null;
   readonly extraTotal: number | null;
   readonly billAmount: number | null;
+  /** Rupees paid as the visit fee (0 while unpaid): what a cancellation before the trip refunds. */
+  readonly visitFeePaid: number;
 }
 
 export interface ChatFacts {
@@ -22,11 +25,44 @@ export interface ChatFacts {
   readonly quoteMin: number;
 }
 
+/** A link shown under the answer (opens in the browser). */
+export interface ChatLink {
+  readonly label: string;
+  readonly url: string;
+}
+
+/**
+ * Something the app may do once the customer confirms it. The assistant never acts by itself: it proposes, the app
+ * shows a confirm card, and only the customer's tap calls the usual endpoint (which checks everything again).
+ */
+export interface ChatAction {
+  readonly kind: 'CANCEL_BOOKING';
+  readonly bookingId: string;
+  readonly code: string;
+  readonly reason: 'PLANS_CHANGED' | 'FIXED' | 'TOO_LONG' | 'MISTAKE' | 'OTHER';
+  /** Rupees refunded (the visit fee once paid; 0 when nothing was paid). */
+  readonly refund: number;
+}
+
 export interface ChatAnswer {
   readonly text: string;
   readonly suggestions: readonly string[];
   readonly offerHuman: boolean;
+  readonly links: readonly ChatLink[];
+  readonly action: ChatAction | null;
 }
+
+/** Cancelling from the chat: only before the technician has started the trip. */
+export const CHAT_CANCELLABLE: readonly BookingStatus[] = CANCELLABLE.filter((s) => s !== 'EN_ROUTE');
+
+/** Reasons the chat accepts for cancelling, each as a quick reply that carries the request with it. */
+const REASON_CHIPS: readonly Bi[] = [
+  { en: 'Cancel: plans changed', te: 'రద్దు: ప్లాన్ మారింది' },
+  { en: 'Cancel: problem fixed itself', te: 'రద్దు: సమస్య సరైపోయింది' },
+  { en: 'Cancel: taking too long', te: 'రద్దు: చాలా ఆలస్యం' },
+  { en: 'Cancel: booked by mistake', te: 'రద్దు: పొరపాటున బుక్ చేశాను' },
+  { en: 'Cancel because ...', te: 'రద్దు ఎందుకంటే ...' },
+];
 
 type Bi = { readonly en: string; readonly te: string };
 
@@ -99,11 +135,59 @@ export function wantsPerson(message: string): boolean {
   return matcher(message)(['person', 'human', 'agent', 'call', 'customer care', 'support team', 'complaint'], ['మనిషి', 'కాల్', 'ఫిర్యాదు']);
 }
 
+/** Who started Housefi: a fixed answer (always the same, never a model's guess), with their links. */
+export const FOUNDERS: { readonly text: Bi; readonly links: readonly ChatLink[] } = {
+  text: {
+    en: 'Housefi was founded by Sujal Negi and Navya, students at IIITDM Kurnool: Sujal is in the 4th year and Navya in the 3rd year. They started it to make home repairs in Hyderabad simple and trustworthy, with verified technicians and fair prices. Tap a name to know more.',
+    te: 'Housefi ను IIITDM కర్నూలు విద్యార్థులు సుజల్ నేగి (4వ సంవత్సరం), నవ్య (3వ సంవత్సరం) స్థాపించారు. హైదరాబాద్‌లో ఇంటి రిపేర్లను సులభంగా, నమ్మకంగా చేయడానికి, ధృవీకరించిన టెక్నీషియన్లు, న్యాయమైన ధరలతో దీన్ని ప్రారంభించారు. మరింత తెలుసుకోవడానికి పేరు నొక్కండి.',
+  },
+  links: [
+    { label: 'Sujal Negi', url: 'https://sujalnegi.tech' },
+    { label: 'Navya', url: 'https://www.linkedin.com/in/navya-made-7236b633a/' },
+  ],
+};
+
+/** "Who are the founders?", "who made Housefi?", "who owns this app?". */
+export function asksAboutFounders(message: string): boolean {
+  return matcher(message)(
+    ['founder', 'founders', 'co-founder', 'cofounder', 'co founder', 'who made', 'who built', 'who created', 'who started', 'who owns housefi', 'ceo', 'team behind', 'who is behind'],
+    ['వ్యవస్థాప', 'ఫౌండర్', 'ఎవరు తయారు', 'ఎవరు స్థాపించ'],
+  );
+}
+
+/** "Cancel my booking": answered by the rules (reason, checks, confirm card), never by a model. */
+export function wantsCancel(message: string): boolean {
+  return matcher(message)(['cancel', 'cancellation'], ['రద్దు']);
+}
+
+const REASONS: readonly (readonly [ChatAction['reason'], readonly string[], readonly string[]])[] = [
+  ['MISTAKE', ['mistake', 'by mistake', 'wrong address', 'wrong service', 'wrongly', 'accidentally', 'wrong booking'], ['పొరపాటు', 'తప్పుగా']],
+  ['FIXED', ['fixed', 'working now', 'works now', 'repaired', 'solved', 'resolved'], ['సరైపోయింది', 'పరిష్కారం', 'బాగైంది']],
+  ['TOO_LONG', ['too long', 'taking long', 'late', 'delay', 'delayed', 'waiting', 'slow'], ['ఆలస్యం', 'చాలా సమయం']],
+  ['PLANS_CHANGED', ['plans changed', 'plan changed', 'change of plans', 'not needed', "don't need", 'do not need', 'no longer need', 'not home', 'not at home', 'busy', 'going out', 'travelling'], ['ప్లాన్ మారింది', 'అవసరం లేదు', 'ఇంట్లో లేను']],
+];
+
+/**
+ * The reason in a cancel request, checked: one of the known reasons, or "Cancel because …" with an actual
+ * explanation (at least three words). Anything vaguer is null, and the customer is asked again.
+ */
+export function cancelReasonOf(message: string): ChatAction['reason'] | null {
+  const has = matcher(message);
+  for (const [reason, en, te] of REASONS) if (has(en, te)) return reason;
+  const why = /(?:because|since|ఎందుకంటే)\s+(.+)$/i.exec(message.trim())?.[1] ?? '';
+  return why.replace(/[.…]+/g, ' ').trim().split(/\s+/).filter((w) => w.length > 1).length >= 3 ? 'OTHER' : null;
+}
+
+/** Answered by the rules even when a model is on: danger, cancelling, the founders. */
+export function answeredByRules(message: string): boolean {
+  return soundsDangerous(message) || wantsCancel(message) || asksAboutFounders(message);
+}
+
 /** The assistant's answer to one message. */
 export function chatReply(message: string, locale: Locale, active: ChatBooking | null, facts: ChatFacts): ChatAnswer {
   const has = matcher(message);
   const L = (b: Bi) => b[locale];
-  const say = (text: Bi, suggestions: readonly Bi[], offerHuman = false): ChatAnswer => ({ text: L(text), suggestions: suggestions.map(L), offerHuman });
+  const say = (text: Bi, suggestions: readonly Bi[], offerHuman = false): ChatAnswer => ({ text: L(text), suggestions: suggestions.map(L), offerHuman, links: [], action: null });
   const chips = [S.track, S.price, S.cancel, S.human];
   const v = { fee: facts.visitFee, min: facts.quoteMin };
 
@@ -121,18 +205,43 @@ export function chatReply(message: string, locale: Locale, active: ChatBooking |
   if (wantsPerson(message)) {
     return say({ en: 'Sure, I can connect you to our support team. Tap "Call customer care" below.', te: 'సరే, మా సపోర్ట్ టీమ్‌కు కనెక్ట్ చేస్తాను. కింద "కస్టమర్ కేర్‌కు కాల్" నొక్కండి.' }, [], true);
   }
-  if (has(['cancel', 'cancellation'], ['రద్దు'])) {
+  if (asksAboutFounders(message)) {
+    return { text: L(FOUNDERS.text), suggestions: chips.map(L), offerHuman: false, links: FOUNDERS.links, action: null };
+  }
+  if (wantsCancel(message)) {
     if (!active) return say({ en: "You don't have an active booking to cancel.", te: 'రద్దు చేయడానికి మీకు యాక్టివ్ బుకింగ్ లేదు.' }, chips);
-    if (REFUND_ON_CANCEL.includes(active.status)) {
-      return say({ en: fill('You can cancel {code} now and the ₹{fee} visit fee is refunded in full. Open the booking and tap "Cancel booking".', { ...v, code: active.code }), te: fill('{code} ఇప్పుడు రద్దు చేస్తే ₹{fee} విజిట్ ఫీజు పూర్తిగా తిరిగి వస్తుంది. బుకింగ్ తెరిచి "బుకింగ్ రద్దు చేయండి" నొక్కండి.', { ...v, code: active.code }) }, [S.refund, S.reschedule, S.human]);
+    if (CHAT_CANCELLABLE.includes(active.status)) {
+      const reason = cancelReasonOf(message);
+      // A real reason first: a bare "cancel" (or something too vague) gets the question again.
+      if (!reason) {
+        return say(
+          {
+            en: fill('Sorry to hear that. Why do you want to cancel {code}? Pick a reason, or write "Cancel because" and the reason.', { code: active.code }),
+            te: fill('{code} ఎందుకు రద్దు చేయాలనుకుంటున్నారు? ఒక కారణం ఎంచుకోండి, లేదా "రద్దు ఎందుకంటే" అని కారణం రాయండి.', { code: active.code }),
+          },
+          REASON_CHIPS,
+        );
+      }
+      const refund = REFUND_ON_CANCEL.includes(active.status) ? active.visitFeePaid : 0;
+      const money = refund > 0
+        ? { en: fill('The ₹{refund} visit fee is refunded to your payment method in 5–7 working days.', { refund }), te: fill('₹{refund} విజిట్ ఫీజు 5–7 పని దినాల్లో మీ చెల్లింపు విధానానికి తిరిగి వస్తుంది.', { refund }) }
+        : { en: 'Nothing has been charged, so there is nothing to refund.', te: 'ఏమీ వసూలు చేయలేదు, కాబట్టి రీఫండ్ అవసరం లేదు.' };
+      return {
+        text: L({ en: fill('Please confirm: cancel {code}? {money}', { code: active.code, money: money.en }), te: fill('నిర్ధారించండి: {code} రద్దు చేయాలా? {money}', { code: active.code, money: money.te }) }),
+        suggestions: [],
+        offerHuman: false,
+        links: [],
+        action: { kind: 'CANCEL_BOOKING', bookingId: active.id, code: active.code, reason, refund },
+      };
     }
-    if (CANCELLABLE.includes(active.status)) {
-      const enRoute = active.status === 'EN_ROUTE';
+    if (active.status === 'EN_ROUTE') {
       return say(
-        enRoute
-          ? { en: fill('The technician is already on the way, so cancelling {code} now keeps the ₹{fee} visit fee. You can still cancel in the booking.', { ...v, code: active.code }), te: fill('టెక్నీషియన్ ఇప్పటికే దారిలో ఉన్నారు, కాబట్టి ఇప్పుడు {code} రద్దు చేస్తే ₹{fee} విజిట్ ఫీజు తిరిగి రాదు. బుకింగ్‌లో రద్దు చేయవచ్చు.', { ...v, code: active.code }) }
-          : { en: fill('You can cancel {code} in the booking. It is not paid yet, so nothing is charged.', { ...v, code: active.code }), te: fill('{code} ను బుకింగ్‌లో రద్దు చేయవచ్చు. ఇంకా చెల్లించలేదు, కాబట్టి ఏమీ వసూలు చేయం.', { ...v, code: active.code }) },
-        [S.reschedule, S.human],
+        {
+          en: fill("Your technician has already started the trip for {code}, so I can't cancel it here. Cancelling now in the booking keeps the ₹{fee} visit fee; our team can help.", { ...v, code: active.code }),
+          te: fill('{code} కోసం టెక్నీషియన్ ఇప్పటికే బయలుదేరారు, కాబట్టి ఇక్కడ రద్దు చేయలేను. ఇప్పుడు బుకింగ్‌లో రద్దు చేస్తే ₹{fee} విజిట్ ఫీజు తిరిగి రాదు; మా టీమ్ సహాయం చేస్తుంది.', { ...v, code: active.code }),
+        },
+        [S.human],
+        true,
       );
     }
     return say({ en: fill('The technician is already with you for {code}, so it can no longer be cancelled in the app. Our team can help.', { code: active.code }), te: fill('{code} కోసం టెక్నీషియన్ ఇప్పటికే మీ దగ్గర ఉన్నారు, కాబట్టి యాప్‌లో రద్దు చేయలేరు. మా టీమ్ సహాయం చేస్తుంది.', { code: active.code }) }, [S.human], true);
@@ -148,7 +257,7 @@ export function chatReply(message: string, locale: Locale, active: ChatBooking |
   }
   if (has(['where', 'technician', 'eta', 'late', 'track', 'status', 'quote', 'bill', 'when'], ['ఎక్కడ', 'టెక్నీషియన్', 'ఎప్పుడు', 'కొటేషన్', 'బిల్లు'])) {
     if (!active) return say({ en: "You don't have an active booking right now.", te: 'మీకు ఇప్పుడు యాక్టివ్ బుకింగ్ లేదు.' }, chips);
-    const next = CANCELLABLE.includes(active.status) ? [S.cancel, S.human] : [S.human];
+    const next = CHAT_CANCELLABLE.includes(active.status) ? [S.cancel, S.human] : [S.human];
     return say(statusLine(active, facts), next);
   }
   if (has(['price', 'prices', 'cost', 'fee', 'charge', 'charges', 'how much', 'rate'], ['ధర', 'ఫీజు', 'ఎంత'])) {

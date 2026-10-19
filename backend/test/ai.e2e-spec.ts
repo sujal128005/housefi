@@ -137,13 +137,16 @@ describe('AI endpoints (e2e)', () => {
       const first = (await chat({ message: 'Where is my technician?', locale: 'en' }).expect(200)).body;
       expect(first).toEqual({
         text: 'Swathi is on the way and should reach you in about 7 min.',
-        suggestions: ['Cancel my booking', 'Talk to a person'],
+        suggestions: ['Talk to a person'], // on the way: no cancelling from the chat
         offerHuman: false,
+        links: [],
+        action: null,
         conversationId: expect.stringMatching(/^[0-9a-f-]{36}$/),
       });
       const next = (await chat({ message: 'cancel', locale: 'en', conversationId: first.conversationId }).expect(200)).body;
-      expect(next).toMatchObject({ conversationId: first.conversationId, offerHuman: false });
-      expect(next.text).toContain(`cancelling ${base.code} now keeps the ₹49`);
+      // The trip has started: the chat cannot cancel it, and offers a person.
+      expect(next).toMatchObject({ conversationId: first.conversationId, offerHuman: true, action: null });
+      expect(next.text).toContain(`Your technician has already started the trip for ${base.code}`);
 
       // Someone else asking sees nothing of this booking.
       const other = (await signIn(t, '9876543211')).accessToken;
