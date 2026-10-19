@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { Booking, BookingStatus, OfferRejectReason, Prisma } from '@prisma/client';
+import type { Booking, BookingStatus, CategoryId, OfferRejectReason, Prisma } from '@prisma/client';
 import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { AppError } from '../../common/errors/app-error';
@@ -19,6 +19,17 @@ export const MISSED_OFFERS_LIMIT = 3;
 export const INSTANT_START_WITHIN_MIN = 10;
 /** Scheduled visit: reassigned if the trip has not started by this long before the window. */
 export const SCHEDULED_START_BEFORE_MIN = 30;
+
+/**
+ * Trades whose technicians also get each other's jobs (the same tools and know-how): an electrician gets AC and
+ * appliance jobs too, and so on. Plumbing, carpentry and cleaning go only to technicians who chose that trade.
+ */
+export const SHARED_TRADES: readonly CategoryId[] = ['ELECTRICAL', 'AC', 'APPLIANCE'];
+
+/** The skills that qualify a technician for a job in this category. */
+export function skillsFor(category: CategoryId): CategoryId[] {
+  return SHARED_TRADES.includes(category) ? [...SHARED_TRADES] : [category];
+}
 
 const SEARCHING: readonly BookingStatus[] = ['MATCHING', 'MATCHING_DELAYED'];
 const BATCH = 100;
@@ -130,9 +141,9 @@ export class DispatchService {
         CASE WHEN t.last_location IS NOT NULL AND b.location IS NOT NULL THEN ST_Distance(t.last_location, b.location)::int END AS distance_m
       FROM technicians t
       JOIN bookings b ON b.id = ${b.id}::uuid
-      JOIN technician_skills s ON s.technician_id = t.user_id AND s.category_id = b.category_id
       JOIN users u ON u.id = t.user_id
       WHERE t.verification = 'APPROVED' AND t.online AND u.status = 'ACTIVE'
+        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.category_id = ANY(${skillsFor(b.categoryId)}::category_id[]))
         -- Demo bookings go only to the team's demo technicians, real bookings only to real technicians.
         AND u.is_demo = b.is_demo
         AND (t.phone_type = 'SMARTPHONE' OR (
@@ -164,9 +175,9 @@ export class DispatchService {
   private async queueIfPeopleCanHelp(tx: Prisma.TransactionClient, b: Booking): Promise<void> {
     const [row] = await tx.$queryRaw<{ n: bigint }[]>`
       SELECT count(*)::bigint AS n FROM technicians t
-      JOIN technician_skills s ON s.technician_id = t.user_id AND s.category_id = ${b.categoryId}::category_id
       JOIN users u ON u.id = t.user_id
       WHERE t.verification = 'APPROVED' AND t.coordinator_id IS NOT NULL AND t.phone_type <> 'SMARTPHONE'
+        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.category_id = ANY(${skillsFor(b.categoryId)}::category_id[]))
         AND u.status = 'ACTIVE' AND u.is_demo = ${b.isDemo}
         AND (t.pincode = ${b.pincode} OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = ${b.pincode}))
         AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))`;

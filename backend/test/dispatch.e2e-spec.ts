@@ -93,6 +93,19 @@ describe('dispatch (e2e)', () => {
       expect(await offerOf(pending.token)).toBeNull();
     });
 
+    it('shares electrical, AC and appliance jobs between those trades; plumbing and carpentry stay with their own', async () => {
+      const fanJob = { serviceId: 'elec-fan', problem: { issueIds: ['fan-dead'], notes: '', voiceNote: null, photos: [] } };
+      const plumber = await tech({ profile: { skills: ['PLUMBING', 'CARPENTRY'] } });
+      expect(await openOffer(await searching(fanJob))).toBeNull();
+      const acTech = await tech({ profile: { skills: ['AC'] } });
+      expect((await openOffer(await searching(fanJob)))?.technicianId).toBe(acTech.id);
+      // The AC technician is busy with that offer; an appliance technician gets the next fan job.
+      const applianceTech = await tech({ profile: { skills: ['APPLIANCE'] } });
+      expect((await openOffer(await searching(fanJob)))?.technicianId).toBe(applianceTech.id);
+      // A plumbing job goes to the plumber only.
+      expect((await openOffer(await searching()))?.technicianId).toBe(plumber.id);
+    });
+
     it('includes neighbouring PIN codes', async () => {
       const near = await tech({ profile: { pincode: '500033' } });
       expect(await openOffer(await searching())).toBeNull();
