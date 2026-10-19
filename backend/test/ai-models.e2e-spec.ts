@@ -192,6 +192,8 @@ describe('AI with models (e2e)', () => {
       expect(call.form.get('language_code')).toBe('te-IN');
       expect(call.form.get('model')).toBe('saaras:v4');
       expect(call.form.get('file')).toBeInstanceOf(Blob);
+      // Sarvam refuses "audio/m4a" (what phones send) and takes the same file as "audio/x-m4a".
+      expect((call.form.get('file') as Blob).type).toBe('audio/x-m4a');
 
       const long = await uploaded('audio', m4a(45), 'audio/m4a');
       expect((await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId: long, locale: 'en' }).expect(200)).body).toEqual({ text: '' });

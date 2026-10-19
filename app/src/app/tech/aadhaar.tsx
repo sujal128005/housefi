@@ -1,16 +1,20 @@
 // Aadhaar verification for technicians: the camera reads the Secure QR code printed on the Aadhaar card (or the e-Aadhaar
 // PDF), and the server checks UIDAI's digital signature offline. Nothing is sent to UIDAI, and Housefi keeps only the
 // last 4 digits, the birth year, the gender and whether the name matches: never the Aadhaar number, photo or address.
-// During registration it is the required step after the details (no way back), and it leads to "checking your details".
-import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+// During registration it is the required step after the details (no way back, no skipping), and it leads to
+// "checking your details". Scanning uses the phone's own smart scanner where there is one (Google code scanner on
+// Android, VisionKit on iPhone): it finds the code anywhere in view, zooms in and captures by itself. Otherwise the
+// in-app camera keeps focusing on its own. A photo of the code (e-Aadhaar screenshot) works too.
+import { CameraView, scanFromURLAsync, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { techStage } from '../../domain/techReview';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
 import { isApiError } from '../../services/api';
+import { pickPhoto } from '../../services/device';
 import { feedback } from '../../services/feedback';
 import { useBackend } from '../../services/ServicesProvider';
 import { useAppState, useTechSession } from '../../state/AppState';
@@ -38,6 +42,14 @@ export default function AadhaarScan() {
   const [required] = useState(() => techStage(session.profile, Date.now()) === 'AADHAAR');
   const next = () => (required ? resetTo('/tech/verification') : router.back());
 
+  // The smart scanner reports here; it is listened to only while this screen is open.
+  const onScannedRef = useRef<(data: string) => void>(() => undefined);
+  useEffect(() => {
+    if (Platform.OS === 'web' || !CameraView.isModernBarcodeScannerAvailable) return undefined;
+    const sub = CameraView.onModernBarcodeScanned((e) => onScannedRef.current(e.data));
+    return () => sub.remove();
+  }, []);
+
   const startScan = async () => {
     setError(null);
     setHint(null);
@@ -47,15 +59,41 @@ export default function AadhaarScan() {
       return;
     }
     handled.current = false;
+    if (Platform.OS !== 'web' && CameraView.isModernBarcodeScannerAvailable) {
+      try {
+        await CameraView.launchScanner({ barcodeTypes: ['qr'], isGuidanceEnabled: true, isHighlightingEnabled: true });
+        return;
+      } catch {
+        // Not available on this phone after all: the in-app camera below.
+      }
+    }
     setPhase('SCANNING');
   };
 
-  const onScanned = async ({ data }: BarcodeScanningResult) => {
+  /** A photo of the code (a screenshot of the e-Aadhaar, or a picture of the card). */
+  const fromPhoto = async () => {
+    setError(null);
+    setHint(null);
+    const r = await pickPhoto('gallery');
+    if (!r.ok) return;
+    try {
+      const found = await scanFromURLAsync(r.uri, ['qr']);
+      const code = found.find((f) => looksLikeSecureQr(f.data)) ?? found[0];
+      handled.current = false;
+      if (code) await onScanned(code.data);
+      else setHint(t('aadhaar.noCodeInPhoto'));
+    } catch {
+      setHint(t('aadhaar.noCodeInPhoto'));
+    }
+  };
+
+  const onScanned = async (data: string) => {
     if (handled.current) return;
     if (!looksLikeSecureQr(data)) {
       setHint(t('aadhaar.notSecureQr'));
       return;
     }
+    if (Platform.OS === 'ios' && CameraView.isModernBarcodeScannerAvailable) void CameraView.dismissScanner().catch(() => undefined);
     handled.current = true;
     feedback('pop');
     setPhase('CHECKING');
@@ -71,6 +109,7 @@ export default function AadhaarScan() {
       setPhase('INTRO');
     }
   };
+  onScannedRef.current = (data) => void onScanned(data);
 
   return (
     <Screen
@@ -82,8 +121,7 @@ export default function AadhaarScan() {
       ) : phase === 'INTRO' ? (
         <>
           <Button label={t('aadhaar.scan')} icon="qr-code" onPress={() => void startScan()} disabled={Platform.OS === 'web'} testID="aadhaar-scan" />
-          {/* Not a dead end (no camera, an old card): the checking page keeps asking for the scan, and approval needs it. */}
-          {required ? <Button label={t('aadhaar.trouble')} variant="ghost" size="md" onPress={next} testID="aadhaar-later" /> : null}
+          <Button label={t('aadhaar.fromPhoto')} icon="image" variant="ghost" size="md" onPress={() => void fromPhoto()} disabled={Platform.OS === 'web'} testID="aadhaar-photo" />
         </>
       ) : undefined}
     >
@@ -112,7 +150,7 @@ export default function AadhaarScan() {
         <>
           <Txt variant="title2" heading align="center">{t('aadhaar.pointCamera')}</Txt>
           <View style={styles.cameraFrame}>
-            <CameraView style={StyleSheet.absoluteFill} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }} onBarcodeScanned={(r) => void onScanned(r)} />
+            <CameraView style={StyleSheet.absoluteFill} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }} autofocus="off" onBarcodeScanned={(r) => void onScanned(r.data)} />
             <View style={styles.reticle} pointerEvents="none" />
           </View>
           {hint ? <Banner tone="warning" text={hint} testID="aadhaar-hint" /> : <Txt variant="footnote" color="inkMuted" align="center">{t('aadhaar.scanHint')}</Txt>}

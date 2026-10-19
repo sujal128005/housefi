@@ -198,7 +198,8 @@ export class IdentityService {
       details = verifyAadhaarQr(qrText, keys);
     } catch (err) {
       if (err instanceof AadhaarQrError) {
-        this.log.warn(`Aadhaar QR refused for technician ${technicianId} (${err.reason})`);
+        // The month a refused QR was made says which UIDAI certificate it needs (UIDAI_QR_CERT_PEM_B64).
+        this.log.warn(`Aadhaar QR refused for technician ${technicianId} (${err.reason}${err.madeIn ? `, QR made ${err.madeIn}` : ''})`);
         throw new AppError('VALIDATION', { fields: { qr: 'INVALID' } }, `not a genuine, readable Aadhaar Secure QR (${err.reason})`);
       }
       throw err;

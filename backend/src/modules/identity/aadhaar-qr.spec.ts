@@ -55,6 +55,16 @@ describe('Aadhaar Secure QR', () => {
     expect(() => uidaiKeys('bm90IGEgY2VydGlmaWNhdGU=')).toThrow();
   });
 
+  it('says which month a refused QR was made (to find the certificate it needs), and nothing about the person', () => {
+    try {
+      verifyAadhaarQr(makeQr(FIELDS, forger.privateKey), uidai.publicKey);
+      throw new Error('accepted');
+    } catch (e) {
+      expect(e).toMatchObject({ reason: 'BAD_SIGNATURE', madeIn: '2026-10' });
+      expect(JSON.stringify({ ...(e as object), message: (e as Error).message })).not.toMatch(/Swathi|1234|1994/);
+    }
+  });
+
   it('refuses old (V1, unsigned XML) and unreadable codes', () => {
     expect(() => verifyAadhaarQr('<?xml version="1.0"?><PrintLetterBarcodeData uid="123412341234"/>', uidai.publicKey)).toThrow(new AadhaarQrError('OLD_FORMAT'));
     expect(() => verifyAadhaarQr('12345', uidai.publicKey)).toThrow(AadhaarQrError);

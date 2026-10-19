@@ -17,6 +17,11 @@ export const SARVAM_MAX_SEC = 30;
 const MAX_TRANSCRIPT_CHARS = 1000;
 
 const FILE_NAMES: Readonly<Record<string, string>> = { 'audio/m4a': 'note.m4a', 'audio/mp4': 'note.m4a', 'audio/aac': 'note.aac' };
+/**
+ * The file type Sarvam is told. It refuses "audio/m4a" (HTTP 400 "Invalid file type"), the type phones give their
+ * voice notes, and takes the same file as "audio/x-m4a". The audio itself is not changed.
+ */
+const SARVAM_TYPES: Readonly<Record<string, string>> = { 'audio/m4a': 'audio/x-m4a' };
 
 /** Injected so tests never reach Sarvam. */
 export const SARVAM_FETCH = Symbol('SARVAM_FETCH');
@@ -41,7 +46,7 @@ export class SarvamSpeechToText implements SpeechToText {
     if (!bytes) return '';
 
     const form = new FormData();
-    form.append('file', new Blob([Uint8Array.from(bytes)], { type: upload.contentType }), FILE_NAMES[upload.contentType] ?? 'note.m4a');
+    form.append('file', new Blob([Uint8Array.from(bytes)], { type: SARVAM_TYPES[upload.contentType] ?? upload.contentType }), FILE_NAMES[upload.contentType] ?? 'note.m4a');
     form.append('model', this.config.SARVAM_STT_MODEL);
     form.append('language_code', input.locale === 'te' ? 'te-IN' : 'en-IN');
     try {
@@ -51,12 +56,13 @@ export class SarvamSpeechToText implements SpeechToText {
         body: form,
         signal: AbortSignal.timeout(this.config.AI_TIMEOUT_MS),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Sarvam's error says what it refused (never contains the audio or a transcript).
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 120)}`);
       const body = (await res.json()) as { transcript?: unknown };
       return typeof body.transcript === 'string' ? body.transcript.trim().slice(0, MAX_TRANSCRIPT_CHARS) : '';
     } catch (err) {
       // The app keeps the voice note as audio; the technician can still play it.
-      this.log.warn(`speech-to-text unavailable (${err instanceof Error ? err.message.slice(0, 80) : 'unknown'})`);
+      this.log.warn(`speech-to-text unavailable (${err instanceof Error ? err.message.slice(0, 160) : 'unknown'})`);
       return '';
     }
   }
