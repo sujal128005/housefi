@@ -21,6 +21,7 @@ import type { Env } from '../../config/env';
 import { CATEGORY_ORDER } from '../technicians/technicians.schemas';
 import { AadhaarQrError, identityFingerprint, namesMatch, uidaiKeys, verifyAadhaarQr } from './aadhaar-qr';
 import { displayName, newVerifyToken, VERIFY_TOKEN, verifyTokenHash } from './identity-codes';
+import { TechVerificationService } from '../technicians/tech-verification.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Booking statuses in which the customer sees the assigned technician's ID card. */
@@ -81,6 +82,7 @@ export class IdentityService {
     private readonly audit: AuditService,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
+    private readonly verification: TechVerificationService,
   ) {}
 
   // ---------- ID card ----------
@@ -231,6 +233,8 @@ export class IdentityService {
       }
       throw e;
     }
+    // Every check passed: approved now (AutoApproveWorker would within a minute), shown at the promised time.
+    if (this.config.AUTO_APPROVE_TECHNICIANS && nameMatches) await this.verification.approveIfReady(t.userId);
     return { last4: details.last4, nameMatches, verifiedAt: now.getTime() };
   }
 

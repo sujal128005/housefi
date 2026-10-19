@@ -245,6 +245,8 @@ export const envSchema = z
       }, 'must be base64 of UIDAI certificates (.cer or PEM), comma-separated'),
     /** Technicians need a verified Aadhaar (Secure QR) before they can be approved. */
     AADHAAR_REQUIRED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+    /** Approve technicians automatically once their identity checks all pass (Aadhaar genuine, 18+, name matches, photo). */
+    AUTO_APPROVE_TECHNICIANS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
 
     VISIT_FEE_RUPEES: int(49, 1),
     QUOTE_MIN_RUPEES: int(100, 1),

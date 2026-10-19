@@ -192,6 +192,25 @@ describe('technician identity (e2e)', () => {
       }
     });
 
+    it('with automatic approval on: a passed Aadhaar check approves at once (shown at the review time); a demo account waits 10 s', async () => {
+      const app2 = await buildTestApp({ env: { UIDAI_QR_CERT_PEM_B64: Buffer.from(uidai.publicKey).toString('base64'), AADHAAR_REQUIRED: 'true', AUTO_APPROVE_TECHNICIANS: 'true' } });
+      try {
+        const tech = await createTechnician(app2, '9876500024', { approve: false });
+        await request(app2.app.getHttpServer()).post('/v1/tech/aadhaar').set(as(tech.token)).send({ qr: aadhaarQr('Swathi Naidu') }).expect(200);
+        const row = await app2.prisma.technician.findUniqueOrThrow({ where: { userId: tech.id }, include: { user: true } });
+        expect(row.verification).toBe('APPROVED');
+        const audit = await app2.prisma.auditLog.findFirst({ where: { entityId: tech.id, action: 'tech.approve' } });
+        expect(audit).toMatchObject({ actorType: 'SYSTEM', after: { via: 'auto' } });
+        // Shown at the promised time (2 to 24 h); a team demo account (DEMO_PHONES) 10 s after submitting.
+        const me = (await request(app2.app.getHttpServer()).get('/v1/tech/me').set(as(tech.token)).expect(200)).body;
+        expect(me.reviewBy).toBeGreaterThanOrEqual(row.submittedAt.getTime() + 2 * 3_600_000);
+        await app2.prisma.user.update({ where: { id: tech.id }, data: { isDemo: true } });
+        expect((await request(app2.app.getHttpServer()).get('/v1/tech/me').set(as(tech.token)).expect(200)).body.reviewBy).toBe(row.submittedAt.getTime() + 10_000);
+      } finally {
+        await app2.close();
+      }
+    });
+
     it('flags a name that differs from the legal name, and refuses approval until it is resolved', async () => {
       const app2 = await buildTestApp({ env: { UIDAI_QR_CERT_PEM_B64: Buffer.from(uidai.publicKey).toString('base64'), AADHAAR_REQUIRED: 'true' } });
       try {
