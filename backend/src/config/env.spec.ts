@@ -186,6 +186,10 @@ describe('hardening rules', () => {
     expect(env.SARVAM_STT_MODEL).toBe('saaras:v4');
   });
 
+  it('refuses a UIDAI certificate setting that is not certificates, at startup rather than at the first scan', () => {
+    expect(problemsOf({ ...base, UIDAI_QR_CERT_PEM_B64: 'bm90IGEgY2VydGlmaWNhdGU=' })).toEqual([expect.stringMatching(/^UIDAI_QR_CERT_PEM_B64: /)]);
+  });
+
   it('refuses a password-less Redis in production', () => {
     expect(problemsOf({ NODE_ENV: 'production', REDIS_URL: 'redis://redis:6379' })).toContain('REDIS_URL: must include a password in production (rediss:// recommended)');
   });

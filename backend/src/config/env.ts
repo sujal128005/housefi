@@ -2,6 +2,7 @@
 // Empty values count as "not set". Secrets are required in production and checked for length everywhere; error
 // messages name the variable, never its value.
 import { z } from 'zod';
+import { uidaiKeys } from '../modules/identity/aadhaar-qr';
 
 const MIN_SECRET_BYTES = 32;
 
@@ -227,8 +228,21 @@ export const envSchema = z
      * reads the token after "#", so it never reaches any server log.
      */
     VERIFY_PAGE_URL: z.url().default('https://housefi.tech/t/#'),
-    /** UIDAI's certificate for Aadhaar Secure QR signatures (PEM, base64). Without it Aadhaar checks are unavailable. */
-    UIDAI_QR_CERT_PEM_B64: z.string().optional(),
+    /**
+     * UIDAI's certificates for Aadhaar Secure QR signatures: base64 of each .cer (or PEM), comma-separated; a QR signed
+     * by any of them is genuine. "deploy\laptop uidai <folder>" fills it. Without it Aadhaar checks are unavailable.
+     */
+    UIDAI_QR_CERT_PEM_B64: z
+      .string()
+      .optional()
+      .refine((v) => {
+        if (v === undefined) return true;
+        try {
+          return uidaiKeys(v).length > 0;
+        } catch {
+          return false;
+        }
+      }, 'must be base64 of UIDAI certificates (.cer or PEM), comma-separated'),
     /** Technicians need a verified Aadhaar (Secure QR) before they can be approved. */
     AADHAAR_REQUIRED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
 
