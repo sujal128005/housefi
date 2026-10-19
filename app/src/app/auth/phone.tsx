@@ -6,6 +6,7 @@ import { nationalDigits, normalizePhone } from '../../domain/rules';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { useBackend, useIsDemo } from '../../services/ServicesProvider';
+import { backOrStart } from '../../navigation';
 import { useAppState } from '../../state/AppState';
 import { authFlow } from '../../state/authFlow';
 import { space } from '../../theme/tokens';
@@ -54,7 +55,7 @@ export default function PhoneSignIn() {
     <Screen
       testID="auth-phone"
       wash="sky"
-      header={<Header />}
+      header={<Header onBack={backOrStart} />}
       footer={<Button label={t('auth.phone.send')} trailingIcon="arrow-forward" onPress={send} loading={busy} disabled={!phone} testID="phone-send" />}
     >
       <View style={styles.art}><Art3D name={asTech ? 'tech_hero' : 'key'} size={120} float shadow /></View>
