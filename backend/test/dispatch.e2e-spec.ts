@@ -153,6 +153,27 @@ describe('dispatch (e2e)', () => {
       await api().post('/v1/bookings').set(as(other)).set('Idempotency-Key', randomUUID()).send({ ...body(unfinished), addressId: otherAddress }).expect(422);
     });
 
+    it('estimates "Now" before booking from the nearest free technician, in minutes only', async () => {
+      const estimate = async () => (await api().get(`/v1/eta?serviceId=plumb-tap&addressId=${addressId}`).set(as(customer)).expect(200)).body;
+      expect(await estimate()).toEqual({ minutes: null }); // nobody online
+      await tech({ at: [17.4486, 78.4482] }); // about 4 km north, 12:00 IST (20 km/h)
+      expect(await estimate()).toEqual({ minutes: [35, 45] }); // matching 10 + getting ready 5 + 17 min on the road = 32, rounded up
+      await tech({ at: [17.413, 78.4485] }); // next door
+      expect(await estimate()).toEqual({ minutes: [20, 30] });
+      await api().get(`/v1/eta?serviceId=plumb-tap&addressId=${randomUUID()}`).set(as(customer)).expect(404);
+    });
+
+    it('shows when an accepted instant visit arrives, and updates it as the technician moves', async () => {
+      const t1 = await tech({ at: [17.4486, 78.4482] }); // about 4 km
+      const id = await searching();
+      const offer = await openOffer(id);
+      await api().post(`/v1/tech/offers/${offer!.id}/accept`).set(as(t1.token)).expect(200);
+      const first = (await booking(id)).etaMin as number;
+      expect(first).toBeGreaterThan(5 + 10);
+      await api().post('/v1/tech/location').set(as(t1.token)).send({ lat: 17.4136, lng: 78.4482 }).expect(204); // now 100 m away
+      expect((await booking(id)).etaMin).toBe(5 + 1);
+    });
+
     it('ranks the closest first, even over a better rating', async () => {
       await tech({ at: [17.45, 78.5], rating: 5 });
       const close = await tech({ at: [17.413, 78.4485], rating: 4 });

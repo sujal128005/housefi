@@ -230,6 +230,10 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
   }
 
   const bookings: BookingApi = {
+    eta: (handle, serviceId, addressId) => call(handle, 'GET', apiPath`/eta?serviceId=${serviceId}&addressId=${addressId}`, (j) => {
+      const m = obj(j, 'estimate').minutes;
+      return { minutes: Array.isArray(m) && m.length === 2 && m.every((x) => typeof x === 'number') ? [m[0] as number, m[1] as number] as const : null };
+    }),
     slots: (handle, serviceId, date) => call(handle, 'GET', apiPath`/slots?serviceId=${serviceId}&date=${date}`, (j) => list(j, decodeSlot, 'slots')),
     async create(handle, input, idempotencyKey) {
       const photos = await uploadPhotos(handle, input.problem.photos, 'PROBLEM');

@@ -975,6 +975,11 @@ export function createMockBackend(opts: MockOptions): Backend {
     },
 
     bookings: {
+      async eta() {
+        await request('READ');
+        return { minutes: null }; // the demo keeps the usual range
+      },
+
       async slots(token, serviceId, date) {
         const s = await request('READ');
         customerFor(s, token);
