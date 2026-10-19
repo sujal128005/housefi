@@ -4,6 +4,7 @@
 // Sarvam, UIDAI) and the database URL. See docs/DEPLOY.md.
 //
 //   node scripts/prod-secrets.mjs                 # creates .env.production; refuses to overwrite it
+//   node scripts/prod-secrets.mjs --laptop        # the same, set up for the laptop pilot (docs/DEPLOY-LAPTOP.md)
 //   node scripts/prod-secrets.mjs --rotate-data-key   # adds a new data key version to an existing file
 //
 // Prints variable names only, never values. Never overwrites a value that is set: replacing the data keys or the
@@ -104,6 +105,24 @@ const production = {
   AADHAAR_REQUIRED: 'true',
 };
 
+// Laptop pilot: storage on the laptop behind the Cloudflare Tunnel (deploy/docker-compose.laptop.yml), free settings
+// (rule-based AI, no speech-to-text, no calls, Aadhaar optional) and an SMS template that is still pending DLT.
+const laptop = process.argv.includes('--laptop');
+if (laptop) {
+  generated.S3_ACCESS_KEY_ID = randomBytes(15).toString('hex').toUpperCase();
+  generated.S3_SECRET_ACCESS_KEY = token(30);
+  Object.assign(production, {
+    S3_ENDPOINT: 'https://files.housefi.tech',
+    S3_REGION: 'us-east-1',
+    AI_PROVIDER: 'rules',
+    SPEECH_TO_TEXT_PROVIDER: 'none',
+    TELEPHONY_PROVIDER: 'off',
+    AADHAAR_REQUIRED: 'false',
+    MSG91_OTP_TEMPLATE_ID: 'pending',
+    CLOUDFLARE_TUNNEL_TOKEN: '',
+  });
+}
+
 let text = readFileSync('.env.example', 'utf8')
   .replace(/^# Housefi backend environment\..*\n(#.*\n)*/, '# Housefi production secrets. Keep this file only on the server (chmod 600). Never commit it.\n');
 text = setAll(text, { ...production, ...generated });
@@ -118,6 +137,12 @@ try {
 chmodSync(OUT, 0o600);
 
 console.log(`Created ${OUT} (readable by you only) with: ${Object.keys(generated).join(', ')}.`);
+if (laptop) {
+  console.log('Laptop pilot: still to fill in (docs/DEPLOY-LAPTOP.md): DEMO_PHONES, MSG91_AUTH_KEY, RAZORPAY_KEY_ID,');
+  console.log('RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, CLOUDFLARE_TUNNEL_TOKEN. Back up this file in your password manager:');
+  console.log('without DATA_KEYS_B64 the stored data cannot be read.');
+  process.exit(0);
+}
 console.log('Still to fill in (docs/DEPLOY.md, step 4): DATABASE_URL (managed), DEMO_PHONES, MSG91_*, RAZORPAY_*, S3_ACCESS_KEY_ID,');
 console.log('S3_SECRET_ACCESS_KEY, EXPO_ACCESS_TOKEN (if used), EXOTEL_* (when calls go live), ANTHROPIC_API_KEY, SARVAM_API_KEY,');
 console.log('UIDAI_QR_CERT_PEM_B64. Back up this file in a password manager: without DATA_KEYS_B64 the stored data cannot be read.');
