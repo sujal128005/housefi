@@ -41,7 +41,7 @@ export default function WhenStep() {
   const [picked, setPicked] = useState<VisitWindow | null>(initial?.window ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const slots = useQuery(async () => (serviceId && mode === 'SCHEDULED' ? backend.bookings.slots(serviceId, date) : []), [serviceId, date, backend, mode]);
+  const slots = useQuery(async () => (serviceId && mode === 'SCHEDULED' ? backend.bookings.slots(session.token, serviceId, date) : []), [serviceId, date, backend, mode, session.token]);
   const open = (slots.data ?? []).filter((s) => s.state === 'OPEN');
 
   // If nothing is left today, start the date strip on tomorrow.

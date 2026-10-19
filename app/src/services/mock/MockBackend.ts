@@ -975,8 +975,9 @@ export function createMockBackend(opts: MockOptions): Backend {
     },
 
     bookings: {
-      async slots(serviceId, date) {
-        await request('READ');
+      async slots(token, serviceId, date) {
+        const s = await request('READ');
+        customerFor(s, token);
         return slotsFor(date, serviceId, new Date(now()));
       },
 
