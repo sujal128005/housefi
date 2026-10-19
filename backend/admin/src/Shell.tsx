@@ -2,7 +2,11 @@
 // recovery is waiting (every admin sees it, and can cancel one they did not ask for).
 import { useState, type ReactNode } from 'react';
 import { api, type Me, timeLeft } from './api.ts';
+import { Bookings } from './Bookings.tsx';
 import { Dashboard } from './Dashboard.tsx';
+import { Payouts } from './Payouts.tsx';
+import { People, PersonPanel } from './People.tsx';
+import { ActionsProvider } from './ui.tsx';
 
 type Section = 'dashboard' | 'sos' | 'reports' | 'queries' | 'bookings' | 'customers' | 'technicians' | 'payouts' | 'chats' | 'analytics' | 'audit' | 'arcade';
 
@@ -30,10 +34,10 @@ const NAV: readonly { readonly title: string; readonly items: readonly NavItem[]
   {
     title: 'Manage',
     items: [
-      { id: 'bookings', label: 'Bookings', icon: I('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'), soon: true },
-      { id: 'customers', label: 'Customers', icon: I('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm14 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'), soon: true },
-      { id: 'technicians', label: 'Technicians', icon: I('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z'), soon: true },
-      { id: 'payouts', label: 'Payouts', icon: I('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'), soon: true },
+      { id: 'bookings', label: 'Bookings', icon: I('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z') },
+      { id: 'customers', label: 'Customers', icon: I('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm14 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75') },
+      { id: 'technicians', label: 'Technicians', icon: I('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z') },
+      { id: 'payouts', label: 'Payouts', icon: I('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') },
       { id: 'chats', label: 'Chats', icon: I('M7 8h10M7 12h6m-9 9 3.6-3H19a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16z'), soon: true },
     ],
   },
@@ -49,6 +53,10 @@ const NAV: readonly { readonly title: string; readonly items: readonly NavItem[]
 
 export function Shell({ me, onSignedOut, onRefreshMe }: { readonly me: Me; readonly onSignedOut: () => void; readonly onRefreshMe: () => void }) {
   const [section, setSection] = useState<Section>('dashboard');
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [personId, setPersonId] = useState<string | null>(null);
+  const openBooking = (id: string) => { setPersonId(null); setBookingId(id); setSection('bookings'); };
+  const go = (id: Section) => { setBookingId(null); setPersonId(null); setSection(id); };
 
   const signOut = async () => {
     await api.logout().catch(() => undefined);
@@ -69,7 +77,7 @@ export function Shell({ me, onSignedOut, onRefreshMe }: { readonly me: Me; reado
               <div className="nav-title">{group.title}</div>
               {group.items.map((item) => (
                 <button key={item.id} className={`nav-item${section === item.id ? ' active' : ''}${item.tone === 'danger' ? ' danger' : ''}`} disabled={item.soon}
-                  onClick={() => setSection(item.id)} aria-current={section === item.id ? 'page' : undefined}>
+                  onClick={() => go(item.id)} aria-current={section === item.id ? 'page' : undefined}>
                   {item.icon}<span>{item.label}</span>{item.soon ? <em>Soon</em> : null}
                 </button>
               ))}
@@ -89,8 +97,19 @@ export function Shell({ me, onSignedOut, onRefreshMe }: { readonly me: Me; reado
             <button className="btn small" onClick={() => void cancelRecovery(r.id)}>Cancel recovery</button>
           </div>
         ))}
-        {section === 'dashboard' ? <Dashboard me={me} /> : null}
+        <ActionsProvider>
+          {section === 'dashboard' ? <Dashboard me={me} /> : null}
+          {section === 'bookings' ? <Bookings key={bookingId ?? 'list'} openId={bookingId} onOpenPerson={(id) => setPersonId(id)} /> : null}
+          {section === 'customers' || section === 'technicians' ? <People key={section} role={section} openId={personId} onOpenPerson={setPersonId} onOpenBooking={openBooking} /> : null}
+          {section === 'bookings' && personId ? <PersonOverlay id={personId} onClose={() => setPersonId(null)} onOpenBooking={openBooking} /> : null}
+          {section === 'payouts' ? <Payouts /> : null}
+        </ActionsProvider>
       </main>
     </div>
   );
+}
+
+/** A person opened from a booking: the same panel, over the bookings list. */
+function PersonOverlay({ id, onClose, onOpenBooking }: { readonly id: string; readonly onClose: () => void; readonly onOpenBooking: (id: string) => void }) {
+  return <PersonPanel id={id} onClose={onClose} onChanged={() => undefined} onOpenBooking={onOpenBooking} />;
 }
