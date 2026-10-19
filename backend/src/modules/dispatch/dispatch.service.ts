@@ -152,12 +152,16 @@ export class DispatchService {
         ))
         -- The area: the same PIN, a neighbouring PIN, or (while online, the app shares where they are) within
         -- DISPATCH_RADIUS_KM of the customer, so a PIN boundary between two streets does not hide a nearby technician.
-        AND (t.pincode = b.pincode OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = b.pincode)
+        -- (The technician the customer asked for again has worked at this customer's place already: any area.)
+        AND (t.user_id = b.preferred_technician_id
+          OR t.pincode = b.pincode OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = b.pincode)
           OR (${radiusM} > 0 AND t.last_location IS NOT NULL AND b.location IS NOT NULL AND ST_DWithin(t.last_location, b.location, ${radiusM})))
         AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))
         AND NOT EXISTS (SELECT 1 FROM job_offers o WHERE o.technician_id = t.user_id AND o.state = 'OPEN')
         AND NOT EXISTS (SELECT 1 FROM job_offers o WHERE o.booking_id = b.id AND o.technician_id = t.user_id)
       ORDER BY
+        -- "Book the same technician again": asked first; if they decline or miss it, the search goes on as usual.
+        CASE WHEN t.user_id = b.preferred_technician_id THEN 0 ELSE 1 END,
         CASE WHEN b.prefer_women_rated AND t.women_rated THEN 0 ELSE 1 END,
         distance_m ASC NULLS LAST,
         t.rating_avg DESC NULLS LAST,

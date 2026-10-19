@@ -15,11 +15,15 @@ export interface Draft {
   readonly time: VisitTime | null;
   readonly preferWomenRated: boolean;
   readonly method: PaymentMethod;
+  /** "Book the same technician again": the earlier booking and its technician's name (asked first). */
+  readonly repeat: { readonly bookingId: string; readonly name: string } | null;
 }
 
 interface DraftActions {
   /** Starts (or continues) a booking for a service; `issueId` pre-selects a problem (Home quick picks). */
   readonly start: (serviceId: string, issueId?: string) => void;
+  /** A new booking of the same service at the same place, asking that booking's technician first. */
+  readonly startRepeat: (r: { readonly serviceId: string; readonly addressId: string; readonly bookingId: string; readonly name: string }) => void;
   readonly toggleIssue: (issueId: string) => void;
   readonly setNotes: (notes: string) => void;
   readonly setVoiceNote: (v: VoiceNote | null) => void;
@@ -40,7 +44,7 @@ interface DraftValue extends DraftActions {
 }
 
 const EMPTY_PROBLEM: ProblemDescription = { issueIds: [], notes: '', voiceNote: null, photos: [] };
-const EMPTY: Draft = { serviceId: null, problem: EMPTY_PROBLEM, addressId: null, time: null, preferWomenRated: false, method: 'UPI' };
+const EMPTY: Draft = { serviceId: null, problem: EMPTY_PROBLEM, addressId: null, time: null, preferWomenRated: false, method: 'UPI', repeat: null };
 
 const Ctx = createContext<DraftValue | null>(null);
 
@@ -68,6 +72,7 @@ export function BookingDraftProvider({ children }: { readonly children: ReactNod
         if (!issueId || base.problem.issueIds.includes(issueId)) return base;
         return { ...base, problem: { ...base.problem, issueIds: [...base.problem.issueIds, issueId] } };
       }),
+      startRepeat: ({ serviceId, addressId, bookingId, name }) => setDraft((d) => ({ ...EMPTY, serviceId, addressId, method: d.method, repeat: { bookingId, name } })),
       toggleIssue: (issueId) => patchProblem((p) => ({
         ...p, issueIds: p.issueIds.includes(issueId) ? p.issueIds.filter((x) => x !== issueId) : [...p.issueIds, issueId],
       })),

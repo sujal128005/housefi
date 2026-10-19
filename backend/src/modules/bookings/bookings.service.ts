@@ -78,6 +78,7 @@ export class BookingsService {
     const audioId = input.problem.voiceNote?.audioId;
     const [audio] = audioId ? await this.uploads.ready(customerId, [audioId], 'AUDIO', 'problem.voiceNote.audioId') : [];
     const address = await this.ownedAddress(customerId, input.addressId);
+    const preferredTechnicianId = input.repeatOf ? await this.repeatTechnician(customerId, input.repeatOf) : null;
     // A team demo account's booking is a demo booking (kept apart from real customers and technicians).
     const isDemo = (await this.prisma.user.findUnique({ where: { id: customerId }, select: { isDemo: true } }))?.isDemo ?? false;
 
@@ -113,6 +114,7 @@ export class BookingsService {
               voiceDurationSec: audio?.durationSec ?? input.problem.voiceNote?.durationSec ?? null,
               ...windowFields(input.time),
               preferWomenRated: input.preferWomenRated,
+              preferredTechnicianId,
               isDemo,
               status: 'AWAITING_PAYMENT',
               arrivalCodeEnc,
@@ -258,6 +260,20 @@ export class BookingsService {
   private async replay(existing: BookingRow, requestHash: Uint8Array): Promise<CreateResult> {
     if (!digestsEqual(existing.idempotencyHash, requestHash)) throw new AppError('CONFLICT', {}, 'Idempotency-Key reused with a different request');
     return { booking: await this.core.get(existing.customerId, existing.id), created: false };
+  }
+
+  /**
+   * "Book the same technician again": the technician of the customer's own earlier booking, once a visit took place
+   * (completed, or closed without a repair). Anything else is a VALIDATION error on repeatOf: only someone the customer
+   * has met can be asked for, so no technician can be targeted by id.
+   */
+  private async repeatTechnician(customerId: string, bookingId: string): Promise<string> {
+    const earlier = await this.prisma.booking.findFirst({
+      where: { id: bookingId, customerId, status: { in: ['COMPLETED', 'CLOSED_NO_REPAIR'] }, technicianId: { not: null } },
+      select: { technicianId: true },
+    });
+    if (!earlier?.technicianId) throw validation('repeatOf');
+    return earlier.technicianId;
   }
 
   private async ownedAddress(customerId: string, addressId: string): Promise<AddressDto> {
