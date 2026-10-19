@@ -607,8 +607,42 @@ paths:
                 bookingId: { type: string }
                 kind: { type: string, enum: [UNSAFE, PAYMENT_PROBLEM, OTHER] }
                 note: { type: string, maxLength: 1000 }
+                location: { $ref: '#/components/schemas/Position' }
       responses:
         '201': { description: OK, content: { application/json: { schema: { type: object, properties: { ticketId: { type: string } } } } } }
+  /support/conversation:
+    get:
+      tags: [support]
+      summary: The live conversation with the Housefi team (open, or closed in the last day), or null
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [conversation], properties: { conversation: { oneOf: [{ $ref: '#/components/schemas/SupportConversation' }, { type: 'null' }] } } } } } }
+    post:
+      tags: [support]
+      summary: Talk to the Housefi team, after the assistant asked what it is about (returns the open one if there is one)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topic, text]
+              properties:
+                topic: { type: string, enum: [BOOKING, PAYMENT, TECHNICIAN, APP, OTHER] }
+                bookingId: { type: [string, 'null'] }
+                text: { type: string, maxLength: 1000 }
+      responses:
+        '201': { description: OK, content: { application/json: { schema: { type: object, required: [conversation], properties: { conversation: { $ref: '#/components/schemas/SupportConversation' } } } } } }
+        '422': { $ref: '#/components/responses/Error' }
+  /support/conversation/messages:
+    post:
+      tags: [support]
+      summary: Write in the open conversation
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string, maxLength: 1000 } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [conversation], properties: { conversation: { $ref: '#/components/schemas/SupportConversation' } } } } } }
+        '409': { description: No open conversation, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorBody' } } } }
 
   # ---------------- technician ----------------
   /tech/me:
@@ -810,6 +844,7 @@ paths:
               properties:
                 issue: { $ref: '#/components/schemas/TechIssue' }
                 note: { type: string, maxLength: 500 }
+                location: { $ref: '#/components/schemas/Position' }
       responses:
         '200': { $ref: '#/components/responses/JobOk' }
         '409': { $ref: '#/components/responses/Error' }
@@ -996,6 +1031,33 @@ components:
       description: Updated job
       content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } }
   schemas:
+    Position:
+      type: object
+      description: Where the phone was (SOS and reports); sent only when the phone gives a position
+      required: [lat, lng]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        accuracyM: { type: [number, 'null'] }
+    SupportConversation:
+      type: object
+      required: [id, state, topic, bookingCode, createdAt, messages]
+      properties:
+        id: { type: string }
+        state: { type: string, enum: [OPEN, CLOSED] }
+        topic: { type: string, enum: [BOOKING, PAYMENT, TECHNICIAN, APP, OTHER] }
+        bookingCode: { type: [string, 'null'] }
+        createdAt: { type: integer }
+        messages:
+          type: array
+          items:
+            type: object
+            required: [id, from, text, at]
+            properties:
+              id: { type: string }
+              from: { type: string, enum: [ME, HQ, SYSTEM] }
+              text: { type: string }
+              at: { type: integer }
     ErrorBody:
       type: object
       required: [error]
@@ -1586,8 +1648,8 @@ components:
           enum: [TECH_ASSIGNED, TECH_ON_THE_WAY, TECH_ARRIVED, QUOTE_READY, EXTRA_QUOTE, PAYMENT_DUE, BOOKING_COMPLETED, BOOKING_CANCELLED,
                  NO_TECHNICIAN, JOB_OFFER, QUOTE_APPROVED, QUOTE_REVISION, QUOTE_DECLINED, EXTRA_APPROVED, EXTRA_DECLINED, PAYMENT_RECEIVED,
                  JOB_CANCELLED, PROFILE_APPROVED, PROFILE_NEEDS_CORRECTION, PAY_REMINDER, BOOKING_REMINDER, JOB_REMINDER, QUOTE_REMINDER,
-                 RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, BOOKING_TOMORROW, JOB_TOMORROW, JOB_DAY_PLAN]
-                 RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, CHAT_MESSAGE]
+                 RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, BOOKING_TOMORROW, JOB_TOMORROW, JOB_DAY_PLAN,
+                 CHAT_MESSAGE, SUPPORT_REPLY]
           description: >-
             Reminders: PAY_REMINDER {code, minutes} 10 min before an unpaid booking expires; BOOKING_REMINDER / JOB_REMINDER
             {code, startHour} an hour before a scheduled visit; BOOKING_TOMORROW / JOB_TOMORROW {code, startHour, endHour}

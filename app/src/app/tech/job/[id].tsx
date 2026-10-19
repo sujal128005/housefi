@@ -29,6 +29,7 @@ import { Celebrate, Pulse, RideIn, useReducedMotion } from '../../../ui/motion';
 import { PhotoThumb } from '../../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../../ui/present';
 import { InfoRow, MoneyRow, openDirections, TechStepper } from '../../../ui/TechParts';
+import { quickPosition } from '../../../services/device';
 
 const ISSUES: readonly { issue: TechIssue; icon: IconName }[] = [
   { issue: 'CUSTOMER_UNAVAILABLE', icon: 'person-remove-outline' },
@@ -172,7 +173,11 @@ export default function JobScreen() {
     const closes = issue === 'CUSTOMER_UNAVAILABLE' || issue === 'CANNOT_COMPLETE';
     setConfirm(null);
     setReport(false);
-    await act(() => backend.tech.report(session.token, j.id, issue, note.trim()), closes ? 'warning' : 'send', closes ? undefined : t('tj.reported'));
+    await act(async () => {
+      // An unsafe report shows HQ where the technician is (when the phone gives it quickly).
+      const where = issue === 'UNSAFE' ? await quickPosition() : null;
+      return backend.tech.report(session.token, j.id, issue, note.trim(), where);
+    }, closes ? 'warning' : 'send', closes ? undefined : t('tj.reported'));
     setIssue(null);
     setNote('');
   };

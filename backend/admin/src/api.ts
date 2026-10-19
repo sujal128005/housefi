@@ -162,6 +162,137 @@ export interface Address {
   readonly pincode: string;
 }
 
+export interface Spot {
+  readonly lat: number;
+  readonly lng: number;
+  readonly accuracyM: number | null;
+  readonly at: number | null;
+  readonly source: 'PHONE' | 'LIVE' | 'ADDRESS';
+}
+
+export interface Ticket {
+  readonly id: string;
+  readonly kind: string;
+  readonly priority: 'URGENT' | 'HIGH' | 'NORMAL';
+  readonly state: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  readonly note: string;
+  readonly createdAt: number;
+  readonly person: { readonly id: string; readonly role: string; readonly name: string; readonly phone: string };
+  readonly booking: { readonly id: string; readonly code: string; readonly status: BookingStatus; readonly area: string; readonly otherName: string | null; readonly otherPhone: string | null } | null;
+  readonly spots: readonly Spot[];
+  readonly handledBy: string | null;
+  readonly handledAt: number | null;
+  readonly resolvedAt: number | null;
+  readonly resolution: string | null;
+}
+
+export interface Alerts {
+  readonly sos: number;
+  readonly newestSosAt: number | null;
+  readonly reports: number;
+  readonly queries: number;
+  readonly conversations: number;
+}
+
+export interface ConversationRow {
+  readonly id: string;
+  readonly userId: string;
+  readonly role: string;
+  readonly name: string;
+  readonly topic: string;
+  readonly bookingId: string | null;
+  readonly unread: number;
+  readonly lastMessageAt: number;
+  readonly createdAt: number;
+  readonly preview: string;
+}
+
+export interface Conversation {
+  readonly id: string;
+  readonly userId: string;
+  readonly role: string;
+  readonly state: 'OPEN' | 'CLOSED';
+  readonly topic: string;
+  readonly bookingCode: string | null;
+  readonly createdAt: number;
+  readonly messages: readonly { readonly id: string; readonly from: 'PERSON' | 'HQ' | 'SYSTEM'; readonly text: string; readonly at: number }[];
+}
+
+export interface ChatRow {
+  readonly bookingId: string;
+  readonly code: string;
+  readonly status: BookingStatus;
+  readonly messages: number;
+  readonly lastAt: number;
+  readonly customer: string;
+  readonly technician: string;
+}
+
+export interface BookingChat {
+  readonly code: string;
+  readonly messages: readonly { readonly id: string; readonly from: 'CUSTOMER' | 'TECHNICIAN'; readonly text: string; readonly photo: string | null; readonly at: number }[];
+}
+
+export interface Analytics {
+  readonly days: number;
+  readonly daily: readonly { readonly date: string; readonly created: number; readonly completed: number; readonly cancelled: number; readonly revenue: number; readonly newCustomers: number }[];
+  readonly byCategory: readonly { readonly categoryId: string; readonly bookings: number; readonly completed: number; readonly revenue: number }[];
+  readonly funnel: { readonly created: number; readonly paid: number; readonly assigned: number; readonly completed: number };
+  readonly cancelReasons: readonly { readonly reason: string; readonly count: number }[];
+  readonly heatmap: readonly { readonly dow: number; readonly hour: number; readonly count: number }[];
+  readonly topAreas: readonly { readonly area: string; readonly bookings: number }[];
+  readonly topTechnicians: readonly { readonly id: string; readonly name: string; readonly jobs: number; readonly rating: number | null }[];
+  readonly ratings: readonly { readonly stars: number; readonly count: number }[];
+  readonly paymentMethods: readonly { readonly method: string; readonly count: number; readonly amount: number }[];
+  readonly timing: { readonly avgMinToAssign: number | null; readonly avgMinToComplete: number | null };
+  readonly totals: { readonly bookings: number; readonly completed: number; readonly revenue: number; readonly avgTicket: number; readonly completionRate: number; readonly cancelRate: number };
+}
+
+export interface AuditRow {
+  readonly id: string;
+  readonly at: number;
+  readonly actorType: string;
+  readonly actor: string;
+  readonly action: string;
+  readonly entity: string;
+  readonly entityId: string;
+  readonly ip: string | null;
+  readonly details: string;
+}
+
+export type Risk = 'LOW' | 'HIGH' | 'CRITICAL';
+
+export interface Proposal {
+  readonly id: string;
+  readonly tool: string;
+  readonly summary: string;
+  readonly risk: Risk;
+  readonly phrase: string | null;
+  readonly state: 'PROPOSED' | 'DONE' | 'REJECTED' | 'FAILED' | 'EXPIRED';
+  readonly expiresAt: number;
+  readonly result: string | null;
+}
+
+export interface GuideReply {
+  readonly reply: string;
+  readonly proposals: readonly Proposal[];
+  readonly used: readonly string[];
+  readonly mode: 'full' | 'basic';
+}
+
+export interface GuideConversation {
+  readonly messages: readonly { readonly role: 'admin' | 'guide'; readonly text: string; readonly at: number }[];
+  readonly pending: readonly Proposal[];
+  readonly mode: 'full' | 'basic';
+}
+
+export interface LeaderRow {
+  readonly name: string;
+  readonly score: number;
+  readonly detail: string;
+  readonly at: number;
+}
+
 export type TechAction = 'approve' | 'reject' | 'suspend' | 'reinstate' | 'offline';
 
 /** "?a=1&b=x", leaving out empty values. */
@@ -207,6 +338,31 @@ export const api = {
   preparePayouts: () => call<PayoutRow[]>('POST', '/payouts/prepare'),
   payoutPaid: (id: string, reference: string) => call<PayoutRow>('POST', `/payouts/${id}/paid`, { reference }),
   payoutFailed: (id: string) => call<PayoutRow>('POST', `/payouts/${id}/failed`),
+  alerts: () => call<Alerts>('GET', '/alerts'),
+  tickets: (group: 'sos' | 'reports' | 'queries', state: 'OPEN' | 'RESOLVED') => call<Ticket[]>('GET', `/tickets/${group}?state=${state}`),
+  ticket: (id: string) => call<Ticket>('GET', `/tickets/${id}`),
+  takeTicket: (id: string) => call<void>('POST', `/tickets/${id}/take`),
+  resolveTicket: (id: string, note: string) => call<void>('POST', `/tickets/${id}/resolve`, { note }),
+  unlockStart: (code: string) => call<{ code: string; ticketsResolved: number }>('POST', '/start-code/unlock', { code }),
+  conversations: (state: 'OPEN' | 'CLOSED') => call<ConversationRow[]>('GET', `/conversations?state=${state}`),
+  conversation: (id: string) => call<Conversation>('GET', `/conversations/${id}`),
+  reply: (id: string, text: string) => call<void>('POST', `/conversations/${id}/reply`, { text }),
+  closeConversation: (id: string) => call<void>('POST', `/conversations/${id}/close`),
+  deleteConversation: (id: string) => call<void>('POST', `/conversations/${id}/delete`),
+  cleanupConversations: (days: number) => call<{ deleted: number }>('POST', '/conversations/cleanup', { days }),
+  chats: () => call<ChatRow[]>('GET', '/chats'),
+  chat: (bookingId: string) => call<BookingChat>('GET', `/chats/${bookingId}`),
+  deleteChat: (bookingId: string) => call<void>('POST', `/chats/${bookingId}/delete`),
+  analytics: (days: number, demo: boolean) => call<Analytics>('GET', `/analytics?days=${days}&demo=${demo ? 1 : 0}`),
+  audit: (q: { search?: string; actor?: string; before?: number }) => call<AuditRow[]>('GET', `/audit${qs(q)}`),
+  saveScore: (game: string, score: number, detail: string) => call<{ best: number; rank: number }>('POST', '/arcade/scores', { game, score, detail }),
+  leaderboard: (game: string) => call<LeaderRow[]>('GET', `/arcade/scores/${game}`),
+  guide: () => call<GuideConversation>('GET', '/guide'),
+  ask: (message: string, photo: string | null) => call<GuideReply>('POST', '/guide/messages', { message, photo }),
+  clearGuide: () => call<void>('POST', '/guide/clear'),
+  stepUp: (id: string) => call<{ options: unknown }>('POST', `/guide/actions/${id}/step-up`),
+  approve: (id: string, input: { typed?: string; typedAgain?: string; passkey?: unknown }) => call<Proposal>('POST', `/guide/actions/${id}/approve`, input),
+  reject: (id: string) => call<Proposal>('POST', `/guide/actions/${id}/reject`),
 };
 
 /** Phones and tablets, and small windows: the portal is for laptops and big screens only. */

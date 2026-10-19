@@ -8,6 +8,7 @@ import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { ACTIVE_STATUSES } from '../bookings/booking-status';
+import { type Position, positionColumns } from './support.schemas';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -112,11 +113,12 @@ export class SupportService {
     });
   }
 
-  async raise(raiser: Raiser, input: { bookingId?: string; kind: TicketKind; note?: string }): Promise<{ ticketId: string }> {
+  async raise(raiser: Raiser, input: { bookingId?: string; kind: TicketKind; note?: string; location?: Position }): Promise<{ ticketId: string }> {
     const booking = input.bookingId ? await this.ownBooking(raiser, input.bookingId) : null;
     const priority = TICKET_PRIORITY[input.kind];
+    const now = new Date(this.clock.now());
     const ticket = await this.prisma.supportTicket.create({
-      data: { bookingId: booking?.id ?? null, raisedBy: raiser.id, kind: input.kind, note: input.note?.trim() ?? '', priority, createdAt: new Date(this.clock.now()) },
+      data: { bookingId: booking?.id ?? null, raisedBy: raiser.id, kind: input.kind, note: input.note?.trim() ?? '', priority, createdAt: now, ...positionColumns(input.location, now) },
     });
     if (priority === 'URGENT') {
       // Until the safety team has a pager (QUESTIONS.md #55), the log alert is how an urgent ticket gets seen.

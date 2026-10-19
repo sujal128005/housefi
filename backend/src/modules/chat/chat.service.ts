@@ -106,7 +106,7 @@ export class ChatService {
   async clear(userId: string, side: ChatSide, bookingId: string): Promise<void> {
     const b = await this.booking(userId, side, bookingId);
     if (!CHAT_DONE.includes(b.status)) throw new AppError('CONFLICT', {}, 'the chat can be cleared once the job is done');
-    await this.erase(b.id);
+    await this.wipe(b.id);
   }
 
   /** Chats this person can see that are open or have messages, with unread counts (the floating chat bubble). */
@@ -141,11 +141,12 @@ export class ChatService {
       select: { id: true },
       take: batch,
     });
-    for (const b of done) await this.erase(b.id);
+    for (const b of done) await this.wipe(b.id);
     return done.length;
   }
 
-  private async erase(bookingId: string): Promise<void> {
+  /** Every message and chat photo of a booking (also from the portal, to save storage). */
+  async wipe(bookingId: string): Promise<void> {
     const photos = await this.prisma.$transaction(async (tx) => {
       const rows = await tx.chatMessage.findMany({ where: { bookingId, uploadId: { not: null } }, select: { uploadId: true } });
       await tx.chatMessage.deleteMany({ where: { bookingId } });

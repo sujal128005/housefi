@@ -1,13 +1,14 @@
 // The dashboard: what needs attention first, then today and this week, the last 14 days, and people. Refreshes itself.
 import { useEffect, useState } from 'react';
 import { api, ApiError, type Me, type Overview, rupees } from './api.ts';
+import type { Section } from './Shell.tsx';
 
 function greet(): string {
   const h = new Date().getHours();
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
-export function Dashboard({ me }: { readonly me: Me }) {
+export function Dashboard({ me, onGo }: { readonly me: Me; readonly onGo: (s: Section) => void }) {
   const [o, setO] = useState<Overview | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -42,10 +43,10 @@ export function Dashboard({ me }: { readonly me: Me }) {
       {!o ? <div className="skeleton-grid">{Array.from({ length: 8 }, (_, i) => <div key={i} className="skeleton" />)}</div> : (
         <>
           <section className="attention">
-            <Attention label="Emergency SOS" value={o.attention.openSos} tone="danger" hint="open now" />
-            <Attention label="Reports" value={o.attention.openReports} tone="warn" hint="open" />
-            <Attention label="Queries" value={o.attention.openQueries} tone="info" hint="waiting for a reply" />
-            <Attention label="Profiles to review" value={o.people.waitingReview} tone="info" hint="technicians" />
+            <Attention label="Emergency SOS" value={o.attention.openSos} tone="danger" hint="open now" onClick={() => onGo('sos')} />
+            <Attention label="Reports" value={o.attention.openReports} tone="warn" hint="open" onClick={() => onGo('reports')} />
+            <Attention label="Queries" value={o.attention.openQueries} tone="info" hint="call-backs waiting" onClick={() => onGo('queries')} />
+            <Attention label="Profiles to review" value={o.people.waitingReview} tone="info" hint="technicians" onClick={() => onGo('technicians')} />
           </section>
           <section className="kpis">
             <Kpi label="Bookings today" value={String(o.today.bookings)} sub={`${o.week.bookings} this week`} />
@@ -72,12 +73,13 @@ export function Dashboard({ me }: { readonly me: Me }) {
   );
 }
 
-function Attention({ label, value, tone, hint }: { label: string; value: number; tone: 'danger' | 'warn' | 'info'; hint: string }) {
+function Attention({ label, value, tone, hint, onClick }: { label: string; value: number; tone: 'danger' | 'warn' | 'info'; hint: string; onClick: () => void }) {
   return (
-    <div className={`attn ${tone}${value > 0 ? ' on' : ''}`}>
+    <button className={`attn ${tone}${value > 0 ? ' on' : ''}`} onClick={onClick}>
       <div className="attn-value">{value}</div>
       <div><b>{label}</b><span>{hint}</span></div>
-    </div>
+      <span className="attn-go" aria-hidden="true">→</span>
+    </button>
   );
 }
 

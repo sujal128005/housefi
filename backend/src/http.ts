@@ -8,6 +8,8 @@ import type { Env } from './config/env';
 
 /** Request bodies are small JSON: photos and audio go straight to S3 with signed URLs. */
 const BODY_LIMIT_BYTES = 100 * 1024;
+/** The one exception: a photo shown to the HQ portal's guide (resized in the browser, sent inline, never stored). */
+export const GUIDE_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
 
 export function createAdapter(config: Env): FastifyAdapter {
   return new FastifyAdapter({
@@ -25,6 +27,10 @@ export async function configureApp(app: NestFastifyApplication, config: Env): Pr
   app.useLogger(new PinoNestLogger(fastify.log));
   app.setGlobalPrefix('v1');
   app.enableShutdownHooks();
+
+  fastify.addHook('onRoute', (route) => {
+    if (route.url === '/v1/admin/guide/messages') route.bodyLimit = GUIDE_BODY_LIMIT_BYTES;
+  });
 
   // Nest also routes Fastify's own errors (malformed JSON, body too large) through AllExceptionsFilter.
   fastify.addHook('onRequest', async (req, reply) => {

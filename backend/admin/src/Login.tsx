@@ -67,7 +67,7 @@ export function Login({ onSignedIn, onForgot }: { readonly onSignedIn: () => voi
         <div className="orb orb-a" />
         <div className="orb orb-b" />
         <div className="auth-brand">
-          <div className="logo-mark big">H</div>
+          <img className="logo-img big" src="/logo.png" alt="Housefi" />
           <h2>Housefi HQ</h2>
           <p>Every booking, technician and alert, in one place.</p>
         </div>

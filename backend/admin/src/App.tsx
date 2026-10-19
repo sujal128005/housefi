@@ -40,7 +40,7 @@ export function App() {
     return (
       <div className="gate">
         <div className="gate-card">
-          <div className="logo-mark big">H</div>
+          <img className="logo-img big" src="/logo.png" alt="Housefi" />
           <h1>Housefi HQ opens on a laptop</h1>
           <p>For security, the portal works only on a laptop or a big screen, with the window wide enough.</p>
         </div>

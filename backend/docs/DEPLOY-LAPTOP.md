@@ -148,6 +148,21 @@ Good to know:
   code, then a wait of 2 to 5 hours that no one can shorten. Signing in normally meanwhile cancels it.
 - New laptop: `deploy\laptop admin reset-passkeys <username>`, then sign in on the new laptop and register again.
 - `deploy\laptop admin list` shows the accounts; every sign-in and change is in the audit log.
+- New recovery code (for example after it was shown to someone): delete the `ADMIN_RECOVERY_CODE=` line in
+  `.env.production`, save, and run `deploy\laptop portal-setup` again. It prints a new code; save it in Bitwarden.
+
+**What is in the portal**
+- **Emergency SOS**: when a customer or technician presses SOS, every page of the portal turns red, a siren plays
+  and (after you click "Turn on SOS alerts" once) Windows shows an alert. The SOS page shows who, their phone, the
+  booking, the other person, and where they are (the phone's position, the technician's live position and the
+  address) on a radar, with Google Maps one click away.
+- **Reports**, **Queries** (live chats handed over by the app's assistant, and call-back requests), **Bookings**,
+  **Customers**, **Technicians**, **Payouts**, **Chats**, **Analytics**, **Audit log**, and **HQ Arcade**.
+- **Sarathi**, the guide (the glowing button at the bottom right, or Ctrl + /): ask anything about Housefi, by
+  typing, speaking (allow the microphone once) or with a photo. It can prepare actions, but nothing happens until you
+  approve the card: a click for small things, typing the confirmation for bigger ones, and for deleting anything
+  typing it twice plus Windows Hello. It answers fully when `AI_PROVIDER` is `anthropic` or `cloudflare` (section 8);
+  with `AI_PROVIDER=rules` it works in basic mode (SOS, a booking code, "cancel HF-12345", today's numbers).
 
 ## Everyday commands
 

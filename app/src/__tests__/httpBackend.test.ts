@@ -58,6 +58,10 @@ function server() {
     'POST /payments/pay1/verify': () => json(200, { state: 'PAID', booking: { ...BOOKING, status: 'MATCHING' } }),
     'POST /ai/transcribe': () => json(200, { text: 'నీళ్లు కారుతున్నాయి' }),
     'POST /support/callback': () => json(201, { ticketId: 't1' }),
+    'POST /support/tickets': () => json(201, { ticketId: 't2' }),
+    'GET /support/conversation': () => json(200, { conversation: null }),
+    'POST /support/conversation': (c) => json(201, { conversation: { id: 'cv1', state: 'OPEN', topic: (c.body as { topic: string }).topic, bookingCode: 'HF-48291', createdAt: 1, messages: [{ id: 'm1', from: 'ME', text: (c.body as { text: string }).text, at: 1 }] } }),
+    'POST /support/conversation/messages': () => json(409, { error: { code: 'CONFLICT' } }),
   };
   const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -239,6 +243,21 @@ describe('live client: bookings, uploads, payments', () => {
     const s = await signIn(t.backend);
     await t.backend.support.callback(s.token, BOOKING.id, 'call');
     expect(t.calls.at(-1)).toMatchObject({ url: '/support/callback', body: { bookingId: BOOKING.id, reason: 'call' } });
+  });
+
+  it('sends an SOS with where the phone was, and talks to the Housefi team after the intake', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    await t.backend.support.ticket(s.token, 'UNSAFE', BOOKING.id, 'SOS', { lat: 17.41, lng: 78.44, accuracyM: 8 });
+    expect(t.calls.at(-1)).toMatchObject({ url: '/support/tickets', body: { kind: 'UNSAFE', bookingId: BOOKING.id, location: { lat: 17.41, lng: 78.44, accuracyM: 8 } } });
+    await t.backend.support.ticket(s.token, 'UNSAFE', BOOKING.id, 'SOS', null);
+    expect(t.calls.at(-1)?.body).not.toHaveProperty('location');
+
+    expect(await t.backend.support.conversation(s.token)).toBeNull();
+    const c = await t.backend.support.startConversation(s.token, { topic: 'PAYMENT', bookingId: BOOKING.id, text: 'Charged twice' });
+    expect(t.calls.at(-1)).toMatchObject({ url: '/support/conversation', body: { topic: 'PAYMENT', bookingId: BOOKING.id, text: 'Charged twice' } });
+    expect(c).toMatchObject({ id: 'cv1', state: 'OPEN', messages: [{ from: 'ME', text: 'Charged twice' }] });
+    await expect(t.backend.support.sendToTeam(s.token, 'hello')).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
   it('reads signed links to photos and the voice note', () => {

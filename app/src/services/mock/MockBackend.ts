@@ -23,7 +23,7 @@ import type {
 import { quoteVisible } from '../../domain/types';
 import {
   ApiError, type AppNotification, type Backend, type ChatReply, type DemoOutcome, type DemoSettings, type KeyValueStore, type NewBooking,
-  type Chat, type ChatApi, type NotificationKind, type OtpChallenge, type PaymentResult, type QuoteAnswer, type QuoteInput,
+  type Chat, type ChatApi, type NotificationKind, type OtpChallenge, type PaymentResult, type QuoteAnswer, type QuoteInput, type SupportConversation,
 } from '../api';
 
 // v4: technician identity (ID, photo, verification). Older demo data is dropped, not migrated.
@@ -146,6 +146,8 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 
 export function createMockBackend(opts: MockOptions): Backend {
   const now = opts.now ?? (() => Date.now());
+  /** Live conversations with the team, per session token (a test double: kept in memory only). */
+  const conversations = new Map<string, SupportConversation>();
   // A small seeded generator (mulberry32): the test double needs varied ids, not secrecy; it never runs in the app.
   const random = opts.random ?? seeded(Date.now());
   const randomBytes = opts.randomBytes ?? defaultRandomBytes;
@@ -1581,6 +1583,27 @@ export function createMockBackend(opts: MockOptions): Backend {
       },
       async ticket() {
         return undefined;
+      },
+      async conversation(token) {
+        return conversations.get(token) ?? null;
+      },
+      async startConversation(token, input) {
+        const open = conversations.get(token);
+        const at = now();
+        if (open && open.state === 'OPEN') return this.sendToTeam(token, input.text);
+        const c: SupportConversation = {
+          id: id('conv'), state: 'OPEN', topic: input.topic, bookingCode: null, createdAt: at,
+          messages: [{ id: id('msg'), from: 'SYSTEM', text: `About: ${input.topic}`, at }, { id: id('msg'), from: 'ME', text: input.text, at }],
+        };
+        conversations.set(token, c);
+        return c;
+      },
+      async sendToTeam(token, text) {
+        const c = conversations.get(token);
+        if (!c || c.state !== 'OPEN') throw new ApiError('CONFLICT');
+        const next: SupportConversation = { ...c, messages: [...c.messages, { id: id('msg'), from: 'ME', text, at: now() }] };
+        conversations.set(token, next);
+        return next;
       },
     },
     demo: {
