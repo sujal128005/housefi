@@ -25,6 +25,7 @@ import { CustomerAlerts } from '../ui/Notifications';
 import { AppErrorBoundary, installGlobalErrorHandler, OfflineBanner, ScreenErrorBoundary, StartupRecovery } from '../ui/Recovery';
 import { TechAlerts } from '../ui/TechAlerts';
 import { hydrateCatalog } from '../data/catalog';
+import { ChatBubble } from '../ui/ChatBubble';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 // Dev-only noise from the emulator's dev-tools socket; it is not an app problem and its toast covers the footer.
@@ -141,6 +142,7 @@ function Shell({ fontsReady }: { readonly fontsReady: boolean }) {
           </Stack>
           <CustomerAlerts />
           <TechAlerts />
+          <ChatBubble />
           </AppErrorBoundary>
           <OfflineBanner />
         </ToastProvider>

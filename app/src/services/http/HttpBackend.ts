@@ -2,7 +2,7 @@
 // same models and ApiError codes as before. Sessions are handles (credentials.ts); uploads go straight to storage
 // (uploads.ts); live updates stream (liveStream.ts); payments open Razorpay's checkout through `openCheckout`.
 import {
-  ApiError, isApiError, type AiApi, type AppNotification, type Backend, type BookingApi, type KeyValueStore, type NotificationApi,
+  ApiError, isApiError, type AiApi, type AppNotification, type Backend, type BookingApi, type Chat, type ChatApi, type ChatSummary, type KeyValueStore, type NotificationApi,
   type OtpChallenge, type PaymentResult, type TechApi,
 } from '../api';
 import type {
@@ -272,7 +272,8 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
   };
 
   const notificationsFor = (): NotificationApi => ({
-    list: (handle) => call(handle, 'GET', apiPath`/notifications`, (j) => list(j, decodeNotification, 'notifications')),
+    // Chat messages show in the chat bubble and the chat itself, not in the inbox (the push still arrives).
+    list: (handle) => call(handle, 'GET', apiPath`/notifications`, (j) => list(j, decodeNotification, 'notifications').filter((n) => n.kind !== 'CHAT_MESSAGE')),
     markRead: (handle, ids) => call(handle, 'POST', apiPath`/notifications/read`, decodeNothing, { ids }),
     registerDevice: (handle, device) => call(handle, 'POST', apiPath`/devices`, decodeNothing, device),
   });
@@ -297,12 +298,30 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     chat: (handle, message, locale) => call(handle, 'POST', apiPath`/ai/chat`, (j) => record(j, 'chat reply', ['text', 'suggestions', 'offerHuman']), { message, locale }),
   };
 
+  // ---------- chat (customer and technician) ----------
+
+  const decodeChat = (j: unknown): Chat => record<Chat>(j, 'chat', ['bookingId', 'open', 'clearable', 'messages']);
+  const decodeChatSummary = (j: unknown): ChatSummary => record<ChatSummary>(j, 'chat', ['bookingId', 'code', 'open', 'unread']);
+  const chatFor = (side: 'CUSTOMER' | 'TECHNICIAN'): ChatApi => {
+    const at = (id: string) => (side === 'CUSTOMER' ? apiPath`/bookings/${id}/chat` : apiPath`/tech/jobs/${id}/chat`);
+    return {
+      list: (handle) => call(handle, 'GET', side === 'CUSTOMER' ? apiPath`/chats` : apiPath`/tech/chats`, (j) => list(j, decodeChatSummary, 'chats')),
+      get: (handle, id) => call(handle, 'GET', at(id), decodeChat),
+      async send(handle, id, input) {
+        const photoUploadId = input.photoUri ? await uploader.upload(handle, 'photos', input.photoUri, 'CHAT') : undefined;
+        return call(handle, 'POST', at(id), decodeChat, { text: input.text, ...(photoUploadId ? { photoUploadId } : {}) });
+      },
+      clear: (handle, id) => call(handle, 'DELETE', at(id), decodeNothing),
+    };
+  };
+
   // ---------- technician ----------
 
   const techAction = (action: 'start-trip' | 'arrived' | 'start-work' | 'complete' | 'confirm-cash') => (handle: string, id: string) =>
     call(handle, 'POST', apiPath`/tech/jobs/${id}/${action}`, decodeJob);
 
   const tech: TechApi = {
+    chat: chatFor('TECHNICIAN'),
     auth: {
       requestOtp: requestOtp('TECHNICIAN'),
       async verifyOtp(challengeId, code) {
@@ -379,6 +398,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     ai,
     notifications: notificationsFor(),
     tech,
+    chat: chatFor('CUSTOMER'),
     verify: {
       technician: (token) => publicCall('GET', apiPath`/verify/technicians/${token}`, decodeTechVerifyResult),
     },

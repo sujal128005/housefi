@@ -360,6 +360,9 @@ model Booking {
   idempotencyHash       Bytes                                  @map("idempotency_hash")
   /// Incremented on every change.
   version               Int                                    @default(0)
+  /// Chat between the customer and the technician: up to when each side last read it (unread counts).
+  chatCustomerReadAt    DateTime?                              @map("chat_customer_read_at") @db.Timestamptz(6)
+  chatTechReadAt        DateTime?                              @map("chat_tech_read_at") @db.Timestamptz(6)
   createdAt             DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -376,6 +379,7 @@ model Booking {
   rating              Rating?
   reminders           BookingReminder[]
   uploads             Upload[]
+  chatMessages        ChatMessage[]
   notifications       Notification[]
   queueEntry          DispatchQueueEntry?
   callGrants          CallGrant[]
@@ -917,6 +921,8 @@ enum NotificationKind {
   JOB_TOMORROW
   /// 07:30 IST: the technician's scheduled jobs for the day.
   JOB_DAY_PLAN
+  /// A chat message from the other side (the text is never in the notification).
+  CHAT_MESSAGE
   QUOTE_REMINDER
   RATE_REMINDER
   PROFILE_SUSPENDED
@@ -1031,6 +1037,8 @@ enum UploadStage {
   COMPLETION
   /// A technician's registration photo (ID card).
   PROFILE
+  /// A photo sent in the chat between the customer and the technician (cleared with the chat).
+  CHAT
 
   @@map("upload_stage")
 }
@@ -1066,10 +1074,11 @@ model Upload {
   urlExpiresAt DateTime     @map("url_expires_at") @db.Timestamptz(6)
   verifiedAt   DateTime?    @map("verified_at") @db.Timestamptz(6)
 
-  owner     User        @relation(fields: [ownerId], references: [id])
-  booking   Booking?    @relation(fields: [bookingId], references: [id])
+  owner       User         @relation(fields: [ownerId], references: [id])
+  booking     Booking?     @relation(fields: [bookingId], references: [id])
   /// Set when this is a technician's registration photo (kept while it is in use).
-  profileOf Technician? @relation("TechnicianPhoto")
+  profileOf   Technician?  @relation("TechnicianPhoto")
+  chatMessage ChatMessage?
 
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([bookingId])
@@ -1159,4 +1168,27 @@ model TelephonyEvent {
   receivedAt DateTime @map("received_at") @db.Timestamptz(6)
 
   @@map("telephony_events")
+}
+
+// ---------- chat ----------
+
+/// A message between the customer and the assigned technician: open from assignment until the job is done, then
+/// read-only; either side can clear it after that, and it is cleared 24 h after the job anyway. Text encrypted.
+model ChatMessage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Insertion order (ties within a millisecond).
+  seq        BigInt   @default(autoincrement())
+  bookingId  String   @map("booking_id") @db.Uuid
+  senderId   String   @map("sender_id") @db.Uuid
+  senderRole UserRole @map("sender_role")
+  /// The text (encrypted, 'chat_messages.body'); empty for a photo without words.
+  bodyEnc    Bytes    @map("body_enc")
+  uploadId   String?  @unique @map("upload_id") @db.Uuid
+  createdAt  DateTime @map("created_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  upload  Upload? @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, seq])
+  @@map("chat_messages")
 }
