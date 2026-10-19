@@ -1,12 +1,15 @@
 // Aadhaar verification for technicians: the camera reads the Secure QR code printed on the Aadhaar card (or the e-Aadhaar
 // PDF), and the server checks UIDAI's digital signature offline. Nothing is sent to UIDAI, and Housefi keeps only the
 // last 4 digits, the birth year, the gender and whether the name matches: never the Aadhaar number, photo or address.
+// During registration it is the required step after the details (no way back), and it leads to "checking your details".
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { techStage } from '../../domain/techReview';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
+import { resetTo } from '../../navigation';
 import { isApiError } from '../../services/api';
 import { feedback } from '../../services/feedback';
 import { useBackend } from '../../services/ServicesProvider';
@@ -31,6 +34,9 @@ export default function AadhaarScan() {
   const [hint, setHint] = useState<string | null>(null);
   const [result, setResult] = useState(session.profile.aadhaar ?? null);
   const handled = useRef(false);
+  // The registration step (profile submitted, Aadhaar not yet scanned), as opposed to opening it from the checking page.
+  const [required] = useState(() => techStage(session.profile, Date.now()) === 'AADHAAR');
+  const next = () => (required ? resetTo('/tech/verification') : router.back());
 
   const startScan = async () => {
     setError(null);
@@ -70,11 +76,15 @@ export default function AadhaarScan() {
     <Screen
       testID="tech-aadhaar"
       wash={phase === 'DONE' ? 'mint' : 'sky'}
-      header={<Header title={t('aadhaar.title')} />}
+      header={<Header title={t('aadhaar.title')} back={!required} />}
       footer={phase === 'DONE' ? (
-        <Button label={t('common.done')} icon="checkmark" onPress={() => router.back()} testID="aadhaar-done" />
+        <Button label={required ? t('common.continue') : t('common.done')} icon={required ? undefined : 'checkmark'} trailingIcon={required ? 'arrow-forward' : undefined} onPress={next} testID="aadhaar-done" />
       ) : phase === 'INTRO' ? (
-        <Button label={t('aadhaar.scan')} icon="qr-code" onPress={() => void startScan()} disabled={Platform.OS === 'web'} testID="aadhaar-scan" />
+        <>
+          <Button label={t('aadhaar.scan')} icon="qr-code" onPress={() => void startScan()} disabled={Platform.OS === 'web'} testID="aadhaar-scan" />
+          {/* Not a dead end (no camera, an old card): the checking page keeps asking for the scan, and approval needs it. */}
+          {required ? <Button label={t('aadhaar.trouble')} variant="ghost" size="md" onPress={next} testID="aadhaar-later" /> : null}
+        </>
       ) : undefined}
     >
       {phase === 'INTRO' ? (
@@ -82,6 +92,7 @@ export default function AadhaarScan() {
           <View style={styles.art}><Art3D name="shield" size={120} float shadow /></View>
           <Txt variant="title1" heading>{t('aadhaar.heading')}</Txt>
           <Txt variant="body" color="inkMuted">{t('aadhaar.body')}</Txt>
+          {required ? <Banner tone="info" icon="shield-checkmark" text={t('aadhaar.required')} testID="aadhaar-required" /> : null}
           <Card style={styles.steps}>
             {(['aadhaar.step1', 'aadhaar.step2', 'aadhaar.step3'] as const).map((k, i) => (
               <View key={k} style={styles.step}>

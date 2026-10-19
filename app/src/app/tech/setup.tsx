@@ -7,6 +7,7 @@ import { StyleSheet, View } from 'react-native';
 import { CATEGORIES } from '../../data/catalog';
 import { isValidName, isValidPincode } from '../../domain/rules';
 import type { CategoryId, Gender } from '../../domain/types';
+import { techHref } from '../../domain/techReview';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { backOrStart, resetTo } from '../../navigation';
@@ -84,7 +85,8 @@ export default function TechSetup() {
       });
       updateTech(profile);
       feedback('send');
-      resetTo('/tech/verification');
+      // Next: the Aadhaar scan (required), then "checking your details".
+      resetTo(techHref(profile, Date.now()));
     } catch (e) {
       feedback('error');
       setError(e);
@@ -199,7 +201,8 @@ export default function TechSetup() {
             );
           })}
         </View>
-        {touched && problems.skills ? <Txt variant="footnote" color="danger">{t('tsetup.pickSkill')}</Txt> : null}
+        {touched && problems.skills ? <Txt variant="footnote" color="danger">{t('tsetup.pickSkill')}</Txt>
+          : <Txt variant="footnote" color="inkMuted" testID="tsetup-shared">{t('tsetup.sharedTrades')}</Txt>}
       </View>
 
       <View style={styles.row}>

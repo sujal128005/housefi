@@ -4,6 +4,7 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, StyleSheet, TextInput, View } from 'react-native';
+import { techHref } from '../../domain/techReview';
 import { formatDuration, formatPhone } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
@@ -82,10 +83,9 @@ export default function Otp() {
       if (asTech) {
         const { session, isNew } = await backend.tech.auth.verifyOtp(challenge.challengeId, value);
         authFlow.set(null);
-        const v = session.profile.verification;
         succeed(() => {
           techSignIn(session);
-          resetTo(isNew || v === null ? '/tech/setup' : v === 'APPROVED' ? '/tech/home' : '/tech/verification');
+          resetTo(isNew ? '/tech/setup' : techHref(session.profile, Date.now()));
         });
         return;
       }
