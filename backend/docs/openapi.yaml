@@ -1298,6 +1298,7 @@ components:
             verification: { oneOf: [{ $ref: '#/components/schemas/Verification' }, { type: 'null' }] }
             identity: { oneOf: [{ $ref: '#/components/schemas/TechIdentity' }, { type: 'null' }], description: null until the first submission }
             aadhaar: { oneOf: [{ $ref: '#/components/schemas/AadhaarResult' }, { type: 'null' }], description: null until verified }
+            reviewBy: { type: [integer, 'null'], description: 'When the technician is told the check will be done (ms; 2 h by day, 4 h in the evening, 24 h at night, India time). An approval is shown only from then on. null before the first submission.' }
             correctionNote: { oneOf: [{ $ref: '#/components/schemas/Localized' }, { type: 'null' }] }
             online: { type: boolean }
             rating: { type: [number, 'null'] }

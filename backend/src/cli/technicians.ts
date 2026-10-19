@@ -46,7 +46,7 @@ export async function runTechCommand(args: readonly string[], verification: Tech
     return rows.map(
       (t) =>
         `${t.id}  ${t.name} (${t.gender}, ${t.experienceYears} yrs)  ${t.phone}  ${t.skills.join('+')}  ${t.city} ${t.pincode} [${t.areas}]` +
-        `${t.vehicle ? `  vehicle: ${t.vehicle}` : ''}  submitted ${t.submittedAt.toISOString()}` +
+        `${t.vehicle ? `  vehicle: ${t.vehicle}` : ''}  submitted ${t.submittedAt.toISOString()}  promised by ${t.reviewBy.toISOString()}` +
         `  ID ${t.techCode ?? '-'}  photo ${t.photo}  Aadhaar ${t.aadhaar}${t.correction ? `  correction asked: ${t.correction}` : ''}`,
     );
   }
@@ -63,8 +63,8 @@ export async function runTechCommand(args: readonly string[], verification: Tech
   if ((command === 'approve' || command === 'correct') && target) {
     const id = await verification.resolve(target);
     if (command === 'approve') {
-      await verification.approve(id, actor);
-      return [`Approved ${id}.`];
+      const { shownFrom } = await verification.approve(id, actor);
+      return [`Approved ${id}. The technician sees it from ${shownFrom.toISOString()} (the review time they were given).`];
     }
     if (!note) return [USAGE];
     await verification.requestCorrection(id, { en: note, ...(noteTe ? { te: noteTe } : {}) }, actor);
