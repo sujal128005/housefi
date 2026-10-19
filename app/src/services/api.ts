@@ -157,7 +157,9 @@ export type NotificationKind =
   | 'JOB_CANCELLED' | 'PROFILE_APPROVED' | 'PROFILE_NEEDS_CORRECTION'
   // reminders and account notices
   | 'PAY_REMINDER' | 'BOOKING_REMINDER' | 'JOB_REMINDER' | 'QUOTE_REMINDER' | 'RATE_REMINDER' | 'PROFILE_SUSPENDED'
-  | 'PROFILE_REINSTATED' | 'PROFILE_REJECTED';
+  | 'PROFILE_REINSTATED' | 'PROFILE_REJECTED'
+  // the day's schedule: the evening before a visit (both sides), the technician's morning plan
+  | 'BOOKING_TOMORROW' | 'JOB_TOMORROW' | 'JOB_DAY_PLAN';
 
 export interface AppNotification {
   readonly id: string;

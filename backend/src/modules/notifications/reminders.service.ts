@@ -1,6 +1,9 @@
 // Reminders, swept every minute (reminders.worker.ts), each sent once per booking: the claim (a booking_reminders row)
 // and the notice are written in one transaction, so two instances never send the same one twice.
 // - PAY: the visit fee is still unpaid 10 minutes before the booking expires.
+// - TOMORROW: from 19:00 IST the evening before a scheduled visit (customer and technician).
+// - DAYPLAN: from 07:30 IST (until noon), the technician's scheduled jobs for the day: how many and the first one's
+//   time. Claimed on the day's first booking; sent once per technician per day.
 // - SOON: a scheduled visit starts within the hour (customer and technician).
 // - QUOTE: a repair or extra-work quote has waited 10 minutes for an answer (the technician is at the door).
 // - RATE: a completed visit is still unrated 2 hours later (once, and not after 2 days).
@@ -10,10 +13,17 @@ import { type Clock, InjectClock } from '../../common/clock';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
-import { istDate, windowStartMs } from '../slots/slot-rules';
+import { istDate, istHour, windowStartMs } from '../slots/slot-rules';
 import { type Notice, Notifier } from './notifier';
 
 const MIN = 60_000;
+const DAY = 24 * 60 * MIN;
+const IST_OFFSET_MS = 330 * MIN;
+/** The evening-before reminder goes out from this hour (IST). */
+export const TOMORROW_REMINDER_HOUR = 19;
+/** The technician's day plan goes out from 07:30 IST, until noon (after that the hour-before reminders do the job). */
+export const DAY_PLAN_FROM_MIN = 7 * 60 + 30;
+const DAY_PLAN_UNTIL_MIN = 12 * 60;
 export const PAY_REMINDER_BEFORE_EXPIRY_MIN = 10;
 export const SOON_REMINDER_BEFORE_MIN = 60;
 export const QUOTE_REMINDER_AFTER_MIN = 10;
@@ -40,7 +50,7 @@ export class RemindersService {
 
   /** Sends what is due now. Returns how many reminders were sent. */
   async sweep(): Promise<number> {
-    const due = [...(await this.unpaid()), ...(await this.soon()), ...(await this.quotes()), ...(await this.unrated())];
+    const due = [...(await this.unpaid()), ...(await this.tomorrow()), ...(await this.dayPlan()), ...(await this.soon()), ...(await this.quotes()), ...(await this.unrated())];
     let sent = 0;
     for (const d of due) if (await this.send(d)) sent++;
     return sent;
@@ -83,6 +93,49 @@ export class RemindersService {
       const minutes = Math.max(1, Math.ceil((b.createdAt.getTime() + expiry * MIN - now) / MIN));
       return { bookingId: b.id, key: 'PAY', notices: [this.notice(b.customerId, 'PAY_REMINDER', b.id, { code: b.code, minutes })] };
     });
+  }
+
+  private async tomorrow(): Promise<Due[]> {
+    const now = this.clock.now();
+    if (istHour(now) < TOMORROW_REMINDER_HOUR) return [];
+    const rows = await this.prisma.booking.findMany({
+      where: { status: 'ASSIGNED', windowDate: new Date(`${istDate(now + DAY)}T00:00:00Z`), windowStartHour: { not: null }, technicianId: { not: null }, ...this.notSent('TOMORROW') },
+      select: { id: true, code: true, customerId: true, technicianId: true, windowStartHour: true, windowEndHour: true },
+      take: BATCH,
+    });
+    return rows.map((b) => {
+      const params = { code: b.code, startHour: b.windowStartHour!, endHour: b.windowEndHour ?? b.windowStartHour! + 2 };
+      return {
+        bookingId: b.id,
+        key: 'TOMORROW',
+        notices: [this.notice(b.customerId, 'BOOKING_TOMORROW', b.id, params), this.notice(b.technicianId!, 'JOB_TOMORROW', b.id, params)],
+      };
+    });
+  }
+
+  private async dayPlan(): Promise<Due[]> {
+    const now = this.clock.now();
+    const minuteOfDay = Math.floor(((now + IST_OFFSET_MS) % DAY) / MIN);
+    if (minuteOfDay < DAY_PLAN_FROM_MIN || minuteOfDay >= DAY_PLAN_UNTIL_MIN) return [];
+    const rows = await this.prisma.booking.findMany({
+      where: { status: 'ASSIGNED', windowDate: new Date(`${istDate(now)}T00:00:00Z`), windowStartHour: { not: null }, technicianId: { not: null } },
+      select: { id: true, code: true, technicianId: true, windowStartHour: true, reminders: { where: { key: 'DAYPLAN' }, select: { key: true } } },
+      orderBy: [{ windowStartHour: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      take: BATCH * 5,
+    });
+    const byTech = new Map<string, typeof rows>();
+    for (const b of rows) byTech.set(b.technicianId!, [...(byTech.get(b.technicianId!) ?? []), b]);
+    const due: Due[] = [];
+    for (const [technicianId, jobs] of byTech) {
+      const first = jobs[0];
+      if (!first || jobs.some((j) => j.reminders.length > 0)) continue;
+      due.push({
+        bookingId: first.id,
+        key: 'DAYPLAN',
+        notices: [this.notice(technicianId, 'JOB_DAY_PLAN', first.id, { code: first.code, count: jobs.length, startHour: first.windowStartHour! })],
+      });
+    }
+    return due.slice(0, BATCH);
   }
 
   private async soon(): Promise<Due[]> {
