@@ -104,6 +104,7 @@ export function TechnicianCard({ tech, booking }: { readonly tech: AssignedTechn
         <>
           <View style={styles.actions}>
             <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => void call()} loading={calling} style={styles.flex} testID="tech-call" />
+            <Button label={t('chat.open')} icon="chatbubbles" variant="secondary" size="md" onPress={() => router.push(`/chat/${booking.id}`)} style={styles.flex} testID="tech-chat" />
           </View>
           <Txt variant="caption" color="inkMuted" align="center">{t('track.masked')}</Txt>
         </>

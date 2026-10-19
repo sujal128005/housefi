@@ -182,6 +182,23 @@ describe('live client: bookings, uploads, payments', () => {
     expect(booking[0]?.body).toMatchObject({ problem: { photos: [{ id: expect.stringMatching(/^up-PROBLEM/) }], voiceNote: { durationSec: 6, transcript: 'leak', audioId: 'audio-1' } } });
   });
 
+  it('chats through the customer and technician endpoints, uploading a photo first', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    const chat = { bookingId: BOOKING.id, open: true, clearable: false, clearsAt: null, messages: [] };
+    t.routes[`GET /bookings/${BOOKING.id}/chat`] = () => json(200, chat);
+    t.routes[`POST /bookings/${BOOKING.id}/chat`] = () => json(200, chat);
+    t.routes[`DELETE /bookings/${BOOKING.id}/chat`] = () => new Response(null, { status: 204 });
+    t.routes['GET /chats'] = () => json(200, [{ bookingId: BOOKING.id, code: BOOKING.code, open: true, unread: 2 }]);
+    expect(await t.backend.chat.list(s.token)).toEqual([{ bookingId: BOOKING.id, code: BOOKING.code, open: true, unread: 2 }]);
+    expect(await t.backend.chat.get(s.token, BOOKING.id)).toEqual(chat);
+    await t.backend.chat.send(s.token, BOOKING.id, { text: 'Gate code 4521', photoUri: 'file:///gate.jpg' });
+    expect(t.calls.find((c) => c.url === '/uploads/photos')?.body).toMatchObject({ stage: 'CHAT' });
+    expect(t.calls.find((c) => c.method === 'POST' && c.url === `/bookings/${BOOKING.id}/chat`)?.body).toEqual({ text: 'Gate code 4521', photoUploadId: expect.stringMatching(/^up-CHAT/) });
+    await t.backend.chat.clear(s.token, BOOKING.id);
+    expect(t.calls.at(-1)).toMatchObject({ method: 'DELETE', url: `/bookings/${BOOKING.id}/chat` });
+  });
+
   it('uploads a voice note and returns what was said', async () => {
     const t = setup();
     const s = await signIn(t.backend);

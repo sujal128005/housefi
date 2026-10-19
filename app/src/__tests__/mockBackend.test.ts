@@ -607,6 +607,24 @@ describe('technician app', () => {
     expect((await t.backend.bookings.get(c.token, c.id)).technician?.womenRated).toBe(true);
   });
 
+  it('lets the customer and the technician chat while the job is on; clearing waits for the job to be done', async () => {
+    const t = setup();
+    const tech = await approvedTech(t);
+    const c = await paidBooking(t);
+    const offer = await t.backend.tech.offer(tech);
+    await t.backend.tech.acceptOffer(tech, offer?.id ?? '');
+
+    await t.backend.chat.send(c.token, c.id, { text: 'Gate code 4521' });
+    expect((await t.backend.tech.chat.list(tech))[0]).toMatchObject({ bookingId: c.id, open: true, unread: 1 });
+    const seen = await t.backend.tech.chat.get(tech, c.id);
+    expect(seen.messages.map((m) => [m.from, m.text])).toEqual([['THEM', 'Gate code 4521']]);
+    expect((await t.backend.tech.chat.list(tech))[0]?.unread).toBe(0);
+    await t.backend.tech.chat.send(tech, c.id, { text: '', photoUri: 'file:///part.jpg' });
+    expect((await t.backend.chat.get(c.token, c.id)).messages.map((m) => [m.from, m.photo])).toEqual([['ME', null], ['THEM', 'file:///part.jpg']]);
+    await expect(t.backend.chat.send(c.token, c.id, { text: '  ' })).rejects.toMatchObject({ code: 'VALIDATION' });
+    await expect(t.backend.chat.clear(c.token, c.id)).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
   it('gives the job to someone else when the offer is missed or rejected', async () => {
     const t = setup();
     const tech = await approvedTech(t);

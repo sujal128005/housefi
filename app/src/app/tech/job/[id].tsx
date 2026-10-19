@@ -323,6 +323,9 @@ export default function JobScreen() {
             <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => void callCustomer.call()} loading={callCustomer.calling} style={styles.flex} testID="tj-call" />
           </View>
         ) : null}
+        {live ? (
+          <Button label={t('chat.open')} icon="chatbubbles" variant="secondary" size="md" onPress={() => router.push({ pathname: '/chat/[id]', params: { id: j.id, as: 'tech' } })} testID="tj-chat" />
+        ) : null}
         {live ? <Txt variant="caption" color="inkMuted" align="center">{t('tj.masked')}</Txt> : null}
       </Card>
 
