@@ -131,6 +131,19 @@ describe('job actions (e2e)', () => {
     ]);
   });
 
+  it('without masked calls, Call dials the other person directly, only while the job is on, and is audited', async () => {
+    // The customer (9876543210) calls the technician (createTechnician's 9876500011), and back.
+    expect((await api().post(`/v1/bookings/${id}/call`).set(as(customer)).expect(200)).body).toEqual({ dialNumber: '+919876500011' });
+    expect((await api().post(`/v1/tech/jobs/${id}/call`).set(as(tech.token)).expect(200)).body).toEqual({ dialNumber: '+919876543210' });
+    const audit = await t.prisma.auditLog.findMany({ where: { action: 'call.direct', entityId: id }, orderBy: { id: 'asc' } });
+    expect(audit.map((a) => [a.actorType, a.after])).toEqual([['CUSTOMER', { callee: 'TECHNICIAN' }], ['TECHNICIAN', { callee: 'CUSTOMER' }]]);
+    expect(JSON.stringify(audit.map((a) => [a.before, a.after]))).not.toContain('98765');
+    // After the job, no more calls (the number is not handed out again).
+    await t.prisma.booking.update({ where: { id }, data: { status: 'COMPLETED' } });
+    await api().post(`/v1/bookings/${id}/call`).set(as(customer)).expect(409);
+    await api().post(`/v1/tech/jobs/${id}/call`).set(as(tech.token)).expect(409);
+  });
+
   describe('start code', () => {
     it('counts wrong codes and locks after 5, opening a support ticket', async () => {
       await act('start-trip').expect(200);

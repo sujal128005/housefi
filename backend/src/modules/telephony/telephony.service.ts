@@ -227,19 +227,31 @@ export class TelephonyService implements OnModuleInit {
 
   // ---------- masked calls (app) ----------
 
-  /** The customer or the assigned technician asks to call the other: the number to dial (openapi dialNumber). */
+  /**
+   * The customer or the assigned technician asks to call the other: the number to dial (openapi dialNumber). With
+   * masked calls (Exotel) it is the Housefi number, which connects them without either seeing the other's number.
+   * Without them (TELEPHONY_PROVIDER=off, the pilot) it is the other person's own number, so the phone app calls them
+   * directly: only from assignment until payment (CALLABLE), never shown as text in the app, and audited (who called
+   * whom for which booking, never the number).
+   */
   async grantCall(userId: string, role: 'CUSTOMER' | 'TECHNICIAN', bookingId: string): Promise<{ dialNumber: string }> {
     if (!UUID.test(bookingId)) throw new AppError('NOT_FOUND');
     const b = await this.prisma.booking.findFirst({ where: { id: bookingId, ...(role === 'CUSTOMER' ? { customerId: userId } : { technicianId: userId }) } });
     if (!b) throw new AppError('NOT_FOUND');
     if (!b.technicianId || !CALLABLE.includes(b.status)) throw new AppError('CONFLICT', {}, 'calls are possible from assignment until payment');
-    if (!this.provider || !this.config.EXOTEL_CALLER_ID) throw new AppError('INTERNAL', {}, 'calls are not available right now');
+    const calleeId = role === 'CUSTOMER' ? b.technicianId : b.customerId;
+    if (!this.provider || !this.config.EXOTEL_CALLER_ID) {
+      const callee = await this.prisma.user.findUnique({ where: { id: calleeId }, select: { phoneEnc: true, status: true } });
+      if (!callee || callee.status !== 'ACTIVE') throw new AppError('CONFLICT', {}, 'this person cannot be called now');
+      await this.audit.record({ actorType: role, actorId: userId, action: 'call.direct', entity: 'booking', entityId: b.id, after: { callee: role === 'CUSTOMER' ? 'TECHNICIAN' : 'CUSTOMER' } });
+      return { dialNumber: `+91${await this.cipher.decrypt('users.phone', callee.phoneEnc)}` };
+    }
     const now = this.clock.now();
     await this.prisma.callGrant.create({
       data: {
         bookingId: b.id,
         callerId: userId,
-        calleeId: role === 'CUSTOMER' ? b.technicianId : b.customerId,
+        calleeId,
         expiresAt: new Date(now + this.config.MASKED_CALL_GRANT_MIN * 60_000),
         createdAt: new Date(now),
       },
