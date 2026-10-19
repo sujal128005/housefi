@@ -2,6 +2,8 @@
 import request from 'supertest';
 import { runTechCommand, USAGE } from '../src/cli/technicians';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
+import { NotificationsService } from '../src/modules/notifications/notifications.service';
+import { reviewBy } from '../src/modules/technicians/review-window';
 import { TechVerificationService, type VerificationActor } from '../src/modules/technicians/tech-verification.service';
 import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, TECH_PROFILE, type TestApp, uploadProfilePhoto } from './helpers';
 
@@ -65,6 +67,7 @@ describe('technicians (e2e)', () => {
           correctionRequest: null,
         },
         aadhaar: null,
+        reviewBy: reviewBy(t.clock.now()),
         correctionNote: null,
         online: false,
         rating: null,
@@ -109,12 +112,41 @@ describe('technicians (e2e)', () => {
       expect(pending).toHaveLength(1);
       expect(pending[0]).toContain(id);
       expect(pending[0]).toContain('PLUMBING+CLEANING');
-      expect(await cli('approve', PHONE)).toEqual([`Approved ${id}.`]);
+      expect((await cli('approve', PHONE))[0]?.startsWith(`Approved ${id}. The technician sees it from `)).toBe(true);
       expect((await api().get('/v1/tech/me').set(as(token)).expect(200)).body.verification).toBe('APPROVED');
       expect(await cli('pending')).toEqual(['No profiles waiting for review.']);
       const audit = await t.prisma.auditLog.findMany({ where: { entityId: id }, orderBy: { id: 'asc' } });
       expect(audit.map((a) => a.action)).toEqual(['tech.profile_submitted', 'tech.approve']);
       expect(audit[1]).toMatchObject({ actorType: 'ADMIN', before: { verification: 'PENDING' }, after: { verification: 'APPROVED', via: 'cli:asha' } });
+    });
+
+    it('announces an approval at the review time the technician was given; a correction at once', async () => {
+      const HOUR = 3_600_000;
+      // The inbox as GET /v1/notifications returns it (read directly: the clock moves past the 15-minute access token).
+      const kinds = async (userId: string) => (await t.app.get(NotificationsService).list(userId)).map((n) => n.kind);
+      t.clock.t = Date.UTC(2026, 9, 16, 4, 30); // 10:00 India time: the check is promised within 2 hours
+      const { id, token } = await createTechnician(t, PHONE, { approve: false });
+      expect((await api().get('/v1/tech/me').set(as(token)).expect(200)).body.reviewBy).toBe(t.clock.t + 2 * HOUR);
+      t.clock.advance(20 * 60_000);
+      expect(await cli('approve', id)).toEqual([`Approved ${id}. The technician sees it from 2026-10-16T06:30:00.000Z (the review time they were given).`]);
+      expect(await kinds(id)).not.toContain('PROFILE_APPROVED');
+      const pushedEarly = await t.prisma.notification.findMany({ where: { userId: id, kind: 'PROFILE_APPROVED', createdAt: { lte: new Date(t.clock.now()) } } });
+      expect(pushedEarly).toEqual([]);
+      t.clock.advance(100 * 60_000);
+      expect(await kinds(id)).toContain('PROFILE_APPROVED');
+
+      // A correction request is shown straight away.
+      const other = await createTechnician(t, '9876500012', { approve: false });
+      await cli('correct', other.id, 'Please add your vehicle number');
+      expect(await kinds(other.id)).toContain('PROFILE_NEEDS_CORRECTION');
+    });
+
+    it('drops an approval that is still waiting when the technician submits the profile again', async () => {
+      t.clock.t = Date.UTC(2026, 9, 16, 4, 30);
+      const { id, token } = await createTechnician(t, PHONE, { approve: false });
+      await cli('approve', id);
+      await api().put('/v1/tech/profile').set(as(token)).send(TECH_PROFILE).expect(200);
+      expect(await t.prisma.notification.count({ where: { userId: id, kind: 'PROFILE_APPROVED' } })).toBe(0);
     });
 
     it('sends a profile back with a note; resubmitting puts it back into review', async () => {

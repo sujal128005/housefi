@@ -290,7 +290,10 @@ export async function uploadProfilePhoto(t: TestApp, accessToken: string): Promi
   return res.body.id as string;
 }
 
-/** A technician who signed in and submitted a profile, approved by default (as an admin would with npm run tech). */
+/**
+ * A technician who signed in and submitted a profile, approved by default (as an admin would with npm run tech). An
+ * approved one submitted a day ago, so their review time (review-window.ts) has passed and the approval shows now.
+ */
 export async function createTechnician(
   t: TestApp,
   phone = '9876500011',
@@ -304,7 +307,10 @@ export async function createTechnician(
     .set('Authorization', `Bearer ${auth.accessToken}`)
     .send({ ...TECH_PROFILE, photoUploadId, ...opts.profile })
     .expect(200);
-  if (opts.approve !== false) await t.app.get(TechVerificationService).approve(id, { type: 'ADMIN', id: null, via: 'test' });
+  if (opts.approve !== false) {
+    await t.prisma.technician.update({ where: { userId: id }, data: { submittedAt: new Date(t.clock.now() - 25 * 3_600_000) } });
+    await t.app.get(TechVerificationService).approve(id, { type: 'ADMIN', id: null, via: 'test' });
+  }
   return { id, token: auth.accessToken };
 }
 

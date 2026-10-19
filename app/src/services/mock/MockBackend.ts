@@ -1584,8 +1584,9 @@ export function createMockBackend(opts: MockOptions): Backend {
   };
 
   function publicProfile(t: StoredTech): TechProfile {
-    const { submittedAt: _s, verifyToken: _v, ...rest } = t;
-    return rest;
+    const { submittedAt, verifyToken: _v, ...rest } = t;
+    // The demo's check is promised for when it decides (a few seconds after submitting).
+    return { ...rest, reviewBy: submittedAt === null ? null : submittedAt + T.verificationSec * 1000 };
   }
 
   /** Seconds the current timed phase lasts; null when the booking waits for a person or is finished. */

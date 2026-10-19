@@ -13,6 +13,8 @@ export interface Notice {
   readonly bookingId: string | null;
   /** Codes, amounts and ids for the text; never names, phone numbers or addresses. */
   readonly params: NoticeParams;
+  /** Announce it later (ms): it is pushed, and shown in the inbox, only from then on. Default: now. */
+  readonly at?: number;
 }
 
 @Injectable()
@@ -26,7 +28,7 @@ export class Notifier {
     if (notices.length === 0) return;
     const createdAt = new Date(this.clock.now());
     await tx.notification.createMany({
-      data: notices.map((n) => ({ userId: n.userId, kind: n.kind, bookingId: n.bookingId, params: n.params, createdAt })),
+      data: notices.map((n) => ({ userId: n.userId, kind: n.kind, bookingId: n.bookingId, params: n.params, createdAt: n.at !== undefined && n.at > createdAt.getTime() ? new Date(n.at) : createdAt })),
     });
     for (const listener of this.listeners) listener();
   }

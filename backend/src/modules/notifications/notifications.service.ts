@@ -68,7 +68,8 @@ export class NotificationsService {
   // ---------- inbox ----------
 
   async list(userId: string): Promise<NotificationDto[]> {
-    const rows = await this.prisma.notification.findMany({ where: { userId }, orderBy: [{ createdAt: 'desc' }, { seq: 'desc' }], take: INBOX_LIMIT });
+    // A notice written for later (Notice.at) appears from then on.
+    const rows = await this.prisma.notification.findMany({ where: { userId, createdAt: { lte: new Date(this.clock.now()) } }, orderBy: [{ createdAt: 'desc' }, { seq: 'desc' }], take: INBOX_LIMIT });
     return rows.map((n) => ({ id: n.id, kind: n.kind, bookingId: n.bookingId, params: n.params as NoticeParams, at: n.createdAt.getTime(), read: n.readAt !== null }));
   }
 
@@ -109,7 +110,7 @@ export class NotificationsService {
       UPDATE notifications SET push_state = 'SENDING', push_claimed_at = ${new Date(now)}, push_attempts = push_attempts + 1
       WHERE id IN (
         SELECT id FROM notifications
-        WHERE push_state = 'PENDING' OR (push_state = 'SENDING' AND push_claimed_at < ${new Date(now - STALE_CLAIM_MS)})
+        WHERE (push_state = 'PENDING' AND created_at <= ${new Date(now)}) OR (push_state = 'SENDING' AND push_claimed_at < ${new Date(now - STALE_CLAIM_MS)})
         ORDER BY created_at, seq LIMIT ${batch} FOR UPDATE SKIP LOCKED)
       RETURNING id, user_id, kind, booking_id, params, created_at, push_attempts`;
     if (claimed.length === 0) return { sent: 0, skipped: 0, failed: 0, retry: 0 };
