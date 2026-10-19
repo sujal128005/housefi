@@ -1147,6 +1147,7 @@ components:
         addressId: { type: string }
         time: { $ref: '#/components/schemas/VisitTime' }
         preferWomenRated: { type: boolean }
+        repeatOf: { type: string, format: uuid, description: "Book the same technician again: the customer's own earlier booking (completed, or closed without a repair) whose technician is offered the job first. If they decline or miss it, the search goes on as usual." }
     PaymentMethod: { type: string, enum: [UPI, CARD, NETBANKING, CASH] }
     Payment:
       type: object
@@ -1311,7 +1312,7 @@ components:
         at: { $ref: '#/components/schemas/EpochMs' }
     Booking:
       type: object
-      required: [id, code, serviceId, categoryId, problem, address, time, preferWomenRated, status, technician, arrivalOtp, etaMin, technicianLocation,
+      required: [id, code, serviceId, categoryId, problem, address, time, preferWomenRated, status, technician, preferredTechnician, arrivalOtp, etaMin, technicianLocation,
                  visitPayment, quote, extraQuote, finalPayment, rating, createdAt, history, cancelReason, closeReason, workStarted, viaTechApp, demo]
       properties:
         id: { type: string }
@@ -1324,6 +1325,10 @@ components:
         preferWomenRated: { type: boolean }
         status: { $ref: '#/components/schemas/BookingStatus' }
         technician: { oneOf: [{ $ref: '#/components/schemas/Technician' }, { type: 'null' }] }
+        preferredTechnician:
+          oneOf:
+            - { type: object, required: [name], properties: { name: { type: string } }, description: 'Book the same technician again: who is asked first' }
+            - { type: 'null' }
         arrivalOtp: { type: string, description: 4 digits; empty string until the visit fee is paid }
         etaMin: { type: [integer, 'null'] }
         technicianLocation:
@@ -1444,7 +1449,7 @@ components:
               unitPrice: { type: integer, minimum: 1, maximum: 100000 }
     Earnings:
       type: object
-      required: [today, jobsToday, total, pendingPayout, nextPayoutOn, entries]
+      required: [today, jobsToday, total, pendingPayout, nextPayoutOn, entries, weeks]
       properties:
         today: { type: integer }
         jobsToday: { type: integer }
@@ -1463,6 +1468,26 @@ components:
               amount: { type: integer }
               at: { $ref: '#/components/schemas/EpochMs' }
               payout: { type: string, enum: [PENDING, PAID] }
+        weeks:
+          type: array
+          description: This week and the 7 before it (IST, Monday to Sunday), newest first. Each week is paid on the Monday after it.
+          items:
+            type: object
+            required: [start, end, earned, cash, jobs, payout]
+            properties:
+              start: { type: string, format: date, description: Monday }
+              end: { type: string, format: date, description: Sunday }
+              earned: { type: integer, description: 'Job credits that week (rupees)' }
+              cash: { type: integer, description: 'Cash collected from customers that week, netted in the payout (rupees)' }
+              jobs: { type: integer }
+              payout:
+                type: object
+                required: [state, on, amount, ref]
+                properties:
+                  state: { type: string, enum: [UPCOMING, PENDING, PROCESSING, PAID, FAILED, CARRIED, NONE], description: 'CARRIED = added to a later payout (no payout of its own); NONE = nothing earned' }
+                  on: { type: [string, 'null'], format: date, description: 'The Monday it is paid on; for PAID the day it was paid' }
+                  amount: { type: [integer, 'null'], description: 'The payout amount (may include earlier weeks carried over)' }
+                  ref: { type: [string, 'null'], description: 'Bank / UPI reference once paid' }
     Chat:
       type: object
       required: [bookingId, open, clearable, clearsAt, messages]
@@ -1542,10 +1567,13 @@ components:
           enum: [TECH_ASSIGNED, TECH_ON_THE_WAY, TECH_ARRIVED, QUOTE_READY, EXTRA_QUOTE, PAYMENT_DUE, BOOKING_COMPLETED, BOOKING_CANCELLED,
                  NO_TECHNICIAN, JOB_OFFER, QUOTE_APPROVED, QUOTE_REVISION, QUOTE_DECLINED, EXTRA_APPROVED, EXTRA_DECLINED, PAYMENT_RECEIVED,
                  JOB_CANCELLED, PROFILE_APPROVED, PROFILE_NEEDS_CORRECTION, PAY_REMINDER, BOOKING_REMINDER, JOB_REMINDER, QUOTE_REMINDER,
+                 RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, BOOKING_TOMORROW, JOB_TOMORROW, JOB_DAY_PLAN]
                  RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, CHAT_MESSAGE]
           description: >-
             Reminders: PAY_REMINDER {code, minutes} 10 min before an unpaid booking expires; BOOKING_REMINDER / JOB_REMINDER
-            {code, startHour} an hour before a scheduled visit; QUOTE_REMINDER {code} after a quote waits 10 min;
+            {code, startHour} an hour before a scheduled visit; BOOKING_TOMORROW / JOB_TOMORROW {code, startHour, endHour}
+            from 19:00 IST the evening before; JOB_DAY_PLAN {code, count, startHour} from 07:30 IST, the technician's
+            scheduled jobs that day (code = the first); QUOTE_REMINDER {code} after a quote waits 10 min;
             RATE_REMINDER {code} 2 h after completion if unrated. The app should show unknown kinds generically.
         bookingId: { type: [string, 'null'] }
         params: { type: object, additionalProperties: { type: [string, number] } }

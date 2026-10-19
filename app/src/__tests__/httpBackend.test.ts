@@ -199,6 +199,15 @@ describe('live client: bookings, uploads, payments', () => {
     expect(t.calls.at(-1)).toMatchObject({ method: 'DELETE', url: `/bookings/${BOOKING.id}/chat` });
   });
 
+  it('asks for the same technician again only when booking again', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    await t.backend.bookings.create(s.token, { ...input, problem: { ...input.problem, photos: [] } }, 'idem-12345679');
+    expect(t.calls.filter((c) => c.url === '/bookings').at(-1)?.body).not.toHaveProperty('repeatOf');
+    await t.backend.bookings.create(s.token, { ...input, problem: { ...input.problem, photos: [] }, repeatOf: BOOKING.id }, 'idem-12345680');
+    expect(t.calls.filter((c) => c.url === '/bookings').at(-1)?.body).toMatchObject({ repeatOf: BOOKING.id });
+  });
+
   it('uploads a voice note and returns what was said', async () => {
     const t = setup();
     const s = await signIn(t.backend);

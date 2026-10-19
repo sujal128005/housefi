@@ -69,7 +69,7 @@ export default function ConfirmStep() {
         if (existing.status !== 'AWAITING_PAYMENT') bookingId = null;
       }
       if (!bookingId) {
-        const input = { serviceId: svc.id, problem: p, addressId, time, preferWomenRated: draft.preferWomenRated };
+        const input = { serviceId: svc.id, problem: p, addressId, time, preferWomenRated: draft.preferWomenRated, ...(draft.repeat ? { repeatOf: draft.repeat.bookingId } : {}) };
         const b = await backend.bookings.create(session.token, input, createKeys.keyFor(JSON.stringify(input)));
         createKeys.settle();
         // The customer left while the booking was being created: withdraw it at once, and stay where they went.
@@ -137,6 +137,8 @@ export default function ConfirmStep() {
           <Txt variant="callout" testID="review-when">{visitTimeText(time, locale, t)}</Txt>
         </Row>
       </Card>
+
+      {draft.repeat ? <Banner tone="info" icon="person-circle-outline" text={t('confirm.repeat', { name: draft.repeat.name })} testID="confirm-repeat" /> : null}
 
       <Tap onPress={() => setPreferWomenRated(!draft.preferWomenRated)} style={[styles.pref, draft.preferWomenRated && styles.prefOn]} testID="pref-women"
         accessibilityRole="switch" accessibilityState={{ checked: draft.preferWomenRated }} accessibilityLabel={t('confirm.women')} scale={0.99}>

@@ -99,6 +99,8 @@ export interface NewBooking {
   readonly addressId: string;
   readonly time: VisitTime;
   readonly preferWomenRated: boolean;
+  /** "Book the same technician again": the customer's earlier finished booking; its technician is asked first. */
+  readonly repeatOf?: string;
 }
 
 export type QuoteAnswer = 'APPROVE' | 'REVISION' | 'DECLINE';
@@ -158,6 +160,8 @@ export type NotificationKind =
   // reminders and account notices
   | 'PAY_REMINDER' | 'BOOKING_REMINDER' | 'JOB_REMINDER' | 'QUOTE_REMINDER' | 'RATE_REMINDER' | 'PROFILE_SUSPENDED'
   | 'PROFILE_REINSTATED' | 'PROFILE_REJECTED'
+  // the day's schedule: the evening before a visit (both sides), the technician's morning plan
+  | 'BOOKING_TOMORROW' | 'JOB_TOMORROW' | 'JOB_DAY_PLAN'
   // a chat message from the other side (shown by the chat bubble, not in the inbox)
   | 'CHAT_MESSAGE';
 

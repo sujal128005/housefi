@@ -5,12 +5,21 @@ import { paiseToRupees } from '../../common/money';
 import type { AddressDto } from '../addresses/addresses.service';
 import { latestQuote, type QuoteDto, type QuoteRow, toQuoteDto } from './quote-view';
 
-export type BookingRow = Booking & { events: BookingEvent[]; payments: Payment[]; technician: (Technician & { user: User; skills: TechnicianSkill[] }) | null; quotes: QuoteRow[]; rating: Rating | null; uploads: Upload[] };
+export type BookingRow = Booking & {
+  events: BookingEvent[];
+  payments: Payment[];
+  technician: (Technician & { user: User; skills: TechnicianSkill[] }) | null;
+  preferredTechnician: (Technician & { user: User }) | null;
+  quotes: QuoteRow[];
+  rating: Rating | null;
+  uploads: Upload[];
+};
 
 export const BOOKING_INCLUDE = {
   events: { orderBy: [{ at: 'asc' }, { id: 'asc' }] },
   payments: { orderBy: { createdAt: 'asc' } },
   technician: { include: { user: true, skills: true } },
+  preferredTechnician: { include: { user: true } },
   quotes: { include: { lines: true }, orderBy: [{ which: 'asc' }, { version: 'asc' }] },
   rating: true,
   uploads: { where: { state: 'READY' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
@@ -102,6 +111,8 @@ export interface BookingDto {
   readonly status: BookingStatus;
   /** The assigned technician (only while assigned or after: never before acceptance). */
   readonly technician: TechnicianDto | null;
+  /** "Book the same technician again": who is asked first (the customer's technician from an earlier visit). */
+  readonly preferredTechnician: { readonly name: string } | null;
   /** 4 digits once the visit fee is paid; "" before. */
   readonly arrivalOtp: string;
   readonly etaMin: number | null;
@@ -202,6 +213,7 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
     preferWomenRated: b.preferWomenRated,
     status: b.status,
     technician: b.technician ? await technicianDto(b.technician, cipher, media, maskedPhone) : null,
+    preferredTechnician: b.preferredTechnician?.user.nameEnc ? { name: await cipher.decrypt('users.name', b.preferredTechnician.user.nameEnc) } : null,
     arrivalOtp,
     etaMin: b.etaMin,
     technicianLocation: b.status === 'EN_ROUTE' ? trip : null,

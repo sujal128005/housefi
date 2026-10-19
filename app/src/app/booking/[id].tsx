@@ -24,6 +24,7 @@ import { Appear, Celebrate, Pulse } from '../../ui/motion';
 import { PhotoThumb } from '../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../ui/present';
 import { feedback } from '../../services/feedback';
+import { useDraft } from '../../state/BookingDraft';
 
 const STEPS: readonly StringKey[] = ['track.step.received', 'track.step.searching', 'track.step.availability', 'track.step.matching'];
 const REASONS: readonly CancelReason[] = ['PLANS_CHANGED', 'FIXED', 'TOO_LONG', 'MISTAKE', 'OTHER'];
@@ -49,6 +50,7 @@ const HERO: Partial<Record<Booking['status'], { art: ArtName; title: StringKey; 
 export default function BookingHub() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, l, locale } = useI18n();
+  const { startRepeat } = useDraft();
   const backend = useBackend();
   const session = useSession();
   const toast = useToast();
@@ -279,6 +281,13 @@ export default function BookingHub() {
           ) : (
             <Button label={t('hub.rate')} icon="star" onPress={() => router.push({ pathname: '/booking/rate', params: { id: b.id } })} testID="hub-rate" />
           )}
+          {b.technician ? (
+            <Button label={t('hub.bookAgainWith', { name: l(b.technician.name).split(' ')[0] ?? '' })} icon="refresh" variant="secondary"
+              onPress={() => {
+                startRepeat({ serviceId: b.serviceId, addressId: b.address.id, bookingId: b.id, name: l(b.technician!.name) });
+                router.push('/book/problem');
+              }} testID="hub-book-again" />
+          ) : null}
           <Button label={t('pay.viewReceipt')} icon="receipt-outline" variant="outline" onPress={() => router.push({ pathname: '/booking/receipt', params: { id: b.id } })} testID="hub-receipt" />
         </View>
       ) : null}

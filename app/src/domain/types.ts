@@ -258,6 +258,8 @@ export interface Booking {
   readonly preferWomenRated: boolean;
   readonly status: BookingStatus;
   readonly technician: AssignedTechnician | null;
+  /** "Book the same technician again": who is asked first; null (or missing on older servers) otherwise. */
+  readonly preferredTechnician?: { readonly name: string } | null;
   /** 4-digit code the customer tells the technician at the door (starts the visit). */
   readonly arrivalOtp: string;
   /** Live estimate while the technician travels, in minutes. */
@@ -477,4 +479,27 @@ export interface Earnings {
   /** Next weekly payout date, "2026-10-19". */
   readonly nextPayoutOn: string;
   readonly entries: readonly EarningEntry[];
+  /** This week and the ones before it, newest first (missing on older servers). */
+  readonly weeks?: readonly EarningsWeek[];
+}
+
+/** One week (Monday to Sunday) of earnings, and what happened to its payout. Paid on the Monday after it. */
+export interface EarningsWeek {
+  /** Monday, "2026-10-12". */
+  readonly start: string;
+  /** Sunday. */
+  readonly end: string;
+  readonly earned: number;
+  /** Cash collected from customers that week (deducted in the payout). */
+  readonly cash: number;
+  readonly jobs: number;
+  readonly payout: {
+    /** CARRIED: added to a later payout; NONE: nothing earned. */
+    readonly state: 'UPCOMING' | 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CARRIED' | 'NONE';
+    /** The Monday it is paid on; for PAID the day it was paid. */
+    readonly on: string | null;
+    readonly amount: number | null;
+    /** Bank / UPI reference once paid. */
+    readonly ref: string | null;
+  };
 }

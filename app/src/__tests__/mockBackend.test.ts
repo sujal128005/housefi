@@ -598,6 +598,9 @@ describe('technician app', () => {
     const earnings = await t.backend.tech.earnings(tech);
     expect(earnings.today).toBe(30 + 80 + 200);
     expect(earnings.entries[0]?.payout).toBe('PENDING');
+    // This week's earnings are paid next Monday; eight weeks are listed, newest first.
+    expect(earnings.weeks).toHaveLength(8);
+    expect(earnings.weeks?.[0]).toMatchObject({ earned: 30 + 80 + 200, jobs: 1, payout: { state: 'UPCOMING' } });
     expect((await t.backend.bookings.get(c.token, c.id)).technician?.womenRated).toBe(false);
     await expect(t.backend.bookings.rate(c.token, c.id, { satisfied: true, stars: 5, tags: [], comment: '', byWoman: 'yes' as unknown as boolean }))
       .rejects.toMatchObject({ code: 'VALIDATION' });

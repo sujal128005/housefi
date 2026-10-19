@@ -235,7 +235,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
       const photos = await uploadPhotos(handle, input.problem.photos, 'PROBLEM');
       const vn = input.problem.voiceNote;
       const voiceNote = vn ? { durationSec: Math.max(1, Math.round(vn.durationSec)), transcript: vn.transcript, ...(vn.audioId ? { audioId: vn.audioId } : {}) } : null;
-      const body = { serviceId: input.serviceId, problem: { issueIds: input.problem.issueIds, notes: input.problem.notes, voiceNote, photos }, addressId: input.addressId, time: input.time, preferWomenRated: input.preferWomenRated };
+      const body = { serviceId: input.serviceId, problem: { issueIds: input.problem.issueIds, notes: input.problem.notes, voiceNote, photos }, addressId: input.addressId, time: input.time, preferWomenRated: input.preferWomenRated, ...(input.repeatOf ? { repeatOf: input.repeatOf } : {}) };
       return call(handle, 'POST', apiPath`/bookings`, decodeBooking, body, idempotencyKey);
     },
     async pay(handle, bookingId, kind, method, idempotencyKey): Promise<PaymentResult> {
