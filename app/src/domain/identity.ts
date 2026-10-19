@@ -99,3 +99,11 @@ export function isDisplayablePhoto(uri: string | null | undefined): boolean {
   if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(uri)) return true;
   return /^https:\/\/[^\s/]+\/\S*$/i.test(uri);
 }
+
+/**
+ * The photo a technician has just taken or picked on this phone (the picker's saved JPEG or PNG, not yet uploaded).
+ * Only the profile setup screen previews these; photos that come from the server must pass isDisplayablePhoto.
+ */
+export function isPickedPhoto(uri: string | null | undefined): boolean {
+  return !!uri && /^file:\/\/\/\S+\.(jpe?g|png)$/i.test(uri);
+}

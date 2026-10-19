@@ -14,7 +14,7 @@ import { AppState, Image, Platform, StyleSheet, View, type StyleProp, type ViewS
 import QRCode from 'react-native-qrcode-svg';
 import Svg, { Path } from 'react-native-svg';
 import { categoryById } from '../data/catalog';
-import { isDisplayablePhoto, verificationLook, type VerificationLook } from '../domain/identity';
+import { isDisplayablePhoto, isPickedPhoto, verificationLook, type VerificationLook } from '../domain/identity';
 import type { Gender, TechIdCard, Verification } from '../domain/types';
 import { Art3D } from '../illustrations/Art3D';
 import { useI18n } from '../i18n/I18n';
@@ -34,14 +34,16 @@ import { Txt } from './Txt';
  * The technician's photo: the real photo, the demo's sample (an illustration), or, when there is no photo to show,
  * an illustration of a technician (never a stranger's picture).
  */
-export function TechPhoto({ photo, gender, size, style }: {
+export function TechPhoto({ photo, gender, size, style, picked = false }: {
   readonly photo: string | null | undefined;
   readonly gender: Gender;
   readonly size: number;
   readonly style?: StyleProp<ViewStyle>;
+  /** The technician's own photo just taken on this phone (profile setup); shown before it is uploaded. */
+  readonly picked?: boolean;
 }) {
   const r = size * 0.28;
-  if (photo && isDisplayablePhoto(photo)) {
+  if (photo && (isDisplayablePhoto(photo) || (picked && isPickedPhoto(photo)))) {
     return (
       <View style={[styles.photoBox, { width: size, height: size, borderRadius: r }, style]}>
         <Image source={{ uri: photo }} style={{ width: size, height: size, borderRadius: r }} resizeMode="cover" accessibilityIgnoresInvertColors />

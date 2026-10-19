@@ -1,7 +1,7 @@
 // Technician identity: permanent Technician ID, locked identity fields, verification states, the ID card for the
 // technician and for the customer of an assigned booking, the QR verification page, and who may see what.
 import {
-  displayName, isDisplayablePhoto, isGenuinelyVerified, isValidPhoto, newTechCode, newVerifyToken, TECH_CODE_RE, verificationLook, VERIFY_TOKEN_RE,
+  displayName, isDisplayablePhoto, isGenuinelyVerified, isPickedPhoto, isValidPhoto, newTechCode, newVerifyToken, TECH_CODE_RE, verificationLook, VERIFY_TOKEN_RE,
 } from '../domain/identity';
 import type { VisitTime } from '../domain/types';
 import type { Backend } from '../services/api';
@@ -164,6 +164,14 @@ describe('photo URIs', () => {
     for (const bad of ['http://x.example/a.jpg', 'file:///data/user/0/a.jpg', 'content://media/1', 'javascript:alert(1)',
       'data:text/html;base64,PGgxPg==', 'data:image/svg+xml;base64,PHN2Zz4=', 'demo:tech_man', '', null, undefined]) {
       expect(isDisplayablePhoto(bad)).toBe(false);
+    }
+  });
+
+  it("previews only the picker's own saved JPEG or PNG on this phone", () => {
+    expect(isPickedPhoto('file:///var/mobile/Containers/Data/Application/X/Library/Caches/ImageManipulator/A1.jpg')).toBe(true);
+    expect(isPickedPhoto('file:///data/user/0/app.housefi.mobile/cache/ImageManipulator/a1.png')).toBe(true);
+    for (const bad of ['content://media/1', 'file:///etc/passwd', 'https://x.example/a.jpg', 'file:///a.jpg?x', 'demo:tech_man', '', null, undefined]) {
+      expect(isPickedPhoto(bad)).toBe(false);
     }
   });
 });
