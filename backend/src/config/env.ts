@@ -245,6 +245,16 @@ export const envSchema = z
       }, 'must be base64 of UIDAI certificates (.cer or PEM), comma-separated'),
     /** Technicians need a verified Aadhaar (Secure QR) before they can be approved. */
     AADHAAR_REQUIRED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+    /**
+     * The super admin portal's secret host name (e.g. "hq-x7k2m9q4wz.housefi.tech"), kept only in .env.production and
+     * never linked anywhere. Admin requests are answered only when they arrive for this host; unset: no portal at all.
+     */
+    ADMIN_HOST: z.string().regex(/^[a-z0-9.-]+$/).optional(),
+    /**
+     * Until admin recovery codes go by SMS: the one-time code for "forgot password" (6-8 digits, kept in the founders'
+     * password manager). Unset: no recovery from the portal (the command line can still reset a password).
+     */
+    ADMIN_RECOVERY_CODE: z.string().regex(/^\d{6,8}$/).optional(),
     /** Approve technicians automatically once their identity checks all pass (Aadhaar genuine, 18+, name matches, photo). */
     AUTO_APPROVE_TECHNICIANS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
 

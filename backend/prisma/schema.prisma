@@ -289,6 +289,8 @@ enum CancelReason {
   OTHER
   UNPAID_EXPIRED
   UNFULFILLED_EXPIRED
+  /// Cancelled by Housefi (a super admin, from the portal).
+  BY_HOUSEFI
 
   @@map("cancel_reason")
 }
@@ -1191,4 +1193,101 @@ model ChatMessage {
 
   @@index([bookingId, seq])
   @@map("chat_messages")
+}
+
+// ---------- super admin portal ----------
+
+/// A super admin (the founders). Created only by the command line (npm run admin -- create); there is no sign-up.
+model AdminUser {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// The official username, e.g. "hq.sujal.k7m2" (lower case).
+  username          String    @unique
+  displayName       String    @map("display_name")
+  /// scrypt: "scrypt$N$r$p$saltB64$hashB64". The password itself is never stored or logged.
+  passwordHash      String    @map("password_hash")
+  /// The admin's phone for account recovery: encrypted ('admin_users.phone'), and an HMAC for comparing.
+  phoneEnc          Bytes     @map("phone_enc")
+  phoneHash         Bytes     @map("phone_hash")
+  failedLogins      Int       @default(0) @map("failed_logins")
+  lockedUntil       DateTime? @map("locked_until") @db.Timestamptz(6)
+  passwordChangedAt DateTime  @map("password_changed_at") @db.Timestamptz(6)
+  lastLoginAt       DateTime? @map("last_login_at") @db.Timestamptz(6)
+  disabledAt        DateTime? @map("disabled_at") @db.Timestamptz(6)
+  createdAt         DateTime  @map("created_at") @db.Timestamptz(6)
+
+  passkeys   AdminPasskey[]
+  sessions   AdminSession[]
+  recoveries AdminRecovery[]
+
+  @@map("admin_users")
+}
+
+/// A passkey (Windows Hello face / fingerprint / PIN) registered by an admin after their first password login.
+model AdminPasskey {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId      String    @map("admin_id") @db.Uuid
+  /// WebAuthn credential id, base64url.
+  credentialId String    @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  counter      BigInt    @default(0)
+  transports   String[]
+  deviceName   String    @map("device_name")
+  createdAt    DateTime  @map("created_at") @db.Timestamptz(6)
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz(6)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("admin_passkeys")
+}
+
+enum AdminSessionStage {
+  /// Password right: the passkey step is next (a few minutes at most).
+  PASSWORD_OK
+  /// Password and passkey: signed in.
+  VERIFIED
+
+  @@map("admin_session_stage")
+}
+
+/// A sign-in to the portal: a random token in an HttpOnly cookie, stored here only as its SHA-256.
+model AdminSession {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId    String            @map("admin_id") @db.Uuid
+  tokenHash  Bytes             @unique @map("token_hash")
+  stage      AdminSessionStage
+  /// The WebAuthn challenge being answered (passkey step), base64url.
+  challenge  String?
+  ip         String
+  userAgent  String            @map("user_agent")
+  createdAt  DateTime          @map("created_at") @db.Timestamptz(6)
+  lastSeenAt DateTime          @map("last_seen_at") @db.Timestamptz(6)
+  expiresAt  DateTime          @map("expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime?         @map("revoked_at") @db.Timestamptz(6)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("admin_sessions")
+}
+
+/// "Forgot password", like Apple's account recovery: phone and one-time code, then a wait of 2 to 24 hours that no one
+/// can shorten; a normal sign-in by the owner meanwhile cancels it. Then the same browser may set a new password.
+model AdminRecovery {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId     String    @map("admin_id") @db.Uuid
+  /// SHA-256 of the token kept in that browser's cookie.
+  tokenHash   Bytes     @unique @map("token_hash")
+  ip          String
+  userAgent   String    @map("user_agent")
+  createdAt   DateTime  @map("created_at") @db.Timestamptz(6)
+  /// From when the new password may be set.
+  readyAt     DateTime  @map("ready_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@map("admin_recoveries")
 }

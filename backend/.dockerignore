@@ -11,3 +11,8 @@ test/
 docs/
 deploy/
 *.log
+
+admin/node_modules/
+admin/dist/
+# The portal image needs its web server settings.
+!deploy/admin.nginx.conf
