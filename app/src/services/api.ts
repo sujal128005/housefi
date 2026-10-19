@@ -161,7 +161,9 @@ export type NotificationKind =
   | 'PAY_REMINDER' | 'BOOKING_REMINDER' | 'JOB_REMINDER' | 'QUOTE_REMINDER' | 'RATE_REMINDER' | 'PROFILE_SUSPENDED'
   | 'PROFILE_REINSTATED' | 'PROFILE_REJECTED'
   // the day's schedule: the evening before a visit (both sides), the technician's morning plan
-  | 'BOOKING_TOMORROW' | 'JOB_TOMORROW' | 'JOB_DAY_PLAN';
+  | 'BOOKING_TOMORROW' | 'JOB_TOMORROW' | 'JOB_DAY_PLAN'
+  // a chat message from the other side (shown by the chat bubble, not in the inbox)
+  | 'CHAT_MESSAGE';
 
 export interface AppNotification {
   readonly id: string;
@@ -261,6 +263,8 @@ export interface TechAuthApi {
 /** Everything the technician app does. Technician accounts and tokens are separate from customer ones. */
 export interface TechApi {
   readonly auth: TechAuthApi;
+  /** The technician's chats with their customers. */
+  readonly chat: ChatApi;
   me(token: string): Promise<TechProfile>;
   /**
    * First submission and corrections; puts the profile (back) into verification. The first submission needs a photo
@@ -352,6 +356,48 @@ export interface VerifyApi {
   technician(verifyToken: string): Promise<TechVerifyResult>;
 }
 
+/** One chat message: words and/or a photo. */
+export interface ChatMessage {
+  readonly id: string;
+  /** ME: sent from this phone's account; THEM: from the other side. */
+  readonly from: 'ME' | 'THEM';
+  readonly text: string;
+  /** A link to the photo (short-lived; the screen asks again for fresh ones); null for words only. */
+  readonly photo: string | null;
+  readonly at: number;
+}
+
+/** The chat between a customer and the assigned technician, from assignment until the job is done. */
+export interface Chat {
+  readonly bookingId: string;
+  /** Messages can be sent (the job is on). */
+  readonly open: boolean;
+  /** The job is done: either side can clear it; it clears itself at clearsAt anyway. */
+  readonly clearable: boolean;
+  readonly clearsAt: number | null;
+  /** Oldest first. */
+  readonly messages: readonly ChatMessage[];
+}
+
+/** A chat in the floating chat bubble: open, or with unread messages. */
+export interface ChatSummary {
+  readonly bookingId: string;
+  readonly code: string;
+  readonly open: boolean;
+  readonly unread: number;
+}
+
+/** The same calls for the customer (their bookings) and the technician (their jobs). */
+export interface ChatApi {
+  list(token: string): Promise<readonly ChatSummary[]>;
+  /** Reading it marks it read. */
+  get(token: string, bookingId: string): Promise<Chat>;
+  /** Words and/or a photo (a local file; uploaded first). */
+  send(token: string, bookingId: string, input: { readonly text: string; readonly photoUri?: string }): Promise<Chat>;
+  /** Only once the job is done (CONFLICT before). */
+  clear(token: string, bookingId: string): Promise<void>;
+}
+
 export interface Backend {
   readonly mode: 'DEMO' | 'LIVE';
   readonly auth: AuthApi;
@@ -363,6 +409,8 @@ export interface Backend {
   readonly tech: TechApi;
   readonly verify: VerifyApi;
   readonly support: SupportApi;
+  /** The customer's chats with their technicians. */
+  readonly chat: ChatApi;
   readonly demo: DemoControls | null;
 }
 

@@ -96,8 +96,13 @@ export class UsersService {
         data: { status: 'DELETED', deletedAt: now, nameEnc: null, phoneEnc: new Uint8Array(0), phoneHash: new Uint8Array(randomBytes(32)) },
       });
       await this.audit.record({ actorType: user.role === 'TECHNICIAN' ? 'TECHNICIAN' : 'CUSTOMER', actorId: userId, action: 'user.delete', entity: 'user', entityId: userId, before: { status: user.status }, after: { status: 'DELETED' } }, tx);
+      // Chats they took part in go, both sides' words and photos (no booking of theirs is open: deletion waits for that).
+      const chats = { booking: { OR: [{ customerId: userId }, { technicianId: userId }] } };
+      const chatPhotos = (await tx.chatMessage.findMany({ where: { ...chats, uploadId: { not: null } }, select: { uploadId: true } })).map((m) => m.uploadId!);
+      await tx.chatMessage.deleteMany({ where: chats });
+      if (chatPhotos.length) await tx.upload.deleteMany({ where: { id: { in: chatPhotos }, stage: 'CHAT' } });
       // Photos and voice notes (their home, their voice) go too; the files after commit.
-      return this.uploads.forgetUser(tx, userId);
+      return [...new Set([...chatPhotos, ...(await this.uploads.forgetUser(tx, userId))])];
     });
     await this.uploads.deleteObjects(uploads);
     this.log.log(`account ${userId} deleted and anonymised`);

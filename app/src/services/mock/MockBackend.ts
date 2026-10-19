@@ -23,7 +23,7 @@ import type {
 import { quoteVisible } from '../../domain/types';
 import {
   ApiError, type AppNotification, type Backend, type ChatReply, type DemoOutcome, type DemoSettings, type KeyValueStore, type NewBooking,
-  type NotificationKind, type OtpChallenge, type PaymentResult, type QuoteAnswer, type QuoteInput,
+  type Chat, type ChatApi, type NotificationKind, type OtpChallenge, type PaymentResult, type QuoteAnswer, type QuoteInput,
 } from '../api';
 
 // v4: technician identity (ID, photo, verification). Older demo data is dropped, not migrated.
@@ -760,6 +760,63 @@ export function createMockBackend(opts: MockOptions): Backend {
     return { s, list, index, b };
   }
 
+  // ---------- chat (kept in memory: the demo's chats end with the app) ----------
+
+  type ChatSide = 'CUSTOMER' | 'TECHNICIAN';
+  const chats = new Map<string, { messages: { id: string; by: ChatSide; text: string; photo: string | null; at: number }[]; read: Record<ChatSide, number> }>();
+  const chatOf = (bookingId: string) => {
+    const c = chats.get(bookingId) ?? { messages: [], read: { CUSTOMER: 0, TECHNICIAN: 0 } };
+    chats.set(bookingId, c);
+    return c;
+  };
+  function chatView(b: StoredBooking, side: ChatSide): Chat {
+    const c = chatOf(b.id);
+    const done = !isActive(b.status);
+    return {
+      bookingId: b.id, open: !done, clearable: done, clearsAt: done ? (b.history.at(-1)?.at ?? now()) + 86_400_000 : null,
+      messages: c.messages.map((m) => ({ id: m.id, from: m.by === side ? 'ME' : 'THEM', text: m.text, photo: m.photo, at: m.at })),
+    };
+  }
+  function mockChat(side: ChatSide): ChatApi {
+    const find = async (token: string, id: string) => {
+      const b = side === 'CUSTOMER' ? (await touch(token, id)).b : (await touchJob(token, id)).b;
+      if (!b.technician) throw new ApiError('CONFLICT');
+      return b;
+    };
+    return {
+      async list(token) {
+        const s = await request('READ');
+        const mine = side === 'CUSTOMER' ? (s.bookings[customerFor(s, token).id] ?? []) : allBookings().filter((b) => b.techId === techFor(s, token).id);
+        return mine.filter((b) => b.technician && (isActive(b.status) || (chats.get(b.id)?.messages.length ?? 0) > 0)).map((b) => {
+          const c = chatOf(b.id);
+          return { bookingId: b.id, code: b.code, open: isActive(b.status), unread: c.messages.filter((m) => m.by !== side && m.at > c.read[side]).length };
+        });
+      },
+      async get(token, id) {
+        await request('READ');
+        const b = await find(token, id);
+        chatOf(b.id).read[side] = now();
+        return chatView(b, side);
+      },
+      async send(token, id, input) {
+        await request('WRITE');
+        const b = await find(token, id);
+        if (!isActive(b.status)) throw new ApiError('CONFLICT');
+        if (!input.text.trim() && !input.photoUri) throw new ApiError('VALIDATION');
+        const c = chatOf(b.id);
+        c.messages.push({ id: `m${c.messages.length + 1}-${now()}`, by: side, text: input.text.trim(), photo: input.photoUri ?? null, at: now() });
+        c.read[side] = now();
+        return chatView(b, side);
+      },
+      async clear(token, id) {
+        await request('WRITE');
+        const b = await find(token, id);
+        if (isActive(b.status)) throw new ApiError('CONFLICT');
+        chats.delete(b.id);
+      },
+    };
+  }
+
   /** Loads a technician's job (only jobs assigned to them), advanced and saved. */
   async function touchJob(token: string, jobId: string): Promise<{ tech: StoredTech; list: StoredBooking[]; index: number; b: StoredBooking }> {
     const s = await load();
@@ -1166,7 +1223,9 @@ export function createMockBackend(opts: MockOptions): Backend {
 
     notifications,
 
+    chat: mockChat('CUSTOMER'),
     tech: {
+      chat: mockChat('TECHNICIAN'),
       auth: {
         requestOtp,
         async verifyOtp(challengeId, code) {

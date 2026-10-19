@@ -5,7 +5,7 @@
 import { ApiError } from '../api';
 
 export type UploadKind = 'photos' | 'audio';
-export type PhotoStage = 'PROBLEM' | 'INSPECTION' | 'COMPLETION' | 'PROFILE';
+export type PhotoStage = 'PROBLEM' | 'INSPECTION' | 'COMPLETION' | 'PROFILE' | 'CHAT';
 
 export interface UploadTicket {
   readonly id: string;
