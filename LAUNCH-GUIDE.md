@@ -46,7 +46,10 @@ GitHub. They go only into `backend/.env.production` on the server (Part 3).
 
 ## Part 3. Put the server online (half a day, once)
 
-Follow `backend/docs/DEPLOY.md` from top to bottom. In short:
+**No budget yet?** Run the pilot on your own Windows laptop instead: [`backend/docs/DEPLOY-LAPTOP.md`](backend/docs/DEPLOY-LAPTOP.md)
+(Docker + a free Cloudflare Tunnel, ₹0, no card; works while the laptop is on). Team demo numbers only.
+
+With a budget, follow `backend/docs/DEPLOY.md` from top to bottom. In short:
 
 1. **DigitalOcean:** create the Droplet, database and Space (step 1).
 2. **DNS:** where housefi.tech's DNS is managed, add an `A` record `api` → the Droplet's IP (step 2).

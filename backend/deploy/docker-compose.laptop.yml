@@ -1,0 +1,61 @@
+# Pilot server on a laptop (docs/DEPLOY-LAPTOP.md). Used together with docker-compose.prod.yml:
+#
+#   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.laptop.yml --env-file .env.production --profile local-db up -d --build
+#
+# No ports are opened on the laptop and Caddy is not started: a Cloudflare Tunnel (outbound only) carries
+#   api.housefi.tech   -> http://api:4000
+#   files.housefi.tech -> http://s3:7070   (photo and voice uploads; the app uploads to presigned URLs here)
+# Everything else stays on the private Docker network. Only works while the laptop is on and online.
+
+services:
+  # HTTPS comes from Cloudflare; Caddy would only fight for ports 80/443.
+  caddy:
+    profiles: [caddy]
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    # Only this one secret is given to the tunnel container.
+    environment: { TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env.production}" }
+    depends_on: [api, s3]
+    networks: [internal]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  # S3-compatible storage for uploads (Versity S3 Gateway, files kept in the files-data volume). It checks every
+  # signature, so only presigned URLs from the API (or the API itself) can read or write.
+  s3:
+    image: versity/versitygw:v1.8.0
+    restart: unless-stopped
+    command: ["posix", "/data"]
+    environment:
+      ROOT_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env.production}"
+      ROOT_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env.production}"
+      VGW_REGION: "${S3_REGION:-us-east-1}"
+      VGW_QUIET: "true"
+    volumes: [files-data:/data]
+    networks: [internal]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  # Creates the uploads bucket once (200 = created, 409 = already there), then exits.
+  s3-bucket:
+    image: curlimages/curl:8.11.1
+    restart: "no"
+    depends_on: [s3]
+    networks: [internal]
+    environment:
+      KEY: "${S3_ACCESS_KEY_ID:?}"
+      SECRET: "${S3_SECRET_ACCESS_KEY:?}"
+      REGION: "${S3_REGION:-us-east-1}"
+      BUCKET: "${S3_BUCKET_UPLOADS:?set S3_BUCKET_UPLOADS in .env.production}"
+    command:
+      - sh
+      - -c
+      - >-
+        for i in $$(seq 1 30); do
+        code=$$(curl -s -o /dev/null -w '%{http_code}' --aws-sigv4 "aws:amz:$$REGION:s3" --user "$$KEY:$$SECRET" -X PUT "http://s3:7070/$$BUCKET");
+        case "$$code" in 200|409) echo "bucket $$BUCKET ready"; exit 0;; esac;
+        sleep 2; done; echo "could not create bucket $$BUCKET (last HTTP $$code)"; exit 1
+
+volumes:
+  files-data:
