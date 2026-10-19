@@ -87,7 +87,8 @@ export default function BookingHub() {
   const ticking = booking?.status === 'MATCHING';
   useEffect(() => {
     if (!ticking) return;
-    const timer = setInterval(() => setNow(Date.now()), 500);
+    // The search steps change every few seconds: once a second is plenty (and half the redraws).
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [ticking]);
 
@@ -200,7 +201,7 @@ export default function BookingHub() {
       {b.status === 'AWAITING_PAYMENT' ? (
         <View style={styles.stack}>
           <Button label={t('confirm.pay', { amount: formatRupees(b.visitPayment.amount) })} icon="lock-closed" onPress={() => router.push({ pathname: '/pay', params: { id: b.id, kind: 'VISIT' } })} testID="hub-pay-visit" />
-          <Button label={t('hub.discard')} variant="outline" onPress={() => void act(() => backend.bookings.cancel(session.token, b.id, null))} testID="hub-discard" />
+          <Button label={t('hub.discard')} variant="outline" onPress={() => void act(() => backend.bookings.cancel(session.token, b.id, null))} loading={busy} testID="hub-discard" />
         </View>
       ) : null}
       {b.status === 'PAYMENT_PENDING' ? <View style={styles.center}><ActivityIndicator color={colors.warning} /></View> : null}

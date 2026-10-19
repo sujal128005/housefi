@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Animated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { BookingStatus } from '../domain/types';
 import { useI18n } from '../i18n/I18n';
 import { colors, radius, shadow, space } from '../theme/tokens';
@@ -64,7 +64,7 @@ export function RadioDot({ on }: { readonly on: boolean }) {
   );
 }
 
-export function ListRow({ icon, title, subtitle, onPress, right, testID, tone = 'ink', tag }: {
+export function ListRow({ icon, title, subtitle, onPress, right, testID, tone = 'ink', tag, busy = false }: {
   readonly icon?: IconName;
   readonly title: string;
   readonly subtitle?: string;
@@ -73,6 +73,8 @@ export function ListRow({ icon, title, subtitle, onPress, right, testID, tone = 
   readonly testID?: string;
   readonly tone?: TextColor;
   readonly tag?: string;
+  /** Working on it (a request sent): shows a spinner at once and ignores more taps. */
+  readonly busy?: boolean;
 }) {
   const body = (
     <>
@@ -86,11 +88,11 @@ export function ListRow({ icon, title, subtitle, onPress, right, testID, tone = 
         {subtitle ? <Txt variant="footnote" color="inkMuted">{subtitle}</Txt> : null}
       </View>
       {tag ? <Pill tone="demo" label={tag} /> : null}
-      {right ?? (onPress ? <Icon name="chevron-forward" size={18} color="inkSubtle" /> : null)}
+      {busy ? <ActivityIndicator color={colors.navy} /> : right ?? (onPress ? <Icon name="chevron-forward" size={18} color="inkSubtle" /> : null)}
     </>
   );
   if (!onPress) return <View style={styles.row} testID={testID}>{body}</View>;
-  return <Tap testID={testID} onPress={onPress} style={styles.row} scale={0.99} accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}>{body}</Tap>;
+  return <Tap testID={testID} onPress={onPress} disabled={busy} style={styles.row} scale={0.99} accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title} accessibilityState={{ busy, disabled: busy }}>{body}</Tap>;
 }
 
 export type PillTone = 'demo' | 'info' | 'success' | 'warning' | 'danger' | 'neutral';

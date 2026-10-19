@@ -22,6 +22,7 @@ import { CategoryTile } from '../../ui/CategoryTile';
 import { Appear } from '../../ui/motion';
 import { NotificationList } from '../../ui/Notifications';
 import { MAX_CONTENT, useLayout } from '../../ui/responsive';
+import { keepIfSame, startPolling } from '../../state/polling';
 
 function greetingKey(h: number): StringKey {
   return h < 12 ? 'home.morning' : h < 17 ? 'home.afternoon' : 'home.evening';
@@ -46,15 +47,14 @@ export default function Home() {
     let alive = true;
     const load = () => Promise.all([backend.bookings.list(session.token), backend.addresses.list(session.token), backend.notifications.list(session.token)])
       .then(([bookings, addresses, inbox]) => {
-        if (alive) setExtra({ bookings, addresses, inbox });
+        if (alive) setExtra(keepIfSame<typeof extra>({ bookings, addresses, inbox }));
       })
       .catch(() => undefined);
-    void load();
     // Keep the live booking card moving while Home is open.
-    const timer = setInterval(() => void load(), 4000);
+    const stop = startPolling(load, 5000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stop();
     };
   }, [backend, session.token]));
 

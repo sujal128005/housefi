@@ -21,6 +21,7 @@ import { Appear, Pulse } from '../../../ui/motion';
 import { NotificationList } from '../../../ui/Notifications';
 import { JobCard, techStepIndex, TECH_STEPS } from '../../../ui/TechParts';
 import { TechPhoto } from '../../../ui/TechIdentity';
+import { keepIfSame, startPolling } from '../../../state/polling';
 
 function greetingKey(h: number): StringKey {
   return h < 12 ? 'home.morning' : h < 17 ? 'home.afternoon' : 'home.evening';
@@ -57,14 +58,14 @@ export default function TechHome() {
     let alive = true;
     const load = () => Promise.all([backend.tech.jobs(session.token), backend.tech.earnings(session.token), backend.tech.notifications.list(session.token)])
       .then(([jobs, earnings, inbox]) => {
-        if (alive) setData({ jobs, earnings, inbox });
+        if (alive) setData(keepIfSame<typeof data>({ jobs, earnings, inbox }));
       })
       .catch(() => undefined);
-    void load();
-    const timer = setInterval(() => void load(), 3000);
+    // New offers come through TechAlerts; this keeps the job card and today's numbers current.
+    const stop = startPolling(load, 5000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stop();
     };
   }, [backend, session.token]));
 

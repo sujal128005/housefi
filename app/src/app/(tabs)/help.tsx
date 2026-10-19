@@ -49,7 +49,7 @@ export default function Help() {
           <Art3D name="robot" size={104} float />
         </Wash>
       </Tap>
-      <ListRow icon="call-outline" title={t('help.contact')} subtitle={t('help.contactSub')} onPress={() => void care.call()} testID="help-call" />
+      <ListRow icon="call-outline" title={t('help.contact')} subtitle={t('help.contactSub')} onPress={() => void care.call()} busy={care.calling} testID="help-call" />
       <Txt variant="title3" heading>{t('help.faq')}</Txt>
       <Card style={styles.faq}>
         {FAQ.map(([q, a], i) => (
