@@ -2,10 +2,12 @@
 // The test clock starts at 2026-10-16 12:00 IST. plumb-tap: typical range ₹149-₹596, review above ₹894.
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
+import { runSupportCommand } from '../src/cli/support';
 import { FieldCipher } from '../src/common/crypto/field-cipher';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
 import { DispatchService } from '../src/modules/dispatch/dispatch.service';
 import { JobsService } from '../src/modules/jobs/jobs.service';
+import { SupportService } from '../src/modules/support/support.service';
 import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, type TestApp } from './helpers';
 
 const MIN = 60_000;
@@ -143,6 +145,36 @@ describe('job actions (e2e)', () => {
       expect((await act('verify-start-code', { code: right }).expect(429)).body.error.code).toBe('OTP_LOCKED');
       expect((await job()).otpAttemptsLeft).toBe(0);
       expect(await t.prisma.supportTicket.findFirstOrThrow({ where: { bookingId: id } })).toMatchObject({ kind: 'START_CODE_LOCKED', priority: 'HIGH', state: 'OPEN' });
+    });
+
+    it('support unlocks it (npm run support -- unlock-start), audited, and the right code then starts the visit', async () => {
+      const cli = (...args: string[]) => runSupportCommand(args, t.app.get(SupportService), { type: 'ADMIN', id: null, via: 'cli:test' });
+      const { code } = await t.prisma.booking.findUniqueOrThrow({ where: { id } });
+      await act('start-trip').expect(200);
+      await expect(cli('unlock-start', code)).rejects.toMatchObject({ code: 'CONFLICT' }); // not at the door yet
+      await act('arrived').expect(200);
+      await expect(cli('unlock-start', code)).rejects.toMatchObject({ code: 'CONFLICT' }); // not locked
+      const right = await startCode();
+      const wrong = right === '0000' ? '1111' : '0000';
+      for (let i = 0; i < 4; i++) await act('verify-start-code', { code: wrong }).expect(400);
+      expect((await act('verify-start-code', { code: wrong }).expect(429)).body.error.code).toBe('OTP_LOCKED');
+      const ticket = await t.prisma.supportTicket.findFirstOrThrow({ where: { bookingId: id, kind: 'START_CODE_LOCKED' } });
+      const before = await t.prisma.booking.findUniqueOrThrow({ where: { id } });
+
+      await expect(cli('unlock-start', 'HF-00000')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      expect(await cli('unlock-start', code.toLowerCase())).toEqual([`Start code unlocked for ${code}. The technician can enter the code again. Its support ticket is resolved.`]);
+      const after = await t.prisma.booking.findUniqueOrThrow({ where: { id } });
+      expect(after).toMatchObject({ status: 'ARRIVED', startCodeAttempts: 0, version: before.version + 1 });
+      expect((await job()).otpAttemptsLeft).toBe(5);
+      expect(await t.prisma.supportTicket.findUniqueOrThrow({ where: { id: ticket.id } })).toMatchObject({ state: 'RESOLVED', resolution: 'Start code unlocked by support' });
+      expect(await t.prisma.auditLog.findFirst({ where: { action: 'support.unlock_start_code' } })).toMatchObject({
+        actorType: 'ADMIN', entity: 'booking', entityId: id, before: { startCodeAttempts: 5 }, after: { startCodeAttempts: 0, via: 'cli:test', resolvedTickets: [ticket.id] },
+      });
+      await expect(cli('unlock-start', id)).rejects.toMatchObject({ code: 'CONFLICT' }); // by id too; no longer locked
+
+      expect((await act('verify-start-code', { code: wrong }).expect(400)).body.error).toMatchObject({ code: 'OTP_INVALID', attemptsLeft: 4 });
+      expect((await act('verify-start-code', { code: right }).expect(200)).body.status).toBe('INSPECTING');
+      await expect(cli('unlock-start', code)).rejects.toMatchObject({ code: 'CONFLICT' }); // the visit has started
     });
 
     it('only at the door', async () => {

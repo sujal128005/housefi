@@ -5,6 +5,8 @@ import { AuditService } from '../../common/audit/audit.module';
 import { type Clock, InjectClock } from '../../common/clock';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
+import { InjectConfig } from '../../config/config.module';
+import type { Env } from '../../config/env';
 import { ACTIVE_STATUSES } from '../bookings/booking-status';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,6 +49,7 @@ export class SupportService {
     private readonly audit: AuditService,
     private readonly hashing: Hashing,
     @InjectClock() private readonly clock: Clock,
+    @InjectConfig() private readonly config: Env,
   ) {}
 
   /**
@@ -69,6 +72,43 @@ export class SupportService {
         tx,
       );
       return true;
+    });
+  }
+
+  /**
+   * Gives the technician fresh start-code tries after START_CODE_MAX_ATTEMPTS wrong ones locked the visit, once
+   * support has checked with the customer and the technician (e.g. on a call) that they are really together at the
+   * door. Only an ARRIVED booking that is locked; resolves its open START_CODE_LOCKED ticket. Audited.
+   * `ref` is the booking code ("HF-48291", or just the digits) or its id.
+   */
+  async unlockStartCode(ref: string, actor: SupportActor): Promise<{ code: string; ticketsResolved: number }> {
+    const where = UUID.test(ref.trim()) ? { id: ref.trim() } : { code: `HF-${ref.trim().toUpperCase().replace(/^HF-?/, '')}` };
+    if (!('id' in where) && !/^HF-\d{5,6}$/.test(where.code)) throw new AppError('NOT_FOUND', {}, 'no booking with that code');
+    const max = this.config.START_CODE_MAX_ATTEMPTS;
+    return this.prisma.$transaction(async (tx) => {
+      const found = await tx.booking.findUnique({ where, select: { id: true } });
+      if (!found) throw new AppError('NOT_FOUND', {}, 'no booking with that code');
+      // Lock the row so a start-code attempt at the same moment cannot interleave.
+      await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${found.id}::uuid FOR UPDATE`;
+      const b = await tx.booking.findUniqueOrThrow({ where: { id: found.id }, select: { id: true, code: true, status: true, startCodeAttempts: true } });
+      if (b.status !== 'ARRIVED') throw new AppError('CONFLICT', {}, `the visit is ${b.status}, not waiting for the start code`);
+      if (b.startCodeAttempts < max) throw new AppError('CONFLICT', {}, 'the start code is not locked');
+      await tx.booking.update({ where: { id: b.id }, data: { startCodeAttempts: 0, version: { increment: 1 } } });
+      const tickets = await tx.supportTicket.findMany({ where: { bookingId: b.id, kind: 'START_CODE_LOCKED', state: { not: 'RESOLVED' } }, select: { id: true } });
+      if (tickets.length > 0) {
+        await tx.supportTicket.updateMany({
+          where: { id: { in: tickets.map((t) => t.id) } },
+          data: { state: 'RESOLVED', resolvedAt: new Date(this.clock.now()), resolvedBy: actor.id, resolution: 'Start code unlocked by support' },
+        });
+      }
+      await this.audit.record(
+        {
+          actorType: actor.type, actorId: actor.id, action: 'support.unlock_start_code', entity: 'booking', entityId: b.id,
+          before: { startCodeAttempts: b.startCodeAttempts }, after: { startCodeAttempts: 0, via: actor.via, resolvedTickets: tickets.map((t) => t.id) },
+        },
+        tx,
+      );
+      return { code: b.code, ticketsResolved: tickets.length };
     });
   }
 

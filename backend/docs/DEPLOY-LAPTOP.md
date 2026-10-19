@@ -139,6 +139,9 @@ From `housefi-server\backend`:
 | Watch the logs | `deploy\laptop logs` (or `deploy\laptop logs api`); Ctrl+C to stop watching |
 | After a backend change is merged on GitHub | `deploy\laptop update` |
 | Technician review | `deploy\laptop tech pending`, `deploy\laptop tech approve <phone>` |
+| Support tickets | `deploy\laptop support open` (most urgent first), `deploy\laptop support resolve <ticketId> "what you did"` |
+| Customer locked out of sign-in (too many wrong SMS codes) | Call them on that number first, then `deploy\laptop support unlock <phone>` |
+| Technician locked out of a job (5 wrong start codes) | Call the customer and the technician first to check they are together at the door, then `deploy\laptop support unlock-start HF-48291` (the booking code). The technician can type the code again; the support ticket is closed |
 | Stop / start | `deploy\laptop stop`, `deploy\laptop start` |
 | Backup | `deploy\laptop backup` (asks for a passphrase; keep it in Bitwarden). Writes an encrypted file to `housefi-backups` in your user folder. Copy it off the laptop too |
 
