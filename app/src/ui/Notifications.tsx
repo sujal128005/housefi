@@ -20,6 +20,7 @@ import { Sheet, useToast } from './Overlays';
 import { Divider } from './Surfaces';
 import { Tap } from './Tap';
 import { Txt } from './Txt';
+import { startPolling } from '../state/polling';
 
 const ART: Record<NotificationKind, ArtName> = {
   TECH_ASSIGNED: 'tech_man', TECH_ON_THE_WAY: 'scooter', TECH_ARRIVED: 'handshake', QUOTE_READY: 'clipboard', EXTRA_QUOTE: 'memo',
@@ -121,11 +122,10 @@ export function CustomerAlerts() {
         }
       }
     };
-    void tick();
-    const timer = setInterval(() => void tick(), 4000);
+    const stop = startPolling(tick, 5000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stop();
     };
     // text/toast are stable enough per render; re-subscribing on each render would reset the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
