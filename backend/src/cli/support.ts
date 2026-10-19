@@ -2,6 +2,8 @@
 //   open                          open tickets, most urgent first (SOS, payment problems, call-backs, reports)
 //   resolve <ticketId> "<what>"   close a ticket, saying what was done
 //   unlock <phone>                lift a sign-in lock after wrong codes (confirm it is the person first)
+//   unlock-start <booking>        give a technician new start-code tries after 5 wrong ones (booking code like
+//                                 HF-48291, or its id; call both people first to check they are at the door)
 // Resolutions are written to audit_log with who ran it. Runs against DATABASE_URL (or .env locally).
 import { type DynamicModule, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -22,6 +24,7 @@ export const USAGE = [
   '  open                          open tickets, most urgent first',
   '  resolve <ticketId> "<what>"   resolve a ticket',
   '  unlock <phone>                lift a sign-in lock after wrong codes',
+  '  unlock-start <booking>        new start-code tries after too many wrong ones (code like HF-48291)',
 ].join('\n');
 
 /** The command logic, separate from process wiring so it can be tested. Returns the lines to print. */
@@ -36,6 +39,10 @@ export async function runSupportCommand(args: readonly string[], support: Suppor
   }
   if (command === 'unlock' && id) {
     return [(await support.unlockSignIn(id, actor)) ? 'Sign-in unlocked for that number.' : 'That number was not locked.'];
+  }
+  if (command === 'unlock-start' && id) {
+    const done = await support.unlockStartCode(id, actor);
+    return [`Start code unlocked for ${done.code}. The technician can enter the code again.${done.ticketsResolved > 0 ? ' Its support ticket is resolved.' : ''}`];
   }
   if (command === 'resolve' && id && what) {
     await support.resolve(id, what, actor);
