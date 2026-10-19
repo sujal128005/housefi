@@ -11,6 +11,7 @@
 #   .\deploy\laptop.ps1 support open     # support queue: open | resolve <ticketId> "<what>" | unlock <phone> | unlock-start <booking>
 #   .\deploy\laptop.ps1 uidai <folder>   # Aadhaar checks: put the UIDAI .cer files from that folder in .env.production
 #   .\deploy\laptop.ps1 payouts prepare  # every Monday: weekly technician payouts (list | paid <id> <ref> | failed <id>)
+#   .\deploy\laptop.ps1 admin list     # super admins: create "<name>" <phone> | list | reset-password | reset-passkeys | unlock
 #   .\deploy\laptop.ps1 backup           # encrypted database backup into your housefi-backups folder
 #   .\deploy\laptop.ps1 tunnel-setup     # once: the Cloudflare Tunnel for api.housefi.tech and files.housefi.tech
 param(
@@ -83,6 +84,7 @@ switch ($Action) {
   'seed' { dc exec api node dist/cli/seed.js }
   'tech' { dc exec api node dist/cli/technicians.js @Rest }
   'support' { dc exec api node dist/cli/support.js @Rest }
+  'admin' { dc exec api node dist/cli/admin.js @Rest }
   'payouts' { dc exec api node dist/cli/payouts.js @Rest }
   'uidai' {
     if ($Rest.Count -ne 1) { throw 'usage: deploy\laptop uidai <folder with the UIDAI .cer files>' }

@@ -8,8 +8,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildTestApp, requireTestDatabase, type TestApp } from './helpers';
 
-/** Not part of the app contract: called by Exotel, or by load balancers and uptime checks. */
-const UNDOCUMENTED = [/^\/webhooks\/telephony\//, /^\/health/];
+/**
+ * Not part of the app contract: called by Exotel, or by load balancers and uptime checks; and the super admin portal's
+ * private API, answered only on its secret host.
+ */
+const UNDOCUMENTED = [/^\/webhooks\/telephony\//, /^\/health/, /^\/admin\//];
 
 /** "METHOD /path/{param}" for every operation in openapi.yaml (a small reader: paths are 2-space keys, methods 4-space). */
 function documented(): Set<string> {

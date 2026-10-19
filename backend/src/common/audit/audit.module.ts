@@ -14,6 +14,8 @@ export interface AuditEntry {
   readonly before?: Prisma.InputJsonObject;
   readonly after?: Prisma.InputJsonObject;
   readonly requestId?: string;
+  /** The network address of a privileged sign-in or action (the super admin portal). */
+  readonly ip?: string;
 }
 
 /** Append-only record of privileged actions (README security checklist: "who, when, before, after"). */
@@ -36,6 +38,7 @@ export class AuditService {
         ...(entry.before ? { before: entry.before } : {}),
         ...(entry.after ? { after: entry.after } : {}),
         requestId: entry.requestId ?? null,
+        ...(entry.ip ? { ip: entry.ip } : {}),
         at: new Date(this.clock.now()),
       },
     });
