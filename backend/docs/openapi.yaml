@@ -1464,10 +1464,12 @@ components:
           enum: [TECH_ASSIGNED, TECH_ON_THE_WAY, TECH_ARRIVED, QUOTE_READY, EXTRA_QUOTE, PAYMENT_DUE, BOOKING_COMPLETED, BOOKING_CANCELLED,
                  NO_TECHNICIAN, JOB_OFFER, QUOTE_APPROVED, QUOTE_REVISION, QUOTE_DECLINED, EXTRA_APPROVED, EXTRA_DECLINED, PAYMENT_RECEIVED,
                  JOB_CANCELLED, PROFILE_APPROVED, PROFILE_NEEDS_CORRECTION, PAY_REMINDER, BOOKING_REMINDER, JOB_REMINDER, QUOTE_REMINDER,
-                 RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED]
+                 RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, BOOKING_TOMORROW, JOB_TOMORROW, JOB_DAY_PLAN]
           description: >-
             Reminders: PAY_REMINDER {code, minutes} 10 min before an unpaid booking expires; BOOKING_REMINDER / JOB_REMINDER
-            {code, startHour} an hour before a scheduled visit; QUOTE_REMINDER {code} after a quote waits 10 min;
+            {code, startHour} an hour before a scheduled visit; BOOKING_TOMORROW / JOB_TOMORROW {code, startHour, endHour}
+            from 19:00 IST the evening before; JOB_DAY_PLAN {code, count, startHour} from 07:30 IST, the technician's
+            scheduled jobs that day (code = the first); QUOTE_REMINDER {code} after a quote waits 10 min;
             RATE_REMINDER {code} 2 h after completion if unrated. The app should show unknown kinds generically.
         bookingId: { type: [string, 'null'] }
         params: { type: object, additionalProperties: { type: [string, number] } }

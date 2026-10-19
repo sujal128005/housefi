@@ -1,11 +1,14 @@
-// Technician jobs: active and past, newest first.
+// Technician jobs: the schedule (jobs under way first, then booked time slots by day: today, tomorrow, later dates,
+// earliest first) and past jobs, newest first.
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isActive } from '../../../domain/rules';
+import { isActive, parseIsoDate } from '../../../domain/rules';
+import { scheduleOf } from '../../../domain/schedule';
 import type { Job } from '../../../domain/types';
 import { Art3D } from '../../../illustrations/Art3D';
+import { formatDate } from '../../../i18n/format';
 import { useI18n } from '../../../i18n/I18n';
 import { useBackend } from '../../../services/ServicesProvider';
 import { useTechSession } from '../../../state/AppState';
@@ -15,7 +18,7 @@ import { JobCard } from '../../../ui/TechParts';
 import { keepIfSame, startPolling } from '../../../state/polling';
 
 export default function TechJobs() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const backend = useBackend();
   const session = useTechSession();
   const insets = useSafeAreaInsets();
@@ -51,7 +54,7 @@ export default function TechJobs() {
         </View>
       }
     >
-      <Segmented value={tab} onChange={setTab} options={[{ value: 'ACTIVE', label: t('bookings.active') }, { value: 'PAST', label: t('bookings.past') }]} />
+      <Segmented value={tab} onChange={setTab} options={[{ value: 'ACTIVE', label: t('tjobs.schedule') }, { value: 'PAST', label: t('bookings.past') }]} />
       {error && !jobs ? <ErrorView error={error} onRetry={() => {
         setError(null);
         backend.tech.jobs(session.token).then(setJobs, setError);
@@ -62,7 +65,15 @@ export default function TechJobs() {
           title={tab === 'ACTIVE' ? t('tjobs.emptyActive') : t('tjobs.emptyPast')} body={tab === 'ACTIVE' ? t('tjobs.emptyActiveBody') : undefined}
           action={tab === 'ACTIVE' ? t('tjobs.goHome') : undefined} onAction={() => router.push('/tech/home')} testID="tech-jobs-empty" />
       ) : null}
-      {list.map((j) => <JobCard key={j.id} job={j} onPress={() => router.push(`/tech/job/${j.id}`)} />)}
+      {tab === 'ACTIVE' ? scheduleOf(list, new Date()).map((g) => (
+        <View key={g.key} style={styles.group} testID={`tjobs-day-${g.key}`}>
+          <Txt variant="label" color="inkMuted">
+            {g.key === 'NOW' ? t('tjobs.now') : g.key === 'TODAY' ? t('tjobs.today') : g.key === 'TOMORROW' ? t('tjobs.tomorrow') : formatDate(parseIsoDate(g.key), locale)}
+            {` · ${t('tjobs.count', { n: g.jobs.length })}`}
+          </Txt>
+          {g.jobs.map((j) => <JobCard key={j.id} job={j} onPress={() => router.push(`/tech/job/${j.id}`)} />)}
+        </View>
+      )) : list.map((j) => <JobCard key={j.id} job={j} onPress={() => router.push(`/tech/job/${j.id}`)} />)}
     </Screen>
   );
 }
@@ -71,4 +82,5 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: GUTTER, paddingBottom: space.sm },
   skel: { height: 110, borderRadius: 16 },
+  group: { gap: space.sm },
 });

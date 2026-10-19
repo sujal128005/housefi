@@ -912,6 +912,11 @@ enum NotificationKind {
   PAY_REMINDER
   BOOKING_REMINDER
   JOB_REMINDER
+  /// The evening before a scheduled visit (19:00 IST): to the customer and the technician.
+  BOOKING_TOMORROW
+  JOB_TOMORROW
+  /// 07:30 IST: the technician's scheduled jobs for the day.
+  JOB_DAY_PLAN
   QUOTE_REMINDER
   RATE_REMINDER
   PROFILE_SUSPENDED

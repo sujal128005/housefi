@@ -14,6 +14,7 @@ import { startPolling } from '../state/polling';
 const TOASTS: Partial<Record<NotificationKind, 'success' | 'notify' | 'warning' | 'cash'>> = {
   QUOTE_APPROVED: 'success', QUOTE_REVISION: 'notify', QUOTE_DECLINED: 'warning', EXTRA_APPROVED: 'success', EXTRA_DECLINED: 'warning',
   PAYMENT_RECEIVED: 'cash', JOB_CANCELLED: 'warning', PROFILE_APPROVED: 'success', PROFILE_NEEDS_CORRECTION: 'warning',
+  JOB_TOMORROW: 'notify', JOB_DAY_PLAN: 'notify',
 };
 
 export function TechAlerts() {
