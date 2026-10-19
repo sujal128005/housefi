@@ -15,9 +15,11 @@ services:
   tunnel:
     image: cloudflare/cloudflared:2026.9.3
     restart: unless-stopped
-    command: ["tunnel", "--no-autoupdate", "run"]
-    # Only this one secret is given to the tunnel container.
-    environment: { TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env.production}" }
+    command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run"]
+    # A locally managed tunnel (no Zero Trust plan needed): CLOUDFLARED_DIR holds only config.yml (the two hostnames
+    # above) and the tunnel's own credentials file, written by "deploy\laptop tunnel-setup". The account
+    # certificate (cert.pem) stays outside it and never reaches the container.
+    volumes: ["${CLOUDFLARED_DIR:?set CLOUDFLARED_DIR in .env.production (deploy\\laptop tunnel-setup)}:/etc/cloudflared:ro"]
     depends_on: [api, s3]
     networks: [internal]
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }

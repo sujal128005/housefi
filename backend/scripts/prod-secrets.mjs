@@ -11,6 +11,7 @@
 // phone hash key would make stored data unreadable, and new JWT keys would sign everyone out.
 import { generateKeyPairSync, randomBytes, randomInt } from 'node:crypto';
 import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 
 const OUT = '.env.production';
 const b64 = (s) => Buffer.from(s).toString('base64');
@@ -119,7 +120,8 @@ if (laptop) {
     TELEPHONY_PROVIDER: 'off',
     AADHAAR_REQUIRED: 'false',
     MSG91_OTP_TEMPLATE_ID: 'pending',
-    CLOUDFLARE_TUNNEL_TOKEN: '',
+    // The tunnel's config folder, filled by "deploy\laptop tunnel-setup" (forward slashes work on Windows too).
+    CLOUDFLARED_DIR: `${homedir().replace(/\\/g, '/')}/.cloudflared/housefi`,
   });
 }
 
@@ -139,7 +141,8 @@ chmodSync(OUT, 0o600);
 console.log(`Created ${OUT} (readable by you only) with: ${Object.keys(generated).join(', ')}.`);
 if (laptop) {
   console.log('Laptop pilot: still to fill in (docs/DEPLOY-LAPTOP.md): DEMO_PHONES, MSG91_AUTH_KEY, RAZORPAY_KEY_ID,');
-  console.log('RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, CLOUDFLARE_TUNNEL_TOKEN. Back up this file in your password manager:');
+  console.log('RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET; then run "deploy\\laptop tunnel-setup" once. Back up this file in your');
+  console.log('password manager:');
   console.log('without DATA_KEYS_B64 the stored data cannot be read.');
   process.exit(0);
 }
