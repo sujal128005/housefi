@@ -6,7 +6,7 @@ import { FieldCipher } from '../../common/crypto/field-cipher';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
 import { istDate, istDayStart } from '../slots/slot-rules';
-import { nextPayoutOn, payoutCutoff, rupees } from './earnings-rules';
+import { nextPayoutOn, payoutCutoff, rupees, WEEKS_SHOWN, type WeekSummary, weeklySummary } from './earnings-rules';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** The earnings screen lists this many of the latest jobs. */
@@ -33,6 +33,8 @@ export interface EarningsDto {
     readonly at: number;
     readonly payout: 'PENDING' | 'PAID';
   }[];
+  /** This week and the ones before it, newest first, with what happened to each week's payout. */
+  readonly weeks: readonly WeekSummary[];
 }
 
 export interface PayoutActor {
@@ -94,7 +96,31 @@ export class EarningsService {
       pendingPayout: rupees(sums?.balance ?? 0n),
       nextPayoutOn: nextPayoutOn(now),
       entries: jobs.map((j) => ({ jobId: j.booking_id, code: j.code, serviceId: j.service_id, amount: rupees(j.amount), at: j.at.getTime(), payout: j.paid ? 'PAID' : 'PENDING' })),
+
+      weeks: await this.weeks(technicianId, now),
     };
+  }
+
+  /** Totals per IST week (Monday to Sunday) for the weeks on screen, and the payouts that settled them. */
+  private async weeks(technicianId: string, now: number): Promise<WeekSummary[]> {
+    const thisMonday = payoutCutoff(now).cutoffMs;
+    const since = new Date(thisMonday - (WEEKS_SHOWN - 1) * 7 * 24 * 60 * 60_000);
+    const totals = await this.prisma.$queryRaw<{ week: string; earned: bigint; cash: bigint; jobs: bigint }[]>`
+      SELECT to_char(date_trunc('week', created_at AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM-DD') AS week,
+             COALESCE(SUM(amount_paise) FILTER (WHERE type IN ${JOB_CREDITS}), 0)::bigint AS earned,
+             COALESCE(-SUM(amount_paise) FILTER (WHERE type = 'CASH_COLLECTED'), 0)::bigint AS cash,
+             COUNT(DISTINCT booking_id) FILTER (WHERE type IN ${JOB_CREDITS}) AS jobs
+      FROM earnings_ledger WHERE technician_id = ${technicianId}::uuid AND created_at >= ${since}
+      GROUP BY 1`;
+    const payouts = await this.prisma.payout.findMany({
+      where: { technicianId, periodEnd: { gte: since } },
+      select: { periodEnd: true, state: true, amountPaise: true, paidAt: true, providerRef: true },
+    });
+    return weeklySummary(
+      now,
+      totals.map((r) => ({ week: r.week, earnedPaise: r.earned, cashPaise: r.cash, jobs: Number(r.jobs) })),
+      payouts.map((p) => ({ periodEnd: p.periodEnd.toISOString().slice(0, 10), state: p.state, amountPaise: p.amountPaise, paidAt: p.paidAt?.getTime() ?? null, providerRef: p.providerRef })),
+    );
   }
 
   // ---------- weekly payouts ----------

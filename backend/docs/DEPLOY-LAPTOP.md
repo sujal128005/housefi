@@ -143,6 +143,7 @@ From `housefi-server\backend`:
 | Customer locked out of sign-in (too many wrong SMS codes) | Call them on that number first, then `deploy\laptop support unlock <phone>` |
 | Technician locked out of a job (5 wrong start codes) | Call the customer and the technician first to check they are together at the door, then `deploy\laptop support unlock-start HF-48291` (the booking code). The technician can type the code again; the support ticket is closed |
 | Turn on Aadhaar checks (once, and again when UIDAI publishes a new certificate) | Download every certificate under "Secure QR Code" and "Offline e-KYC" on uidai.gov.in (UIDAI Certificate Details) into one folder, old ones too (an older Aadhaar stays signed with the certificate of its time). Then `deploy\laptop uidai C:\Users\<you>\uidai-certs` and `deploy\laptop start`. To require a verified Aadhaar before approval, set `AADHAAR_REQUIRED=true` in `.env.production` and `deploy\laptop start` |
+| Pay technicians (every Monday) | `deploy\laptop payouts prepare` (one payout per technician for the week to Sunday), pay each by bank / UPI, then `deploy\laptop payouts paid <payoutId> <reference>`. A failed transfer: `deploy\laptop payouts failed <payoutId>` (it goes into next Monday's run). Technicians see each week in the app: "Paid on Mon 20 Oct" |
 | Stop / start | `deploy\laptop stop`, `deploy\laptop start` |
 | Backup | `deploy\laptop backup` (asks for a passphrase; keep it in Bitwarden). Writes an encrypted file to `housefi-backups` in your user folder. Copy it off the laptop too |
 

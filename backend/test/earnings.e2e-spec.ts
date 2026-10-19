@@ -118,6 +118,11 @@ describe('earnings (e2e)', () => {
         pendingPayout: 6,
         nextPayoutOn: '2026-10-19',
         entries: [{ jobId: id, code, serviceId: 'plumb-tap', amount: 326, at: t.clock.now(), payout: 'PENDING' }],
+        weeks: expect.any(Array),
+      });
+      // This week (Mon 12 – Sun 18 Oct): earned, the cash kept, and paid next Monday.
+      expect((await summary()).weeks[0]).toEqual({
+        start: '2026-10-12', end: '2026-10-18', earned: 326, cash: 320, jobs: 1, payout: { state: 'UPCOMING', on: '2026-10-19', amount: null, ref: null },
       });
       expect((await api().get(`/v1/tech/jobs/${id}`).set(as(tech.token)).expect(200)).body.earning).toBe(326);
       expect((await api().get('/v1/tech/me').set(as(tech.token)).expect(200)).body.jobsDone).toBe(1);
@@ -155,7 +160,7 @@ describe('earnings (e2e)', () => {
     it('cancelled before the trip: nothing', async () => {
       await api().post(`/v1/bookings/${id}/cancel`).set(as(customer)).send({}).expect(200);
       expect(await ledger()).toEqual([]);
-      expect(await summary()).toEqual({ today: 0, jobsToday: 0, total: 0, pendingPayout: 0, nextPayoutOn: '2026-10-19', entries: [] });
+      expect(await summary()).toEqual({ today: 0, jobsToday: 0, total: 0, pendingPayout: 0, nextPayoutOn: '2026-10-19', entries: [], weeks: expect.any(Array) });
     });
   });
 
@@ -210,10 +215,12 @@ describe('earnings (e2e)', () => {
       });
       expect(await earnings().prepare(ADMIN)).toEqual([]);
       expect(await summary()).toMatchObject({ pendingPayout: 326, nextPayoutOn: '2026-10-19', entries: [{ payout: 'PENDING' }] });
+      expect((await summary()).weeks[1]).toMatchObject({ start: '2026-10-12', earned: 326, payout: { state: 'PENDING', on: '2026-10-19', amount: 326, ref: null } });
 
       expect(await earnings().markPaid(payout!.id, 'UTR 4521 0098 7766', ADMIN)).toMatchObject({ state: 'PAID', providerRef: 'UTR 4521 0098 7766' });
       expect((await ledgerTypes()).at(-1)).toEqual(['PAYOUT', -32600]);
       expect(await summary()).toMatchObject({ total: 326, pendingPayout: 0, entries: [{ jobId: id, payout: 'PAID' }] });
+      expect((await summary()).weeks[1]?.payout).toEqual({ state: 'PAID', on: '2026-10-19', amount: 326, ref: 'UTR 4521 0098 7766' });
       await expect(earnings().markPaid(payout!.id, 'again', ADMIN)).rejects.toMatchObject({ code: 'CONFLICT' });
       await expect(earnings().markPaid(randomUUID(), 'x', ADMIN)).rejects.toMatchObject({ code: 'NOT_FOUND' });
 
