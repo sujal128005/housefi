@@ -4,6 +4,8 @@ import { FALLBACK_PROBLEMS } from './top-problems';
 
 const FACTS = { visitFee: 49, quoteMin: 100 };
 const booking = (over: Partial<ChatBooking> = {}): ChatBooking => ({
+  id: 'b-1',
+  visitFeePaid: 49,
   code: 'HF-48291',
   status: 'MATCHING',
   technicianName: null,
@@ -36,8 +38,10 @@ describe('support chat rules', () => {
     expect(en('where is my technician?', booking()).text).toBe("We're finding a technician for booking HF-48291.");
     expect(en('where is my technician?', booking({ status: 'EN_ROUTE', technicianName: 'Swathi', etaMin: 7 }))).toEqual({
       text: 'Swathi is on the way and should reach you in about 7 min.',
-      suggestions: ['Cancel my booking', 'Talk to a person'],
+      suggestions: ['Talk to a person'], // on the way: no cancelling from the chat
       offerHuman: false,
+      links: [],
+      action: null,
     });
     expect(en('when will he come', booking({ status: 'EN_ROUTE' })).text).toBe('Your technician is on the way to you.');
     expect(en('what is my quote', booking({ status: 'QUOTE_SHARED', technicianName: 'Swathi', quoteTotal: 320 })).text).toContain('₹320');
@@ -45,11 +49,26 @@ describe('support chat rules', () => {
     expect(chatReply('నా టెక్నీషియన్ ఎక్కడ?', 'te', booking({ status: 'EN_ROUTE', technicianName: 'Swathi', etaMin: 7 }), FACTS).text).toBe('Swathi దారిలో ఉన్నారు, సుమారు 7 నిమిషాల్లో వస్తారు.');
   });
 
-  it('explains cancelling by where the booking is (README cancellation rules)', () => {
-    expect(en('cancel my booking', booking({ status: 'ASSIGNED' })).text).toContain('refunded in full');
-    expect(en('cancel', booking({ status: 'EN_ROUTE' })).text).toContain('keeps the ₹49');
-    expect(en('cancel', booking({ status: 'AWAITING_PAYMENT' })).text).toContain('nothing is charged');
-    expect(en('cancel', booking({ status: 'INSPECTING' }))).toMatchObject({ offerHuman: true });
+  it('cancels only with a checked reason, before the trip, and only after the customer confirms', () => {
+    // A bare "cancel" asks why, with reasons to tap (each carries the request).
+    const ask = en('cancel my booking', booking({ status: 'ASSIGNED' }));
+    expect(ask.action).toBeNull();
+    expect(ask.text).toContain('Why do you want to cancel HF-48291');
+    expect(ask.suggestions).toContain('Cancel: plans changed');
+    // Too vague: asked again.
+    expect(en('cancel because no', booking()).action).toBeNull();
+    // A real reason: a confirm card with the refund, never a cancellation by itself.
+    expect(en('Cancel: plans changed', booking({ status: 'ASSIGNED' })).action).toEqual({ kind: 'CANCEL_BOOKING', bookingId: 'b-1', code: 'HF-48291', reason: 'PLANS_CHANGED', refund: 49 });
+    expect(en('please cancel, the tap is working now', booking()).action).toMatchObject({ reason: 'FIXED', refund: 49 });
+    expect(en('cancel it, I booked by mistake', booking()).action).toMatchObject({ reason: 'MISTAKE' });
+    expect(en('cancel because my landlord will fix it himself', booking()).action).toMatchObject({ reason: 'OTHER' });
+    // Not paid yet: nothing to refund.
+    const unpaid = en('Cancel: booked by mistake', booking({ status: 'AWAITING_PAYMENT', visitFeePaid: 0 }));
+    expect(unpaid).toMatchObject({ action: { refund: 0 } });
+    expect(unpaid.text).toContain('Nothing has been charged');
+    // The technician has started the trip, or is there: no cancelling from the chat.
+    expect(en('Cancel: plans changed', booking({ status: 'EN_ROUTE' }))).toMatchObject({ action: null, offerHuman: true });
+    expect(en('Cancel: plans changed', booking({ status: 'INSPECTING' }))).toMatchObject({ action: null, offerHuman: true });
     expect(en('cancel').text).toBe("You don't have an active booking to cancel.");
   });
 

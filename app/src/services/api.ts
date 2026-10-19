@@ -196,6 +196,20 @@ export interface ChatReply {
   readonly suggestions: readonly string[];
   /** The assistant thinks a person should take over. */
   readonly offerHuman: boolean;
+  /** Links under the answer (e.g. the founders' profiles). Missing on older servers. */
+  readonly links?: readonly { readonly label: string; readonly url: string }[];
+  /** Something the customer can confirm (never done by the assistant itself). */
+  readonly action?: ChatAction | null;
+}
+
+/** "Cancel HF-12345?": shown as a confirm card; only the customer's tap cancels, through the usual endpoint. */
+export interface ChatAction {
+  readonly kind: 'CANCEL_BOOKING';
+  readonly bookingId: string;
+  readonly code: string;
+  readonly reason: CancelReason;
+  /** Rupees refunded. */
+  readonly refund: number;
 }
 
 export interface LocalProblem {

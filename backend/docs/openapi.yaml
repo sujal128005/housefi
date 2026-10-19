@@ -1551,11 +1551,30 @@ components:
               recentCount: { type: integer }
     ChatReply:
       type: object
-      required: [text, suggestions, offerHuman]
+      required: [text, suggestions, offerHuman, links, action]
       properties:
         text: { type: string }
         suggestions: { type: array, items: { type: string } }
         offerHuman: { type: boolean }
+        links:
+          type: array
+          description: Links to show under the answer (e.g. the founders' profiles)
+          items: { type: object, required: [label, url], properties: { label: { type: string }, url: { type: string } } }
+        action:
+          description: >-
+            Something the app may do once the customer confirms it, never done by the assistant itself. CANCEL_BOOKING
+            only before the technician starts the trip, with a checked reason; the app then calls POST
+            /bookings/{bookingId}/cancel with that reason, which checks everything again.
+          oneOf:
+            - type: object
+              required: [kind, bookingId, code, reason, refund]
+              properties:
+                kind: { type: string, enum: [CANCEL_BOOKING] }
+                bookingId: { type: string }
+                code: { type: string }
+                reason: { type: string, enum: [PLANS_CHANGED, FIXED, TOO_LONG, MISTAKE, OTHER] }
+                refund: { type: integer, description: Rupees refunded }
+            - { type: 'null' }
         conversationId: { type: string }
     AppNotification:
       type: object

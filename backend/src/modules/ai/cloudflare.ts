@@ -17,7 +17,7 @@ import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { BookingCore } from '../bookings/booking-core';
 import { type ChatAssistant, type ChatReplyDto, RuleBasedChat } from './chat';
-import { soundsDangerous } from './chat-rules';
+import { answeredByRules } from './chat-rules';
 import {
   CATALOG_TTL_MS,
   type CatalogEntry,
@@ -114,7 +114,7 @@ export class CloudflareChat implements ChatAssistant {
 
   async reply(input: { customerId: string; message: string; locale: Locale; conversationId: string | null }): Promise<ChatReplyDto> {
     const conversationId = input.conversationId ?? randomUUID();
-    if (!this.ai.enabled || soundsDangerous(input.message)) return this.rules.reply({ ...input, conversationId });
+    if (!this.ai.enabled || answeredByRules(input.message)) return this.rules.reply({ ...input, conversationId });
 
     const { policyAnswer, context } = await chatTurn(this.core, this.config, input);
     const history = await this.memory.load(input.customerId, conversationId);

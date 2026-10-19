@@ -24,6 +24,7 @@ export const CHAT_ASSISTANT = Symbol('CHAT_ASSISTANT');
 export function chatBooking(b: BookingDto): ChatBooking {
   const pending = (q: BookingDto['quote']) => (q && q.decision === 'PENDING' ? q.total : null);
   return {
+    id: b.id,
     code: b.code,
     status: b.status,
     technicianName: b.technician?.name.en.split(/\s+/)[0] || null,
@@ -31,6 +32,7 @@ export function chatBooking(b: BookingDto): ChatBooking {
     quoteTotal: pending(b.quote),
     extraTotal: pending(b.extraQuote),
     billAmount: b.finalPayment && b.finalPayment.state !== 'PAID' ? b.finalPayment.amount : null,
+    visitFeePaid: b.visitPayment.state === 'PAID' ? b.visitPayment.amount : 0,
   };
 }
 

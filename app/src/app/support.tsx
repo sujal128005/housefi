@@ -1,10 +1,12 @@
 // AI support chat (demo assistant): quick replies, typing indicator, knows the live booking; hands over to a person
 // ("Call customer care") when it cannot help.
 import { useEffect, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Animated, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Art3D } from '../illustrations/Art3D';
 import { useI18n } from '../i18n/I18n';
-import type { ChatReply } from '../services/api';
+import type { ChatAction, ChatReply } from '../services/api';
+import { feedback } from '../services/feedback';
+import { formatRupees } from '../i18n/format';
 import { useBackend } from '../services/ServicesProvider';
 import { useSession } from '../state/AppState';
 import { fontFamily } from '../theme/fonts';
@@ -17,6 +19,10 @@ interface Msg {
   readonly id: number;
   readonly from: 'me' | 'ai';
   readonly text: string;
+  readonly links?: readonly { readonly label: string; readonly url: string }[];
+  /** A cancellation to confirm; `done` once answered (the card then stays as a record). */
+  readonly action?: ChatAction | null;
+  readonly done?: 'CANCELLED' | 'KEPT';
 }
 
 export default function Support() {
@@ -49,9 +55,36 @@ export default function Support() {
       r = { text: t('support.offline'), suggestions: [], offerHuman: true };
     }
     setTyping(false);
-    setMsgs((a) => [...a, { id: nextId.current++, from: 'ai', text: r.text }]);
+    setMsgs((a) => [...a, { id: nextId.current++, from: 'ai', text: r.text, links: r.links ?? [], action: r.action ?? null }]);
     setChips(r.suggestions);
     if (r.offerHuman) setOfferHuman(true);
+  };
+
+  const [acting, setActing] = useState(false);
+  const say = (text: string) => setMsgs((a) => [...a, { id: nextId.current++, from: 'ai', text }]);
+  const answer = async (msgId: number, action: ChatAction, cancel: boolean) => {
+    if (acting) return;
+    const mark = (done: 'CANCELLED' | 'KEPT') => setMsgs((a) => a.map((m) => (m.id === msgId ? { ...m, done } : m)));
+    if (!cancel) {
+      mark('KEPT');
+      say(t('support.kept', { code: action.code }));
+      return;
+    }
+    setActing(true);
+    try {
+      // The usual cancellation: the server checks the booking, the time and the refund again.
+      await backend.bookings.cancel(session.token, action.bookingId, action.reason);
+      mark('CANCELLED');
+      feedback('success');
+      say(action.refund > 0 ? t('support.cancelledRefund', { code: action.code, amount: formatRupees(action.refund) }) : t('support.cancelled', { code: action.code }));
+      setChips([]);
+    } catch {
+      feedback('error');
+      say(t('support.cancelFailed', { code: action.code }));
+      setOfferHuman(true);
+    } finally {
+      setActing(false);
+    }
   };
 
   return (
@@ -93,6 +126,24 @@ export default function Support() {
             {m.from === 'ai' ? <Art3D name="robot" size={28} /> : null}
             <View style={[styles.bubble, m.from === 'me' ? styles.bubbleMe : styles.bubbleAi]} testID={m.from === 'ai' ? 'ai-msg' : 'my-msg'}>
               <Txt variant="callout" color={m.from === 'me' ? 'onNavy' : 'ink'}>{m.text}</Txt>
+              {m.links?.map((l) => (
+                <Tap key={l.url} onPress={() => void Linking.openURL(l.url).catch(() => undefined)} accessibilityRole="link" accessibilityLabel={l.label} style={styles.link} testID={`ai-link-${l.label}`}>
+                  <Icon name="logo-linkedin" size={18} color="blue" />
+                  <Txt variant="label" color="blue">{l.label}</Txt>
+                </Tap>
+              ))}
+              {m.action ? (
+                <View style={styles.confirm} testID="ai-cancel-card">
+                  {m.done ? (
+                    <Txt variant="footnote" color="inkMuted">{m.done === 'CANCELLED' ? t('support.cardCancelled') : t('support.cardKept')}</Txt>
+                  ) : (
+                    <View style={styles.confirmRow}>
+                      <Button label={t('support.yesCancel')} variant="danger" size="sm" onPress={() => void answer(m.id, m.action!, true)} loading={acting} style={styles.flex} testID="ai-cancel-yes" />
+                      <Button label={t('support.keep')} variant="outline" size="sm" onPress={() => void answer(m.id, m.action!, false)} disabled={acting} style={styles.flex} testID="ai-cancel-no" />
+                    </View>
+                  )}
+                </View>
+              ) : null}
             </View>
           </Appear>
         ))}
@@ -137,6 +188,9 @@ function Typing() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   noPad: { paddingHorizontal: 0, paddingTop: 0 },
+  link: { flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingVertical: space.xs },
+  confirm: { marginTop: space.sm, gap: space.sm },
+  confirmRow: { flexDirection: 'row', gap: space.sm },
   list: { paddingHorizontal: GUTTER, paddingVertical: space.md, gap: space.md },
   botHead: { alignItems: 'center', gap: space.xs, paddingBottom: space.sm },
   bubbleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: space.sm, maxWidth: '88%' },
