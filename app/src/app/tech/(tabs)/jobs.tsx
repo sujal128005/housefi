@@ -12,6 +12,7 @@ import { useTechSession } from '../../../state/AppState';
 import { GUTTER, space } from '../../../theme/tokens';
 import { DemoPill, EmptyState, ErrorView, Screen, Segmented, Skeleton, Txt } from '../../../ui';
 import { JobCard } from '../../../ui/TechParts';
+import { keepIfSame, startPolling } from '../../../state/polling';
 
 export default function TechJobs() {
   const { t } = useI18n();
@@ -26,16 +27,15 @@ export default function TechJobs() {
     let alive = true;
     const load = () => backend.tech.jobs(session.token).then((j) => {
       if (!alive) return;
-      setJobs(j);
+      setJobs(keepIfSame<readonly Job[] | null>(j));
       setError(null);
     }, (e: unknown) => {
       if (alive) setError(e);
     });
-    void load();
-    const timer = setInterval(() => void load(), 4000);
+    const stop = startPolling(load, 5000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stop();
     };
   }, [backend, session.token]));
 

@@ -9,6 +9,7 @@ import { useBackend } from '../services/ServicesProvider';
 import { useAppState } from '../state/AppState';
 import { useNotificationText } from './Notifications';
 import { useToast } from './Overlays';
+import { startPolling } from '../state/polling';
 
 const TOASTS: Partial<Record<NotificationKind, 'success' | 'notify' | 'warning' | 'cash'>> = {
   QUOTE_APPROVED: 'success', QUOTE_REVISION: 'notify', QUOTE_DECLINED: 'warning', EXTRA_APPROVED: 'success', EXTRA_DECLINED: 'warning',
@@ -59,11 +60,11 @@ export function TechAlerts() {
         toast.show(text(n), cue === 'cash' ? 'cash' : 'notifications');
       }
     };
-    void tick();
-    const timer = setInterval(() => void tick(), 2500);
+    // Offers last 45 s: checked every 2.5 s after the previous answer (never two at once, nothing in the background).
+    const stop = startPolling(tick, 2500);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stop();
     };
     // toast/text are stable enough; re-subscribing on every render would reset the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps

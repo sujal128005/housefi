@@ -155,7 +155,7 @@ export default function TechProfile() {
           right={<Switch value={prefs.feedback} onValueChange={setFeedback} trackColor={{ true: colors.blue, false: colors.lineStrong }} thumbColor={colors.surface}
             accessibilityLabel={t('account.feedback')} />} />
         <Divider />
-        <ListRow icon="headset-outline" title={t('tprofile.support')} subtitle={t('tprofile.supportSub')} onPress={() => void care.call()} testID="tprofile-support" />
+        <ListRow icon="headset-outline" title={t('tprofile.support')} subtitle={t('tprofile.supportSub')} onPress={() => void care.call()} busy={care.calling} testID="tprofile-support" />
         <Divider />
         <Divider />
         <ListRow icon="home-outline" title={t('tprofile.switch')} testID="tprofile-switch" onPress={() => {
