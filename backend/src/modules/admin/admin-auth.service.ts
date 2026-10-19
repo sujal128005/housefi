@@ -213,6 +213,50 @@ export class AdminAuthService {
     await this.record(session.adminId, 'admin.signed_out', {}, who);
   }
 
+  // ---------- step-up: Windows Hello again, for the riskiest approvals ----------
+
+  /** Options for checking the signed-in admin again (face, fingerprint or PIN) before a critical action. */
+  async stepUpOptions(admin: SignedInAdmin): Promise<unknown> {
+    const passkeys = await this.prisma.adminPasskey.findMany({ where: { adminId: admin.id } });
+    if (passkeys.length === 0) throw new AppError('CONFLICT', {}, 'no passkey registered');
+    const options = await generateAuthenticationOptions({
+      rpID: this.rpID,
+      userVerification: 'required',
+      allowCredentials: passkeys.map((p) => ({ id: p.credentialId, transports: p.transports as never })),
+    });
+    await this.prisma.adminSession.update({ where: { id: admin.sessionId }, data: { challenge: options.challenge } });
+    return options;
+  }
+
+  /** Checks that answer against this session's challenge (used once). Throws UNAUTHENTICATED when it fails. */
+  async verifyStepUp(admin: SignedInAdmin, response: unknown, who: Requester): Promise<void> {
+    await this.limits.consume(`admin:stepup:${admin.id}`, { limit: 10, windowSec: 15 * 60, onStoreError: 'closed' });
+    const session = await this.prisma.adminSession.findUnique({ where: { id: admin.sessionId } });
+    const challenge = session?.challenge;
+    // The challenge is spent whatever happens next.
+    await this.prisma.adminSession.update({ where: { id: admin.sessionId }, data: { challenge: null } });
+    try {
+      if (!challenge) throw new Error('no challenge');
+      const answer = response as AuthenticationResponseJSON;
+      const key = await this.prisma.adminPasskey.findFirst({ where: { adminId: admin.id, credentialId: String(answer?.id ?? '') } });
+      if (!key) throw new Error('unknown passkey');
+      const r = await verifyAuthenticationResponse({
+        expectedChallenge: challenge,
+        expectedOrigin: this.origin,
+        expectedRPID: this.rpID,
+        requireUserVerification: true,
+        response: answer,
+        credential: { id: key.credentialId, publicKey: new Uint8Array(key.publicKey), counter: Number(key.counter), transports: key.transports },
+      });
+      if (!r.verified) throw new Error('not verified');
+      await this.prisma.adminPasskey.update({ where: { id: key.id }, data: { counter: BigInt(r.authenticationInfo.newCounter), lastUsedAt: new Date(this.clock.now()) } });
+    } catch (err) {
+      await this.record(admin.id, 'admin.step_up_failed', { reason: (err as Error).message.slice(0, 80) }, who);
+      throw new AppError('UNAUTHENTICATED', {}, 'the face, fingerprint or PIN check did not pass');
+    }
+    await this.record(admin.id, 'admin.step_up_ok', {}, who);
+  }
+
   /** The password step's session: same browser, within 5 minutes, not used up. */
   private async pending(token: string | undefined, who: Requester): Promise<{ session: AdminSession; admin: AdminUser }> {
     if (!token) throw new AppError('UNAUTHENTICATED');

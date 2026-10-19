@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Position } from '../support/support.schemas';
 
 /** openapi.yaml QuoteInput. Money in whole rupees. */
 export const QuoteInput = z.object({
@@ -24,6 +25,8 @@ export const StartCodeBody = z.object({ code: z.string().regex(/^[0-9]{4}$/) });
 export const ReportBody = z.object({
   issue: z.enum(['CUSTOMER_UNAVAILABLE', 'WRONG_ADDRESS', 'UNSAFE', 'CANNOT_COMPLETE', 'PAYMENT_PROBLEM', 'OTHER']),
   note: z.string().trim().max(500).default(''),
+  /** Where the phone was (an unsafe report shows it to HQ). */
+  location: Position.optional(),
 });
 
 export const AnswerBody = z.object({ answer: z.enum(['APPROVE', 'REVISION', 'DECLINE']) });

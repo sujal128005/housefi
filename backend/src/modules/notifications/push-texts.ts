@@ -43,6 +43,7 @@ const EN: Texts = {
   PROFILE_SUSPENDED: { title: 'Account on hold', body: 'You will not get jobs for now. Contact your Housefi coordinator.' },
   PROFILE_REINSTATED: { title: 'Account active again', body: 'You can go online and receive jobs.' },
   PROFILE_REJECTED: { title: 'Registration not approved', body: 'Contact Housefi support for details.' },
+  SUPPORT_REPLY: { title: 'Housefi team replied', body: 'Open Help to read the reply.' },
 };
 
 const TE: Texts = {
@@ -77,6 +78,7 @@ const TE: Texts = {
   PROFILE_SUSPENDED: { title: 'ఖాతా నిలిపివేయబడింది', body: 'ప్రస్తుతం పనులు రావు. మీ Housefi కోఆర్డినేటర్‌ను సంప్రదించండి.' },
   PROFILE_REINSTATED: { title: 'ఖాతా మళ్లీ యాక్టివ్', body: 'మీరు ఆన్‌లైన్‌కు వెళ్లి పనులు పొందవచ్చు.' },
   PROFILE_REJECTED: { title: 'రిజిస్ట్రేషన్ ఆమోదించబడలేదు', body: 'వివరాల కోసం Housefi సపోర్ట్‌ను సంప్రదించండి.' },
+  SUPPORT_REPLY: { title: 'Housefi టీమ్ జవాబిచ్చింది', body: 'జవాబు చదవడానికి సహాయం తెరవండి.' },
 };
 
 /** Used when a value the main text needs is missing (no location yet, so no ETA). */

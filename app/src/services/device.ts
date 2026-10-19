@@ -2,6 +2,7 @@
 // Every photo is re-saved as a JPEG of sensible size before it is uploaded: the API accepts JPEG, PNG and HEIC only (not
 // WebP and the like), a smaller file uploads faster on mobile data, and re-saving drops the camera's metadata.
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+import type { Position } from './api';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
@@ -102,5 +103,26 @@ export async function locate(): Promise<LocateResult> {
     return { ok: true, place: { lat, lng, street, city, region, pincode } };
   } catch {
     return { ok: false, reason: 'UNAVAILABLE' };
+  }
+}
+
+/**
+ * Where the phone is, quickly, for an SOS or a report: the last known position if it is recent, else a fresh one,
+ * giving up after a few seconds. Never asks twice and never throws: an SOS must go out with or without it.
+ */
+export async function quickPosition(timeoutMs = 5000): Promise<Position | null> {
+  try {
+    const perm = await Location.getForegroundPermissionsAsync();
+    const granted = perm.granted || (perm.canAskAgain && (await Location.requestForegroundPermissionsAsync()).granted);
+    if (!granted) return null;
+    const last = await Location.getLastKnownPositionAsync({ maxAge: 2 * 60_000, requiredAccuracy: 200 }).catch(() => null);
+    const pos = last ?? (await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+    ]));
+    if (!pos) return null;
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracyM: pos.coords.accuracy ?? null };
+  } catch {
+    return null;
   }
 }

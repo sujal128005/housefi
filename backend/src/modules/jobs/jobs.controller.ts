@@ -89,7 +89,7 @@ export class JobsController {
   @Post('jobs/:jobId/reports')
   @HttpCode(200)
   report(@CurrentUser() user: AuthUser, @Param('jobId') id: string, @Body(new ZodValidationPipe(ReportBody)) body: z.infer<typeof ReportBody>): Promise<JobDto> {
-    return this.jobs.report(user.id, id, body.issue, body.note);
+    return this.jobs.report(user.id, id, body.issue, body.note, body.location);
   }
 
   /** Sent about every 60 s while online or on a job; also refreshes the customer's ETA during the trip. */

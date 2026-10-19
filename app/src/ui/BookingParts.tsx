@@ -21,6 +21,7 @@ import { TechPhoto, VerificationPill } from './TechIdentity';
 import { Txt } from './Txt';
 import { feedback } from '../services/feedback';
 import { dial } from '../services/calls';
+import { quickPosition } from '../services/device';
 
 const STEP_LABEL: Record<(typeof PROGRESS_STEPS)[number], StringKey> = {
   booked: 'progress.booked',
@@ -283,7 +284,9 @@ export function SafetyRow({ booking }: { readonly booking: Booking }) {
   const alertTeam = async () => {
     setAlerting(true);
     try {
-      await backend.support.ticket(session.token, 'UNSAFE', booking.id, `SOS during visit ${booking.code}`);
+      // Where the phone is goes with it when the phone gives it quickly; the alert never waits long for it.
+      const where = await quickPosition();
+      await backend.support.ticket(session.token, 'UNSAFE', booking.id, `SOS during visit ${booking.code}`, where);
       feedback('success');
       toast.show(t('safety.alerted'), 'shield-checkmark');
       setSos(false);

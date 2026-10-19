@@ -3,7 +3,7 @@
 // (uploads.ts); live updates stream (liveStream.ts); payments open Razorpay's checkout through `openCheckout`.
 import {
   ApiError, isApiError, type AiApi, type AppNotification, type Backend, type BookingApi, type Chat, type ChatApi, type ChatSummary, type KeyValueStore, type NotificationApi,
-  type OtpChallenge, type PaymentResult, type TechApi,
+  type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
   Address, Booking, Category, Customer, Earnings, Job, JobOffer, Photo, ProblemDescription, Service, Slot, TechProfile, VoiceNote,
@@ -104,6 +104,7 @@ const decodeSlot = (json: unknown): Slot => record<Slot>(json, 'slot', ['id', 'd
 const decodeNotification = (json: unknown): AppNotification => record<AppNotification>(json, 'notification', ['id', 'kind', 'at', 'read']);
 const decodeEarnings = (json: unknown): Earnings => record<Earnings>(json, 'earnings', ['today', 'total', 'entries']);
 const decodeNothing = (): void => undefined;
+const decodeConversation = (json: unknown): SupportConversation => record<SupportConversation>(json, 'conversation', ['id', 'state', 'topic', 'messages']);
 const decodeDial = (json: unknown) => ({ dialNumber: str(obj(json, 'call'), 'dialNumber') });
 
 function decodeChallenge(json: unknown): OtpChallenge {
@@ -354,7 +355,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     startWork: techAction('start-work'),
     completeWork: techAction('complete'),
     confirmCash: techAction('confirm-cash'),
-    report: (handle, id, issue, note) => call(handle, 'POST', apiPath`/tech/jobs/${id}/reports`, decodeJob, { issue, note }),
+    report: (handle, id, issue, note, location) => call(handle, 'POST', apiPath`/tech/jobs/${id}/reports`, decodeJob, { issue, note, ...(location ? { location } : {}) }),
     earnings: (handle) => call(handle, 'GET', apiPath`/tech/earnings`, decodeEarnings),
     verifyAadhaar: (handle, qr) =>
       call(handle, 'POST', apiPath`/tech/aadhaar`, (j) => {
@@ -405,8 +406,16 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     support: {
       callback: (handle, bookingId, reason) =>
         call(handle, 'POST', apiPath`/support/callback`, decodeNothing, { ...(bookingId ? { bookingId } : {}), ...(reason ? { reason: reason.slice(0, 300) } : {}) }),
-      ticket: (handle, kind, bookingId, note) =>
-        call(handle, 'POST', apiPath`/support/tickets`, decodeNothing, { kind, ...(bookingId ? { bookingId } : {}), ...(note ? { note: note.slice(0, 1000) } : {}) }),
+      ticket: (handle, kind, bookingId, note, location) =>
+        call(handle, 'POST', apiPath`/support/tickets`, decodeNothing, { kind, ...(bookingId ? { bookingId } : {}), ...(note ? { note: note.slice(0, 1000) } : {}), ...(location ? { location } : {}) }),
+      conversation: (handle) => call(handle, 'GET', apiPath`/support/conversation`, (j) => {
+        const c = obj(j, 'conversation').conversation;
+        return c === null || c === undefined ? null : decodeConversation(c);
+      }),
+      startConversation: (handle, input) =>
+        call(handle, 'POST', apiPath`/support/conversation`, (j) => decodeConversation(obj(j, 'conversation').conversation), { topic: input.topic, bookingId: input.bookingId, text: input.text.slice(0, 1000) }),
+      sendToTeam: (handle, text) =>
+        call(handle, 'POST', apiPath`/support/conversation/messages`, (j) => decodeConversation(obj(j, 'conversation').conversation), { text: text.slice(0, 1000) }),
     },
   };
 }

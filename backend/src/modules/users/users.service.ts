@@ -89,6 +89,7 @@ export class UsersService {
       // The inbox is the user's own data; devices would only receive pushes for a closed account.
       await tx.device.deleteMany({ where: { userId } });
       await tx.notification.deleteMany({ where: { userId } });
+      await tx.supportThread.deleteMany({ where: { userId } });
       // Stars stay (the technician's average); the free-text comment is the customer's own words.
       await tx.rating.updateMany({ where: { customerId: userId }, data: { comment: '' } });
       await tx.user.update({

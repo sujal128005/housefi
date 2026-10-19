@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { type Position, positionColumns } from '../support/support.schemas';
 import type { Booking, Prisma, Quote, TicketPriority } from '@prisma/client';
 import { timingSafeEqual } from 'node:crypto';
 import { AuditService } from '../../common/audit/audit.module';
@@ -218,7 +219,7 @@ export class JobsService {
    * CUSTOMER_UNAVAILABLE (at the door) and CANNOT_COMPLETE (inspecting, quote shared, repairing) end the visit
    * without repair; the other issues open a support ticket (UNSAFE: urgent) and leave the job as it is.
    */
-  async report(technicianId: string, id: string, issue: string, note: string): Promise<JobDto> {
+  async report(technicianId: string, id: string, issue: string, note: string, location?: Position): Promise<JobDto> {
     await this.core.mutateAssigned(technicianId, id, async (tx, b) => {
       if (issue === 'CUSTOMER_UNAVAILABLE' || issue === 'CANNOT_COMPLETE') {
         if (!(CLOSES_VISIT[issue] as readonly string[]).includes(b.status)) throw new AppError('CONFLICT');
@@ -228,7 +229,7 @@ export class JobsService {
         return { changed: true, result: undefined };
       }
       if (!TECH_ACTIVE.includes(b.status)) throw new AppError('CONFLICT');
-      await this.ticket(tx, b.id, technicianId, issue, note, TICKET_PRIORITY[issue] ?? 'NORMAL');
+      await this.ticket(tx, b.id, technicianId, issue, note, TICKET_PRIORITY[issue] ?? 'NORMAL', location);
       return { changed: false, result: undefined };
     });
     return this.core.getJob(technicianId, id);
@@ -287,8 +288,9 @@ export class JobsService {
     return Math.max(1, Math.ceil((row.m * ROAD_FACTOR) / CITY_METRES_PER_MIN));
   }
 
-  private async ticket(tx: Prisma.TransactionClient, bookingId: string, raisedBy: string, kind: string, note: string, priority: TicketPriority): Promise<void> {
-    await tx.supportTicket.create({ data: { bookingId, raisedBy, kind, note, priority, createdAt: this.core.now() } });
+  private async ticket(tx: Prisma.TransactionClient, bookingId: string, raisedBy: string, kind: string, note: string, priority: TicketPriority, location?: Position): Promise<void> {
+    const now = this.core.now();
+    await tx.supportTicket.create({ data: { bookingId, raisedBy, kind, note, priority, createdAt: now, ...positionColumns(location, now) } });
     if (priority !== 'NORMAL') this.log.warn(`${priority} support ticket: ${kind} on booking ${bookingId}`);
   }
 
