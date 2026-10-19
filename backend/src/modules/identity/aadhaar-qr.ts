@@ -25,7 +25,11 @@ const DELIMITER = 255;
 const TEXT_FIELDS = 16;
 
 export class AadhaarQrError extends Error {
-  constructor(readonly reason: 'UNREADABLE' | 'OLD_FORMAT' | 'BAD_SIGNATURE' | 'INCOMPLETE') {
+  /**
+   * `madeIn`: for BAD_SIGNATURE, the month the QR was made ("2023-05", from its reference id; nothing about the
+   * person), which says which of UIDAI's signing certificates it needs.
+   */
+  constructor(readonly reason: 'UNREADABLE' | 'OLD_FORMAT' | 'BAD_SIGNATURE' | 'INCOMPLETE', readonly madeIn: string | null = null) {
     super(`Aadhaar QR: ${reason}`);
     this.name = 'AadhaarQrError';
   }
@@ -95,7 +99,6 @@ export function verifyAadhaarQr(qrText: string, uidai: KeyObject | readonly KeyO
     verifier.update(signed);
     return verifier.verify(key, signature);
   });
-  if (!genuine) throw new AadhaarQrError('BAD_SIGNATURE');
 
   // Text fields: split on 255 up to the photo.
   const fields: string[] = [];
@@ -105,6 +108,10 @@ export function verifyAadhaarQr(qrText: string, uidai: KeyObject | readonly KeyO
       fields.push(signed.subarray(start, i).toString('latin1'));
       start = i + 1;
     }
+  }
+  if (!genuine) {
+    const made = /^\d{4}(\d{4})(\d{2})/.exec(fields[2] ?? '');
+    throw new AadhaarQrError('BAD_SIGNATURE', made ? `${made[1]}-${made[2]}` : null);
   }
   const version = fields[0] ?? '';
   // V1 QR codes have no version field (and no signature over the full data): too old to trust.
