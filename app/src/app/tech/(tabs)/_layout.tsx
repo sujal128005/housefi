@@ -2,8 +2,10 @@
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { StyleSheet } from 'react-native';
+import { approvalShown } from '../../../domain/techReview';
 import { useI18n } from '../../../i18n/I18n';
 import { useAppState } from '../../../state/AppState';
+import { useNow } from '../../../state/useNow';
 import { useLocationReporter } from '../../../services/locationReporter';
 import { fontFamily } from '../../../theme/fonts';
 import { colors } from '../../../theme/tokens';
@@ -20,9 +22,10 @@ const ICONS: Record<string, readonly [IconName, IconName]> = {
 export default function TechTabsLayout() {
   const { t, locale } = useI18n();
   const { techSession, prefs } = useAppState();
+  const now = useNow(techSession?.profile.reviewBy);
   // While online, the phone's position is used to offer nearby jobs.
   useLocationReporter(techSession?.token ?? '', !!techSession?.profile.online);
-  if (!techSession || prefs.role !== 'TECHNICIAN' || techSession.profile.verification !== 'APPROVED') return <Redirect href="/" />;
+  if (!techSession || prefs.role !== 'TECHNICIAN' || !approvalShown(techSession.profile, now)) return <Redirect href="/" />;
   return (
     <Tabs
       screenLayout={({ children }) => <ScreenErrorBoundary>{children}</ScreenErrorBoundary>}

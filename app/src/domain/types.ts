@@ -389,6 +389,8 @@ export interface TechProfile extends TechProfileInput {
   readonly jobsDone: number;
   /** Aadhaar checked offline from the Secure QR on the card (only the last 4 digits are kept); null until then. */
   readonly aadhaar?: { readonly last4: string; readonly nameMatches: boolean; readonly verifiedAt: number } | null;
+  /** When the check is promised (ms): an approval is shown only from then on (domain/techReview.ts). null before submitting. */
+  readonly reviewBy?: number | null;
 }
 
 export interface TechSession {

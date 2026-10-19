@@ -11,6 +11,7 @@ import { TECH_ACTIVE } from '../bookings/booking-status';
 import { newTechCode, newVerifyToken, verifyTokenHash } from '../identity/identity-codes';
 import { UploadsService } from '../uploads/uploads.service';
 import { CATEGORY_ORDER, type TechProfileInput } from './technicians.schemas';
+import { reviewBy } from './review-window';
 
 type Db = Prisma.TransactionClient | PrismaService;
 export type TechnicianRow = Technician & { skills: TechnicianSkill[] };
@@ -33,6 +34,8 @@ export interface TechProfileDto {
   readonly identity: TechIdentityDto | null;
   /** Aadhaar Secure QR check (last 4 digits only), or null when not done yet. */
   readonly aadhaar: { readonly last4: string; readonly nameMatches: boolean; readonly verifiedAt: number } | null;
+  /** When the technician is told the check will be done (ms); they see an approval only from then on. null before the first submission. */
+  readonly reviewBy: number | null;
   readonly correctionNote: { readonly en: string; readonly te: string } | null;
   readonly online: boolean;
   readonly rating: number | null;
@@ -74,7 +77,7 @@ export class TechniciansService {
       // Not submitted yet (docs/QUESTIONS.md #17: the contract has no shape for an empty profile).
       return {
         id: user.id, phone, name, gender: 'M', experienceYears: 0, skills: [], city: '', pincode: '', areas: '', vehicle: '',
-        phoneType: 'SMARTPHONE', verification: null, identity: null, aadhaar: null, correctionNote: null, online: false, rating: null, jobsDone: 0,
+        phoneType: 'SMARTPHONE', verification: null, identity: null, aadhaar: null, reviewBy: null, correctionNote: null, online: false, rating: null, jobsDone: 0,
       };
     }
     return {
@@ -94,6 +97,7 @@ export class TechniciansService {
       aadhaar: row.aadhaarVerifiedAt && row.aadhaarLast4
         ? { last4: row.aadhaarLast4, nameMatches: row.aadhaarNameMatch === true, verifiedAt: row.aadhaarVerifiedAt.getTime() }
         : null,
+      reviewBy: reviewBy(row.submittedAt.getTime()),
       correctionNote: row.correctionNoteEn !== null ? { en: row.correctionNoteEn, te: row.correctionNoteTe ?? row.correctionNoteEn } : null,
       online: row.online,
       rating: row.ratingAvg !== null ? Number(row.ratingAvg) : null,
@@ -177,6 +181,8 @@ export class TechniciansService {
           if (nameEnc) await tx.user.update({ where: { id: userId }, data: { nameEnc } });
           await this.clearLocation(tx, userId);
           await this.withdrawOffers(tx, userId);
+          // An approval waiting for its review time (review-window.ts) is for the old profile: it is not announced.
+          await tx.notification.deleteMany({ where: { userId, kind: 'PROFILE_APPROVED', createdAt: { gt: now } } });
           await this.audit.record(
             { actorType: actor.type, actorId: actor.id, action: 'tech.profile_submitted', entity: 'technician', entityId: userId, before: { verification: before?.verification ?? null }, after: { verification: 'PENDING', skills: input.skills, ...(photoId ? { newPhoto: true } : {}) } },
             tx,

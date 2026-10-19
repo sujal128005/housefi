@@ -42,6 +42,14 @@ export function formatHour(hour: number, locale: Locale): string {
   return `${part} ${h12}`;
 }
 
+/** Clock time as "4:30 PM" / "సాయంత్రం 4:30" (whole hours without minutes: "4 PM"). */
+export function formatClock(d: Date, locale: Locale): string {
+  const hour = formatHour(d.getHours(), locale); // "4 PM" / "సాయంత్రం 4"
+  if (d.getMinutes() === 0) return hour;
+  const mm = `:${String(d.getMinutes()).padStart(2, '0')}`;
+  return locale === 'en' ? hour.replace(' ', `${mm} `) : `${hour}${mm}`;
+}
+
 /** A time window, e.g. "9 AM – 11 AM" or "ఉదయం 9 – 11". */
 export function formatWindow(startHour: number, endHour: number, locale: Locale): string {
   if (locale === 'te') {
