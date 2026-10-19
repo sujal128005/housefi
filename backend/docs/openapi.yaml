@@ -1371,7 +1371,7 @@ components:
               unitPrice: { type: integer, minimum: 1, maximum: 100000 }
     Earnings:
       type: object
-      required: [today, jobsToday, total, pendingPayout, nextPayoutOn, entries]
+      required: [today, jobsToday, total, pendingPayout, nextPayoutOn, entries, weeks]
       properties:
         today: { type: integer }
         jobsToday: { type: integer }
@@ -1390,6 +1390,26 @@ components:
               amount: { type: integer }
               at: { $ref: '#/components/schemas/EpochMs' }
               payout: { type: string, enum: [PENDING, PAID] }
+        weeks:
+          type: array
+          description: This week and the 7 before it (IST, Monday to Sunday), newest first. Each week is paid on the Monday after it.
+          items:
+            type: object
+            required: [start, end, earned, cash, jobs, payout]
+            properties:
+              start: { type: string, format: date, description: Monday }
+              end: { type: string, format: date, description: Sunday }
+              earned: { type: integer, description: 'Job credits that week (rupees)' }
+              cash: { type: integer, description: 'Cash collected from customers that week, netted in the payout (rupees)' }
+              jobs: { type: integer }
+              payout:
+                type: object
+                required: [state, on, amount, ref]
+                properties:
+                  state: { type: string, enum: [UPCOMING, PENDING, PROCESSING, PAID, FAILED, CARRIED, NONE], description: 'CARRIED = added to a later payout (no payout of its own); NONE = nothing earned' }
+                  on: { type: [string, 'null'], format: date, description: 'The Monday it is paid on; for PAID the day it was paid' }
+                  amount: { type: [integer, 'null'], description: 'The payout amount (may include earlier weeks carried over)' }
+                  ref: { type: [string, 'null'], description: 'Bank / UPI reference once paid' }
     UploadTicket:
       type: object
       required: [id, uploadUrl, expiresAt]

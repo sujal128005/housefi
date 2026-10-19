@@ -1,4 +1,5 @@
-// Technician earnings: today, total, waiting for payout and the next weekly payout date, then every job's earning.
+// Technician earnings: today, total, waiting for payout and the next weekly payout date, the weekly payouts (each
+// week, Monday to Sunday, is paid the Monday after: "Paid on Mon 20 Oct"), then every job's earning.
 // Explains how earnings work: visit share, labour share, materials reimbursed.
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -6,14 +7,18 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { serviceById } from '../../../data/catalog';
 import { parseIsoDate, TECH_LABOUR_SHARE, TECH_VISIT_SHARE } from '../../../domain/rules';
-import type { Earnings } from '../../../domain/types';
+import type { Earnings, EarningsWeek } from '../../../domain/types';
 import { Art3D } from '../../../illustrations/Art3D';
-import { formatRupees } from '../../../i18n/format';
+import { formatRupees, monthShort } from '../../../i18n/format';
 import { useI18n } from '../../../i18n/I18n';
 import { useBackend, useIsDemo } from '../../../services/ServicesProvider';
 import { useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, shadow, space } from '../../../theme/tokens';
-import { Banner, Card, DemoPill, Divider, ErrorView, Pill, Screen, Skeleton, Txt } from '../../../ui';
+import { Banner, Card, DemoPill, Divider, ErrorView, Pill, Screen, Skeleton, Txt, type PillTone } from '../../../ui';
+
+const WEEK_TONE: Record<EarningsWeek['payout']['state'], PillTone> = {
+  PAID: 'success', PENDING: 'info', PROCESSING: 'info', UPCOMING: 'info', FAILED: 'warning', CARRIED: 'neutral', NONE: 'neutral',
+};
 
 export default function TechEarnings() {
   const { t, l, locale } = useI18n();
@@ -76,6 +81,41 @@ export default function TechEarnings() {
             </Card>
           </View>
 
+          {e.weeks && e.weeks.length > 0 ? (
+            <>
+              <View>
+                <Txt variant="title3" heading>{t('tearn.weekly')}</Txt>
+                <Txt variant="footnote" color="inkMuted">{t('tearn.weeklySub')}</Txt>
+              </View>
+              <Card style={styles.list} testID="earn-weeks">
+                {/* This week always; earlier weeks only when something was earned. */}
+                {e.weeks.filter((w, i) => i === 0 || w.payout.state !== 'NONE').map((w, i) => {
+                  const start = parseIsoDate(w.start);
+                  const end = parseIsoDate(w.end);
+                  const range = start.getMonth() === end.getMonth()
+                    ? `${start.getDate()}–${end.getDate()} ${monthShort(end, locale)}`
+                    : `${start.getDate()} ${monthShort(start, locale)} – ${end.getDate()} ${monthShort(end, locale)}`;
+                  const on = w.payout.on ? dateFmt(parseIsoDate(w.payout.on)) : '';
+                  return (
+                    <View key={w.start}>
+                      {i > 0 ? <Divider /> : null}
+                      <View style={styles.entry} testID={`earn-week-${w.start}`}>
+                        <View style={styles.flex}>
+                          <Txt variant="bodyStrong">{i === 0 ? `${t('tearn.thisWeek')} · ${range}` : range}</Txt>
+                          <Txt variant="caption" color="inkMuted">{t('tearn.weekJobs', { n: w.jobs })}{w.cash > 0 ? ` · ${t('tearn.weekCash', { amount: formatRupees(w.cash) })}` : ''}</Txt>
+                          {w.payout.ref ? <Txt variant="caption" color="inkMuted">{t('tearn.ref', { ref: w.payout.ref })}</Txt> : null}
+                        </View>
+                        <View style={styles.right}>
+                          <Txt variant="title3" color={w.earned > 0 ? 'success' : 'inkMuted'}>{formatRupees(w.earned)}</Txt>
+                          <Pill label={t(`tearn.w.${w.payout.state}`, { date: on })} tone={WEEK_TONE[w.payout.state]} />
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </Card>
+            </>
+          ) : null}
           <Card style={styles.how}>
             <Txt variant="title3" heading>{t('tearn.how')}</Txt>
             <Txt variant="callout" color="inkMuted">{t('tearn.how1', { amount: formatRupees(TECH_VISIT_SHARE) })}</Txt>

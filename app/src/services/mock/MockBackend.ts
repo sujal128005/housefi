@@ -10,7 +10,7 @@ import {
   CATEGORIES, DEMO_TECHNICIANS, LOCAL_PROBLEM_POOL, QUOTE_TEMPLATES, SAMPLE_PHOTO_SERVICE, SERVICES, serviceById, servicesIn, TOP_PROBLEMS,
 } from '../../data/catalog';
 import {
-  canCancel, cancelRefundsVisitFee, canReschedule, DEMO_TIMING, earningFor, etaMinutes, finalAmount, isActive, isInstantAvailable, isValidName,
+  canCancel, cancelRefundsVisitFee, canReschedule, DEMO_TIMING, earningFor, etaMinutes, finalAmount, isActive, isInstantAvailable, isoDate, isValidName,
   isValidPincode, labourTotal, materialTotal, matchingStatusAt, MAX_QUOTE_VERSIONS, nextPayoutDate, normalizePhone, priceCheck, quoteProblem,
   quoteTotal, slotsFor, START_CODE_ATTEMPTS, TECH_VISIT_SHARE, typicalRange, isWomenRated, validateAddress, weekStart, windowStart, type MatchingScenario,
 } from '../../domain/rules';
@@ -1435,7 +1435,22 @@ export function createMockBackend(opts: MockOptions): Backend {
           .sort((a, b) => b.at - a.at)
           .map((e) => ({ jobId: e.b.id, code: e.b.code, serviceId: e.b.serviceId, amount: e.amount, at: e.at, payout: (e.at < ws ? 'PAID' : 'PENDING') as 'PAID' | 'PENDING' }));
         const today = entries.filter((e) => e.at >= dayStart);
+        // The demo pays every earlier week on its Monday; this week is paid next Monday.
+        const WEEK = 7 * 86_400_000;
+        const weeks = Array.from({ length: 8 }, (_, k) => {
+          const start = ws - k * WEEK;
+          const inWeek = entries.filter((e) => e.at >= start && e.at < start + WEEK);
+          const earned = inWeek.reduce((a, e) => a + e.amount, 0);
+          const payday = isoDate(new Date(start + WEEK));
+          return {
+            start: isoDate(new Date(start)), end: isoDate(new Date(start + WEEK - 86_400_000)), earned, cash: 0, jobs: inWeek.length,
+            payout: earned === 0 ? { state: 'NONE' as const, on: null, amount: null, ref: null }
+              : k === 0 ? { state: 'UPCOMING' as const, on: payday, amount: null, ref: null }
+                : { state: 'PAID' as const, on: payday, amount: earned, ref: null },
+          };
+        });
         return {
+          weeks,
           today: today.reduce((a, e) => a + e.amount, 0), jobsToday: today.length, total: entries.reduce((a, e) => a + e.amount, 0),
           pendingPayout: entries.filter((e) => e.payout === 'PENDING').reduce((a, e) => a + e.amount, 0), nextPayoutOn: nextPayoutDate(new Date(t)), entries,
         };

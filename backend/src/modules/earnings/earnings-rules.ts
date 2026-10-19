@@ -85,3 +85,74 @@ export function payoutCutoff(nowMs: number): { cutoffMs: number; periodEnd: stri
   const cutoffMs = windowStartMs(monday, 0);
   return { cutoffMs, periodEnd: istDate(cutoffMs - 1) };
 }
+
+/** Weeks shown on the earnings screen (this week and the ones before it). */
+export const WEEKS_SHOWN = 8;
+
+/** What happened to a week's earnings: paid on a Monday, being paid, still to come, or added to a later payout. */
+export type WeekPayoutState = 'UPCOMING' | 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CARRIED' | 'NONE';
+
+export interface WeekSummary {
+  /** Monday, "YYYY-MM-DD" (IST). */
+  readonly start: string;
+  /** Sunday. */
+  readonly end: string;
+  /** Job credits that week (visit share, labour share, materials), rupees. */
+  readonly earned: number;
+  /** Cash the technician collected from customers that week (netted in the payout), rupees. */
+  readonly cash: number;
+  readonly jobs: number;
+  readonly payout: {
+    readonly state: WeekPayoutState;
+    /** The Monday it is (or was) paid; for PAID the day it was paid. null for NONE. */
+    readonly on: string | null;
+    /** The payout's amount (it can include earlier weeks carried over); null when there is no payout yet. */
+    readonly amount: number | null;
+    /** Bank / UPI reference, once paid. */
+    readonly ref: string | null;
+  };
+}
+
+export interface WeekTotals {
+  /** Monday of the week (IST), "YYYY-MM-DD". */
+  readonly week: string;
+  readonly earnedPaise: bigint;
+  readonly cashPaise: bigint;
+  readonly jobs: number;
+}
+
+export interface WeekPayout {
+  /** The Sunday the payout settles up to. */
+  readonly periodEnd: string;
+  readonly state: 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED';
+  readonly amountPaise: bigint;
+  readonly paidAt: number | null;
+  readonly providerRef: string | null;
+}
+
+/**
+ * The last WEEKS_SHOWN weeks, newest first: what was earned and what happened to it. Each week is paid on the Monday
+ * after it ("Paid on Mon 20 Oct"). A week without a payout of its own was added to a later one (cash collected was
+ * more than earned, or nothing was due), unless its Monday has not come yet.
+ */
+export function weeklySummary(nowMs: number, totals: readonly WeekTotals[], payouts: readonly WeekPayout[], count = WEEKS_SHOWN): WeekSummary[] {
+  const today = istDate(nowMs);
+  const thisMonday = istDate(payoutCutoff(nowMs).cutoffMs);
+  const day = (iso: string, plus: number) => istDate(windowStartMs(iso, 0) + plus * DAY_MS);
+  const weeks: WeekSummary[] = [];
+  for (let k = 0; k < count; k++) {
+    const start = day(thisMonday, -7 * k);
+    const end = day(start, 6);
+    const payday = day(start, 7);
+    const t = totals.find((x) => x.week === start);
+    const p = payouts.find((x) => x.periodEnd === end);
+    const earned = rupees(t?.earnedPaise ?? 0n);
+    const payout: WeekSummary['payout'] = p
+      ? { state: p.state, on: p.state === 'PAID' && p.paidAt !== null ? istDate(p.paidAt) : payday, amount: rupees(p.amountPaise), ref: p.state === 'PAID' ? p.providerRef : null }
+      : payday >= today
+        ? { state: earned > 0 ? 'UPCOMING' : 'NONE', on: earned > 0 ? payday : null, amount: null, ref: null }
+        : { state: earned > 0 ? 'CARRIED' : 'NONE', on: null, amount: null, ref: null };
+    weeks.push({ start, end, earned, cash: rupees(t?.cashPaise ?? 0n), jobs: t?.jobs ?? 0, payout });
+  }
+  return weeks;
+}

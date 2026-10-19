@@ -1,4 +1,4 @@
-import { jobCloseLines, jobCredits, nextPayoutOn, payoutCutoff, rupees } from './earnings-rules';
+import { jobCloseLines, jobCredits, nextPayoutOn, payoutCutoff, rupees, weeklySummary } from './earnings-rules';
 
 const SHARES = { visitShareRupees: 30, labourSharePercent: 80 };
 // examples/earnings.json: ₹120 labour + ₹200 materials.
@@ -71,5 +71,38 @@ describe('weekly payout calendar (Mondays, IST)', () => {
     expect(payoutCutoff(ist(2026, 10, 16, 12))).toEqual({ cutoffMs: ist(2026, 10, 12), periodEnd: '2026-10-11' });
     expect(payoutCutoff(ist(2026, 10, 19, 9))).toEqual({ cutoffMs: ist(2026, 10, 19), periodEnd: '2026-10-18' });
     expect(payoutCutoff(ist(2026, 10, 18, 23, 59))).toEqual({ cutoffMs: ist(2026, 10, 12), periodEnd: '2026-10-11' });
+  });
+});
+
+describe('weekly summary (paid each Monday for the week before)', () => {
+  // Wednesday 22 Oct 2026, 15:00 IST: this week is 19–25 Oct.
+  const now = ist(2026, 10, 22, 15);
+  const totals = [
+    { week: '2026-10-19', earnedPaise: 23_000n, cashPaise: 0n, jobs: 2 },
+    { week: '2026-10-12', earnedPaise: 124_000n, cashPaise: 50_000n, jobs: 5 },
+    { week: '2026-10-05', earnedPaise: 6_000n, cashPaise: 40_000n, jobs: 1 },
+  ];
+  const payouts = [{ periodEnd: '2026-10-18', state: 'PAID' as const, amountPaise: 74_000n, paidAt: ist(2026, 10, 20, 11), providerRef: 'UTR123' }];
+
+  it('lists this week and the 7 before it, Monday to Sunday, newest first', () => {
+    const weeks = weeklySummary(now, totals, payouts);
+    expect(weeks).toHaveLength(8);
+    expect(weeks.map((w) => `${w.start}..${w.end}`).slice(0, 3)).toEqual(['2026-10-19..2026-10-25', '2026-10-12..2026-10-18', '2026-10-05..2026-10-11']);
+  });
+
+  it('says when each week is paid: coming Monday, paid (with the day and reference), or added to a later payout', () => {
+    const [thisWeek, lastWeek, before, empty] = weeklySummary(now, totals, payouts);
+    expect(thisWeek).toEqual({ start: '2026-10-19', end: '2026-10-25', earned: 230, cash: 0, jobs: 2, payout: { state: 'UPCOMING', on: '2026-10-26', amount: null, ref: null } });
+    expect(lastWeek?.payout).toEqual({ state: 'PAID', on: '2026-10-20', amount: 740, ref: 'UTR123' });
+    expect(lastWeek).toMatchObject({ earned: 1240, cash: 500 });
+    // More cash collected than earned: no payout of its own; it was netted into a later one.
+    expect(before?.payout).toEqual({ state: 'CARRIED', on: null, amount: null, ref: null });
+    expect(empty?.payout.state).toBe('NONE');
+  });
+
+  it('on a Monday, last week is still to be paid today until the payout is made', () => {
+    const monday = ist(2026, 10, 26, 9);
+    const [, lastWeek] = weeklySummary(monday, [{ week: '2026-10-19', earnedPaise: 23_000n, cashPaise: 0n, jobs: 2 }], []);
+    expect(lastWeek?.payout).toEqual({ state: 'UPCOMING', on: '2026-10-26', amount: null, ref: null });
   });
 });
