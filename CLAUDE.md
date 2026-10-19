@@ -117,7 +117,9 @@ the same method in `MockBackend.ts`, a test in `app/src/__tests__/httpBackend.te
 migration folder; commit it. The server applies migrations itself on start.
 
 **Switch the AI model (same company)**: no code. On the server set `AI_CHAT_MODEL` / `AI_VISION_MODEL` in
-`.env.production` (default `claude-opus-5-5`) and restart. **Turn AI off**: `AI_PROVIDER=rules` (rule-based chat and
+`.env.production` (default `claude-opus-5-5`) and restart. **Free option**: `AI_PROVIDER=cloudflare` (Workers AI,
+`src/modules/ai/cloudflare.ts`; `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN`, models in `CLOUDFLARE_AI_CHAT_MODEL` /
+`CLOUDFLARE_AI_VISION_MODEL`). **Turn AI off**: `AI_PROVIDER=rules` (rule-based chat and
 "pick a service" fallback; the app keeps working).
 
 **Switch AI to another company** (e.g. OpenAI or Google):

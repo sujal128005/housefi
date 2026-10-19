@@ -190,7 +190,7 @@ describe('AI with models (e2e)', () => {
       expect(call.url).toBe(SARVAM_STT_URL);
       expect(call.headers.get('api-subscription-key')).toBe('sarvam-test');
       expect(call.form.get('language_code')).toBe('te-IN');
-      expect(call.form.get('model')).toBe('saarika:v2.5');
+      expect(call.form.get('model')).toBe('saaras:v4');
       expect(call.form.get('file')).toBeInstanceOf(Blob);
 
       const long = await uploaded('audio', m4a(45), 'audio/m4a');
