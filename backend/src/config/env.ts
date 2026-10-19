@@ -237,6 +237,8 @@ export const envSchema = z
     TECH_VISIT_SHARE_RUPEES: int(30, 0),
     TECH_LABOUR_SHARE_PERCENT: int(80, 0, 100),
     OFFER_TIMEOUT_SEC: int(45, 5),
+    /** Offers also go to online technicians this close to the customer, whatever their PIN code (0 = PIN codes only). */
+    DISPATCH_RADIUS_KM: int(10, 0, 50),
     MATCHING_DELAYED_AFTER_MIN: int(10, 1),
     MATCHING_GIVE_UP_AFTER_MIN: int(30, 1),
     UNPAID_BOOKING_EXPIRY_MIN: int(30, 1),
