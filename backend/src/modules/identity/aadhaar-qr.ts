@@ -46,10 +46,20 @@ export interface AadhaarQrDetails {
   readonly generatedAt: number | null;
 }
 
-/** Loads UIDAI's certificate (PEM, base64-encoded in the environment). */
-export function uidaiKey(certPemB64: string): KeyObject {
-  const pem = Buffer.from(certPemB64, 'base64').toString('utf8');
+/** Loads UIDAI's certificate: base64 of a PEM certificate or key, or of the .cer file itself (DER) as UIDAI publishes it. */
+export function uidaiKey(certB64: string): KeyObject {
+  const raw = Buffer.from(certB64.trim(), 'base64');
+  const pem = raw.toString('utf8');
+  if (!pem.includes('-----BEGIN')) return new X509Certificate(raw).publicKey;
   return pem.includes('CERTIFICATE') ? new X509Certificate(pem).publicKey : createPublicKey(pem);
+}
+
+/**
+ * All of UIDAI's certificates, comma-separated (UIDAI has changed its signing certificate over the years, and an
+ * Aadhaar printed or downloaded earlier stays signed with the one in use then).
+ */
+export function uidaiKeys(certsB64: string): KeyObject[] {
+  return certsB64.split(',').map((c) => c.trim()).filter(Boolean).map(uidaiKey);
 }
 
 /** QR text (digits) → bytes. */
@@ -73,16 +83,19 @@ function decompress(bytes: Buffer): Buffer {
 }
 
 /** Reads and verifies a scanned Aadhaar Secure QR. Throws AadhaarQrError for anything not genuine or not readable. */
-export function verifyAadhaarQr(qrText: string, uidai: KeyObject): AadhaarQrDetails {
+export function verifyAadhaarQr(qrText: string, uidai: KeyObject | readonly KeyObject[]): AadhaarQrDetails {
   if (qrText.length > 8000) throw new AadhaarQrError('UNREADABLE');
   const data = decompress(bigDecimalToBytes(qrText));
   if (data.length <= SIGNATURE_BYTES + 32) throw new AadhaarQrError('INCOMPLETE');
 
   const signed = data.subarray(0, data.length - SIGNATURE_BYTES);
   const signature = data.subarray(data.length - SIGNATURE_BYTES);
-  const verifier = createVerify('RSA-SHA256');
-  verifier.update(signed);
-  if (!verifier.verify(uidai, signature)) throw new AadhaarQrError('BAD_SIGNATURE');
+  const genuine = (Array.isArray(uidai) ? uidai : [uidai]).some((key: KeyObject) => {
+    const verifier = createVerify('RSA-SHA256');
+    verifier.update(signed);
+    return verifier.verify(key, signature);
+  });
+  if (!genuine) throw new AadhaarQrError('BAD_SIGNATURE');
 
   // Text fields: split on 255 up to the photo.
   const fields: string[] = [];

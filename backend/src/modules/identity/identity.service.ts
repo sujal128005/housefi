@@ -19,7 +19,7 @@ import { MediaUrls } from '../../common/storage/object-store';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { CATEGORY_ORDER } from '../technicians/technicians.schemas';
-import { AadhaarQrError, identityFingerprint, namesMatch, uidaiKey, verifyAadhaarQr } from './aadhaar-qr';
+import { AadhaarQrError, identityFingerprint, namesMatch, uidaiKeys, verifyAadhaarQr } from './aadhaar-qr';
 import { displayName, newVerifyToken, VERIFY_TOKEN, verifyTokenHash } from './identity-codes';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -72,7 +72,7 @@ export interface IdentityActor {
 @Injectable()
 export class IdentityService {
   private readonly log = new Logger(IdentityService.name);
-  private uidai: KeyObject | null | undefined;
+  private uidai: KeyObject[] | null | undefined;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -191,11 +191,11 @@ export class IdentityService {
     // A coordinator only for their own technicians.
     if (!t || (actor.type === 'COORDINATOR' && t.coordinatorId !== actor.id)) throw new AppError('NOT_FOUND');
     if (!t.techCode) throw new AppError('NOT_FOUND', {}, 'submit the profile first');
-    const key = this.uidaiKey();
-    if (!key) throw new AppError('INTERNAL', {}, 'Aadhaar verification is not configured (UIDAI_QR_CERT_PEM_B64)');
+    const keys = this.uidaiKeys();
+    if (!keys) throw new AppError('INTERNAL', {}, 'Aadhaar verification is not configured (UIDAI_QR_CERT_PEM_B64)');
     let details;
     try {
-      details = verifyAadhaarQr(qrText, key);
+      details = verifyAadhaarQr(qrText, keys);
     } catch (err) {
       if (err instanceof AadhaarQrError) {
         this.log.warn(`Aadhaar QR refused for technician ${technicianId} (${err.reason})`);
@@ -234,8 +234,8 @@ export class IdentityService {
     return { last4: details.last4, nameMatches, verifiedAt: now.getTime() };
   }
 
-  private uidaiKey(): KeyObject | null {
-    if (this.uidai === undefined) this.uidai = this.config.UIDAI_QR_CERT_PEM_B64 ? uidaiKey(this.config.UIDAI_QR_CERT_PEM_B64) : null;
+  private uidaiKeys(): KeyObject[] | null {
+    if (this.uidai === undefined) this.uidai = this.config.UIDAI_QR_CERT_PEM_B64 ? uidaiKeys(this.config.UIDAI_QR_CERT_PEM_B64) : null;
     return this.uidai;
   }
 
