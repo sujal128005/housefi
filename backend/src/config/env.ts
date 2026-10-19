@@ -202,19 +202,25 @@ export const envSchema = z
     MSG91_JOB_TEMPLATE_ID: z.string().optional(),
 
     /**
-     * The support chat and the problem-photo reader: "rules" (no model, the v1 behaviour) or "anthropic" (Claude, with
-     * the rules as the fallback whenever the model is slow, unavailable or declines).
+     * The support chat and the problem-photo reader: "rules" (no model, the v1 behaviour), "anthropic" (Claude) or
+     * "cloudflare" (open models on Cloudflare Workers AI, free daily allowance), each with the rules as the fallback
+     * whenever the model is slow, unavailable or declines.
      */
-    AI_PROVIDER: z.enum(['rules', 'anthropic']).default('rules'),
+    AI_PROVIDER: z.enum(['rules', 'anthropic', 'cloudflare']).default('rules'),
     ANTHROPIC_API_KEY: z.string().optional(),
     AI_CHAT_MODEL: z.string().default('claude-opus-5-5'),
     AI_VISION_MODEL: z.string().default('claude-opus-5-5'),
+    /** Cloudflare Workers AI (AI_PROVIDER=cloudflare): account id and an API token with Workers AI read + edit. */
+    CLOUDFLARE_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'must be the 32-character account id').optional(),
+    CLOUDFLARE_AI_TOKEN: z.string().optional(),
+    CLOUDFLARE_AI_CHAT_MODEL: z.string().default('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),
+    CLOUDFLARE_AI_VISION_MODEL: z.string().default('@cf/meta/llama-4-scout-17b-16e-instruct'),
     /** Per model call; past it the rules answer instead. */
     AI_TIMEOUT_MS: int(15000, 2000, 60000),
     /** Voice notes to text: "none" (the app keeps the audio) or "sarvam" (Sarvam AI, Telugu and English). */
     SPEECH_TO_TEXT_PROVIDER: z.enum(['none', 'sarvam']).default('none'),
     SARVAM_API_KEY: z.string().optional(),
-    SARVAM_STT_MODEL: z.string().default('saarika:v2.5'),
+    SARVAM_STT_MODEL: z.string().default('saaras:v4'),
 
     /**
      * Where the QR code on a Technician ID card points; the token is appended. The default page on the Housefi website
@@ -266,6 +272,10 @@ export const envSchema = z
       ctx.addIssue({ code: 'custom', path: ['DEMO_OTP_CODE'], message: 'too easy to guess (repeated or sequential digits)' });
     }
     if (e.AI_PROVIDER === 'anthropic') require('ANTHROPIC_API_KEY', 'when AI_PROVIDER=anthropic');
+    if (e.AI_PROVIDER === 'cloudflare') {
+      require('CLOUDFLARE_ACCOUNT_ID', 'when AI_PROVIDER=cloudflare');
+      require('CLOUDFLARE_AI_TOKEN', 'when AI_PROVIDER=cloudflare');
+    }
     if (e.SPEECH_TO_TEXT_PROVIDER === 'sarvam') require('SARVAM_API_KEY', 'when SPEECH_TO_TEXT_PROVIDER=sarvam');
     if (e.TELEPHONY_PROVIDER === 'exotel') {
       for (const k of ['EXOTEL_SID', 'EXOTEL_API_KEY', 'EXOTEL_API_TOKEN', 'EXOTEL_CALLER_ID', 'EXOTEL_OFFER_FLOW_ID', 'EXOTEL_WEBHOOK_SECRET'] as const) {

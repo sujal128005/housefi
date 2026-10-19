@@ -111,6 +111,24 @@ Razorpay → Account & Settings → **Webhooks** → Add: URL `https://api.house
 secret from `RAZORPAY_WEBHOOK_SECRET`, events `payment.authorized`, `payment.captured`, `payment.failed`,
 `order.paid`, `refund.processed`, `refund.failed`.
 
+## 8. Turn on AI (free)
+
+Both are optional; without them the chat answers with Housefi's rules and voice notes stay audio.
+
+**Voice notes to text (Telugu and English): Sarvam**
+1. Sign up at dashboard.sarvam.ai (free credits, no card) → **API Keys** → create a key → save it in Bitwarden.
+2. In `.env.production`: `SPEECH_TO_TEXT_PROVIDER=sarvam` and `SARVAM_API_KEY=<the key>`.
+
+**Chat assistant and "pick a service" from a photo: Cloudflare Workers AI**
+1. Account ID: Cloudflare dashboard → **Account home** → the **⋯** next to your account → **Copy account ID** (32 characters).
+2. Token: top right → **My Profile** → **API Tokens** → **Create Token** → template **Workers AI** → **Use template** →
+   **Continue to summary** → **Create Token**. Save it in Bitwarden.
+3. In `.env.production`: `AI_PROVIDER=cloudflare`, `CLOUDFLARE_ACCOUNT_ID=<the id>`, `CLOUDFLARE_AI_TOKEN=<the token>`.
+
+Then `deploylaptop start` (it restarts the API with the new settings). The free allowance resets every day; past it,
+and whenever a model is slow or fails, the chat falls back to the rules by itself. Cloudflare does not use what is
+sent for training. Back up `.env.production` in Bitwarden again.
+
 ## Everyday commands
 
 From `housefi-server\backend`:

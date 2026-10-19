@@ -175,6 +175,17 @@ describe('hardening rules', () => {
     expect(problemsOf({ NODE_ENV: 'production', SMS_PROVIDER: 'console' })).toContain('SMS_PROVIDER: must be msg91 in production');
   });
 
+  it('needs the Cloudflare account id and token for AI_PROVIDER=cloudflare', () => {
+    expect(problemsOf({ ...base, AI_PROVIDER: 'cloudflare' })).toEqual([
+      'CLOUDFLARE_ACCOUNT_ID: required when AI_PROVIDER=cloudflare',
+      'CLOUDFLARE_AI_TOKEN: required when AI_PROVIDER=cloudflare',
+    ]);
+    expect(problemsOf({ ...base, AI_PROVIDER: 'cloudflare', CLOUDFLARE_ACCOUNT_ID: 'not-an-id', CLOUDFLARE_AI_TOKEN: 'cf-token' })).toHaveLength(1);
+    const env = parseEnv({ ...base, AI_PROVIDER: 'cloudflare', CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32), CLOUDFLARE_AI_TOKEN: 'cf-token' });
+    expect(env.CLOUDFLARE_AI_CHAT_MODEL).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+    expect(env.SARVAM_STT_MODEL).toBe('saaras:v4');
+  });
+
   it('refuses a password-less Redis in production', () => {
     expect(problemsOf({ NODE_ENV: 'production', REDIS_URL: 'redis://redis:6379' })).toContain('REDIS_URL: must include a password in production (rediss:// recommended)');
   });
