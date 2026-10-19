@@ -40,6 +40,9 @@ services:
     command: ["node_modules/.bin/prisma", "migrate", "deploy"]
     networks: [internal]
     restart: "no"
+    # With --profile local-db, wait for the database on this machine; without it (managed database) this is skipped.
+    depends_on:
+      postgres: { condition: service_healthy, required: false }
 
   redis:
     image: redis:7.4-alpine
