@@ -326,3 +326,13 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .notif img { width: 34px; height: 34px; border-radius: 9px; }
 .notif b { display: block; font-size: 14px; }
 .notif span { font-size: 13px; color: #dbe5ff; }
+
+/* Fixes from the Grow screenshots: a compact sidebar (more sections now), one-line checkboxes, room above the orb. */
+.nav-group { margin-bottom: 8px; }
+.nav-title { padding: 4px 10px; }
+.nav-item { padding: 7px 10px; }
+nav { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+.form label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 600; }
+.form label.check input { width: 18px; height: 18px; margin: 0; }
+.drawer-body { padding-bottom: 110px; }
+.modal { padding-bottom: 28px; }
