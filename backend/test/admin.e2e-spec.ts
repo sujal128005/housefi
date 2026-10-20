@@ -17,6 +17,9 @@ const PHONE = '9876500099';
 const LAPTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36';
 const MIN = 60_000;
 
+// Password hashing is slow on purpose (scrypt); the guessing test runs a dozen of them.
+jest.setTimeout(30_000);
+
 describe('super admin portal (e2e)', () => {
   let t: TestApp;
   let username: string;
