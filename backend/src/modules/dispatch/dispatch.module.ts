@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { BookingCoreModule } from '../bookings/booking-core.module';
-import { OffersController } from './dispatch.controller';
+import { EstimateController, OffersController } from './dispatch.controller';
 import { DispatchService } from './dispatch.service';
 import { DispatchWorker } from './dispatch.worker';
 
 /** Depends only on the booking core, so bookings and payments can start or stop dispatch without cycles. */
 @Module({
   imports: [BookingCoreModule],
-  controllers: [OffersController],
+  controllers: [OffersController, EstimateController],
   providers: [DispatchService, DispatchWorker],
   exports: [DispatchService],
 })

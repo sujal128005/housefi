@@ -12,6 +12,7 @@ import type { JobDto } from '../bookings/job-view';
 import { Notifier } from '../notifications/notifier';
 import { istDate, istDayStart, istHour as istHourOf, windowStartMs } from '../slots/slot-rules';
 import { type JobOfferDto, toJobOfferDto } from './offer-view';
+import { bookingEstimate, PREP_MIN, travelMinutes } from './travel-time';
 
 /** Offers not answered this many times in a row take the technician offline (README §4). */
 export const MISSED_OFFERS_LIMIT = 3;
@@ -251,10 +252,45 @@ export class DispatchService {
         throw new AppError('OFFER_EXPIRED');
       }
       await tx.jobOffer.update({ where: { id: offerId }, data: { state: 'ACCEPTED', respondedAt: now } });
-      await this.core.transition(tx, b, 'ASSIGNED', { technician: { connect: { userId: technicianId } }, assignedAt: now }, { type: 'TECHNICIAN', id: technicianId }, { offerId, ...(via === 'IVR' ? { via: 'IVR' } : {}) });
+      // An instant visit shows when the technician should arrive straight away: getting ready plus the trip.
+      const metres = b.timeMode === 'INSTANT' ? await this.distanceM(tx, technicianId, bookingId) : null;
+      const etaMin = metres === null ? null : PREP_MIN + travelMinutes(metres, now.getTime());
+      await this.core.transition(tx, b, 'ASSIGNED', { technician: { connect: { userId: technicianId } }, assignedAt: now, etaMin }, { type: 'TECHNICIAN', id: technicianId }, { offerId, ...(via === 'IVR' ? { via: 'IVR' } : {}) });
       await tx.technician.update({ where: { userId: technicianId }, data: { missedOffersInRow: 0 } });
       await tx.dispatchQueueEntry.updateMany({ where: { bookingId, resolvedAt: null }, data: { resolvedAt: now } });
     });
+  }
+
+  /** Straight-line metres from the technician's last position to the booking; null when either is unknown. */
+  private async distanceM(tx: Prisma.TransactionClient, technicianId: string, bookingId: string): Promise<number | null> {
+    const [row] = await tx.$queryRaw<{ m: number | null }[]>`
+      SELECT ST_Distance(t.last_location, b.location) AS m FROM technicians t, bookings b
+      WHERE t.user_id = ${technicianId}::uuid AND b.id = ${bookingId}::uuid`;
+    return row?.m ?? null;
+  }
+
+  /**
+   * Before booking "Now": roughly when a technician could be at this address ("25–35 min"), from the nearest one who
+   * could take it right now (the same rules as an offer). Only minutes come back, never where anyone is; null when
+   * nobody is free nearby or the address has no map point (the app then shows its usual range).
+   */
+  async estimate(customerId: string, serviceId: string, addressId: string): Promise<{ minutes: readonly [number, number] | null }> {
+    if (!UUID.test(addressId)) throw new AppError('NOT_FOUND');
+    const service = await this.prisma.service.findFirst({ where: { id: serviceId, active: true }, select: { categoryId: true } });
+    const address = await this.prisma.address.findFirst({ where: { id: addressId, userId: customerId }, select: { id: true } });
+    if (!service || !address) throw new AppError('NOT_FOUND');
+    const isDemo = (await this.prisma.user.findUnique({ where: { id: customerId }, select: { isDemo: true } }))?.isDemo ?? false;
+    const radiusM = this.config.DISPATCH_RADIUS_KM * 1000;
+    const [row] = await this.prisma.$queryRaw<{ m: number | null }[]>`
+      SELECT MIN(ST_Distance(t.last_location, a.location)) AS m
+      FROM technicians t JOIN users u ON u.id = t.user_id, addresses a
+      WHERE a.id = ${addressId}::uuid AND a.location IS NOT NULL AND t.last_location IS NOT NULL
+        AND t.verification = 'APPROVED' AND t.online AND u.status = 'ACTIVE' AND u.is_demo = ${isDemo} AND t.phone_type = 'SMARTPHONE'
+        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.category_id = ANY(${skillsFor(service.categoryId)}::category_id[]))
+        AND (t.pincode = a.pincode OR t.pincode IN (SELECT n.near_pincode FROM service_area_pincodes n WHERE n.pincode = a.pincode)
+          OR (${radiusM} > 0 AND ST_DWithin(t.last_location, a.location, ${radiusM})))
+        AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))`;
+    return { minutes: row?.m === null || row?.m === undefined ? null : bookingEstimate(row.m, this.clock.now()) };
   }
 
   /** Declines (optional reason); the next technician is offered at once. Answering an offer that is no longer open is a no-op. */

@@ -20,12 +20,11 @@ import { Notifier } from '../notifications/notifier';
 import { PaymentsService } from '../payments/payments.service';
 import type { QuoteInput } from './jobs.schemas';
 import { priceCheck, totals } from './price-check';
+import { PREP_MIN, travelMinutes } from '../dispatch/travel-time';
 
 /** STATE-MACHINE.md: UNDER_REVIEW quotes are cleared automatically after 2 minutes until reviewers exist (logged). */
 export const REVIEW_AUTO_CLEAR_MS = 2 * 60_000;
 /** ETA estimate: straight-line distance x road factor at city speed. Replaced by a routing API later. */
-const ROAD_FACTOR = 1.4;
-const CITY_METRES_PER_MIN = 20_000 / 60; // 20 km/h
 
 const CLOSES_VISIT = { CUSTOMER_UNAVAILABLE: ['ARRIVED'], CANNOT_COMPLETE: ['INSPECTING', 'QUOTE_SHARED', 'IN_PROGRESS'] } as const;
 const TICKET_PRIORITY: Record<string, TicketPriority> = { UNSAFE: 'URGENT', PAYMENT_PROBLEM: 'HIGH' };
@@ -263,12 +262,19 @@ export class JobsService {
     return n;
   }
 
-  /** While a technician travels, each location update moves them on the customer's map and refreshes the ETA. */
+  /**
+   * Each location update refreshes the arrival time: while travelling (and moves them on the customer's map), and
+   * for an instant visit already accepted but not started, the trip plus the minutes to get ready.
+   */
   async refreshEta(technicianId: string): Promise<void> {
-    const job = await this.prisma.booking.findFirst({ where: { technicianId, status: 'EN_ROUTE' }, select: { id: true, etaMin: true } });
+    const job = await this.prisma.booking.findFirst({
+      where: { technicianId, OR: [{ status: 'EN_ROUTE' }, { status: 'ASSIGNED', timeMode: 'INSTANT' }] },
+      select: { id: true, etaMin: true, status: true },
+    });
     if (!job) return;
-    const eta = await this.etaMinutes(this.prisma, job.id, technicianId);
-    if (eta !== null && eta !== job.etaMin) await this.prisma.booking.updateMany({ where: { id: job.id, status: 'EN_ROUTE' }, data: { etaMin: eta } });
+    const travel = await this.etaMinutes(this.prisma, job.id, technicianId);
+    const eta = travel === null ? null : travel + (job.status === 'ASSIGNED' ? PREP_MIN : 0);
+    if (eta !== null && eta !== job.etaMin) await this.prisma.booking.updateMany({ where: { id: job.id, status: job.status }, data: { etaMin: eta } });
     this.core.updates.publish(job.id);
   }
 
@@ -285,7 +291,7 @@ export class JobsService {
       SELECT ST_Distance(t.last_location, b.location) AS m FROM technicians t, bookings b
       WHERE t.user_id = ${technicianId}::uuid AND b.id = ${bookingId}::uuid`;
     if (row?.m === null || row?.m === undefined) return null;
-    return Math.max(1, Math.ceil((row.m * ROAD_FACTOR) / CITY_METRES_PER_MIN));
+    return travelMinutes(row.m, this.clock.now());
   }
 
   private async ticket(tx: Prisma.TransactionClient, bookingId: string, raisedBy: string, kind: string, note: string, priority: TicketPriority, location?: Position): Promise<void> {

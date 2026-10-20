@@ -43,6 +43,13 @@ export default function WhenStep() {
   const [error, setError] = useState<unknown>(null);
   const slots = useQuery(async () => (serviceId && mode === 'SCHEDULED' ? backend.bookings.slots(session.token, serviceId, date) : []), [serviceId, date, backend, mode, session.token]);
   const open = (slots.data ?? []).filter((s) => s.state === 'OPEN');
+  // "Now": roughly when a technician could be here (the chosen address, else the first saved one); minutes only.
+  const estimate = useQuery(async () => {
+    if (!serviceId || !instantOk || reschedule) return null;
+    const addressId = draft.addressId ?? (await backend.addresses.list(session.token))[0]?.id;
+    return addressId ? (await backend.bookings.eta(session.token, serviceId, addressId)).minutes : null;
+  }, [serviceId, instantOk, reschedule, draft.addressId, backend, session.token]);
+  const eta = estimate.data ?? null;
 
   // If nothing is left today, start the date strip on tomorrow.
   const [autoSkipped, setAutoSkipped] = useState(false);
@@ -93,7 +100,7 @@ export default function WhenStep() {
       {booking.error ? <ErrorView error={booking.error} onRetry={booking.reload} /> : null}
 
       <View style={styles.modes}>
-        <ModeCard testID="mode-instant" art="rocket" title={t('when.instant')} sub={instantOk ? t('when.instantSub', { min: INSTANT_ETA_MIN[0], max: INSTANT_ETA_MIN[1] }) : t('when.instantClosed', { from: formatHour(INSTANT_HOURS[0], locale), to: formatHour(INSTANT_HOURS[1], locale) })}
+        <ModeCard testID="mode-instant" art="rocket" title={t('when.instant')} sub={instantOk ? (eta ? t('when.instantSubEta', { min: eta[0], max: eta[1] }) : t('when.instantSub', { min: INSTANT_ETA_MIN[0], max: INSTANT_ETA_MIN[1] })) : t('when.instantClosed', { from: formatHour(INSTANT_HOURS[0], locale), to: formatHour(INSTANT_HOURS[1], locale) })}
           selected={mode === 'INSTANT'} disabled={!instantOk} onPress={() => setMode('INSTANT')} />
         <ModeCard testID="mode-schedule" art="spiral_calendar" title={t('when.schedule')} sub={t('when.scheduleSub')} selected={mode === 'SCHEDULED'} onPress={() => setMode('SCHEDULED')} />
       </View>
