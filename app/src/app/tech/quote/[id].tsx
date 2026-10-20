@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { QUOTE_TEMPLATES, serviceById } from '../../../data/catalog';
 import { priceCheck, QUOTE_MIN, quoteProblem, typicalRange, type QuoteLineDraft } from '../../../domain/rules';
-import type { Job, QuoteLine } from '../../../domain/types';
+import type { Job, Part, QuoteLine } from '../../../domain/types';
 import { Art3D } from '../../../illustrations/Art3D';
 import { formatRupees } from '../../../i18n/format';
 import { useI18n, type StringKey } from '../../../i18n/I18n';
@@ -14,7 +14,7 @@ import { feedback } from '../../../services/feedback';
 import { useBackend } from '../../../services/ServicesProvider';
 import { useTechSession } from '../../../state/AppState';
 import { colors, radius, space } from '../../../theme/tokens';
-import { Banner, Button, Card, Chip, Divider, ErrorBanner, ErrorView, Field, Header, Icon, Pill, Screen, Skeleton, Tap, Txt } from '../../../ui';
+import { Banner, Button, Card, Chip, Divider, ErrorBanner, ErrorView, Field, Header, Icon, Pill, Screen, Sheet, Skeleton, Tap, Txt } from '../../../ui';
 
 interface Draft {
   readonly key: number;
@@ -22,6 +22,8 @@ interface Draft {
   readonly name: string;
   readonly qty: number;
   readonly price: string;
+  /** Picked from Housefi's price list. */
+  readonly partId?: string;
 }
 
 const PROBLEM_TEXT: Record<string, StringKey> = {
@@ -43,6 +45,17 @@ export default function QuoteBuilder() {
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [parts, setParts] = useState<readonly Part[]>([]);
+  const [picking, setPicking] = useState(false);
+
+  // Housefi's price list for this trade (optional: the quote works without it).
+  useEffect(() => {
+    let alive = true;
+    backend.tech.parts(session.token, id).then((p) => alive && setParts(p), () => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [backend, session.token, id]);
 
   useEffect(() => {
     let alive = true;
@@ -67,7 +80,14 @@ export default function QuoteBuilder() {
   }, [backend, session.token, id, which]);
 
   const drafts: QuoteLineDraft[] = lines.map((x) => ({ kind: x.kind, name: x.name, qty: x.qty, unitPrice: Number.parseInt(x.price, 10) || 0 }));
-  const asLines: QuoteLine[] = drafts.map((d) => ({ kind: d.kind, name: { en: d.name, te: d.name }, qty: d.qty, unitPrice: d.unitPrice }));
+  /** A listed part at (up to 10% over) its listed price: fair by definition, like the server's check. */
+  const listed = (x: Draft) => {
+    const part = x.partId ? parts.find((p) => p.id === x.partId) : undefined;
+    return !!part && x.kind === 'MATERIAL' && (Number.parseInt(x.price, 10) || 0) * 10 <= part.price * 11;
+  };
+  const asLines: QuoteLine[] = drafts
+    .filter((_, i) => !listed(lines[i]!))
+    .map((d) => ({ kind: d.kind, name: { en: d.name, te: d.name }, qty: d.qty, unitPrice: d.unitPrice }));
   const labour = drafts.filter((d) => d.kind === 'LABOUR').reduce((s, d) => s + d.qty * d.unitPrice, 0);
   const material = drafts.filter((d) => d.kind === 'MATERIAL').reduce((s, d) => s + d.qty * d.unitPrice, 0);
   const total = labour + material;
@@ -76,14 +96,14 @@ export default function QuoteBuilder() {
   const problem = quoteProblem(diagnosis, drafts);
   // Extra work alone may be only materials; the main quote needs labour.
   const blocking = which === 'EXTRA' && problem === 'NO_LABOUR' ? null : problem;
-  const check = total > 0 ? priceCheck(svc, asLines) : null;
+  const check = total > 0 ? (asLines.length ? priceCheck(svc, asLines) : 'FAIR') : null;
   const tpl = job ? QUOTE_TEMPLATES[job.categoryId] : undefined;
   const suggestions = tpl ? [...tpl.lines, tpl.extra.line] : [];
 
   const update = (key: number, patch: Partial<Draft>) => setLines((ls) => ls.map((x) => (x.key === key ? { ...x, ...patch } : x)));
-  const add = (kind: QuoteLine['kind'], name = '', price = '') => {
+  const add = (kind: QuoteLine['kind'], name = '', price = '', partId?: string) => {
     feedback('pop');
-    setLines((ls) => [...ls, { key: nextKey++, kind, name, qty: 1, price }]);
+    setLines((ls) => [...ls, { key: nextKey++, kind, name, qty: 1, price, ...(partId ? { partId } : {}) }]);
   };
 
   const send = async () => {
@@ -97,7 +117,10 @@ export default function QuoteBuilder() {
     try {
       await backend.tech.submitQuote(session.token, job.id, which, {
         diagnosis: diagnosis.trim(),
-        lines: drafts.map((d) => ({ kind: d.kind, name: d.name.trim(), qty: d.qty, unitPrice: d.unitPrice })),
+        lines: drafts.map((d, i) => {
+          const partId = lines[i]?.kind === 'MATERIAL' ? lines[i]?.partId : undefined;
+          return { kind: d.kind, name: d.name.trim(), qty: d.qty, unitPrice: d.unitPrice, ...(partId ? { partId } : {}) };
+        }),
       });
       feedback('send');
       router.back();
@@ -150,6 +173,7 @@ export default function QuoteBuilder() {
                   <Txt variant="caption" color={x.kind === 'LABOUR' ? 'blue' : 'orange'}>{t(x.kind === 'LABOUR' ? 'quote.labour' : 'quote.material')}</Txt>
                   <Icon name="swap-horizontal" size={12} color="inkMuted" />
                 </Tap>
+                {x.partId && x.kind === 'MATERIAL' ? <Pill label={t('tq.listed')} tone={listed(x) ? 'success' : 'warning'} icon="pricetag" /> : null}
                 <Txt variant="label" style={styles.lineTotal}>{formatRupees(x.qty * (Number.parseInt(x.price, 10) || 0))}</Txt>
                 <Tap onPress={() => setLines((ls) => ls.filter((y) => y.key !== x.key))} style={styles.remove} accessibilityLabel={t('common.remove')} testID={`tq-remove-${i}`}>
                   <Icon name="trash-outline" size={18} color="danger" />
@@ -175,6 +199,22 @@ export default function QuoteBuilder() {
             <Button label={t('tq.addLabour')} icon="construct" variant="secondary" size="md" onPress={() => add('LABOUR')} style={styles.flex} testID="tq-add-labour" />
             <Button label={t('tq.addMaterial')} icon="cube" variant="secondary" size="md" onPress={() => add('MATERIAL')} style={styles.flex} testID="tq-add-material" />
           </View>
+          {parts.length > 0 ? <Button label={t('tq.priceList')} icon="pricetags" variant="outline" size="md" onPress={() => setPicking(true)} testID="tq-price-list" /> : null}
+          <Sheet visible={picking} onClose={() => setPicking(false)} testID="tq-parts-sheet">
+            <Txt variant="title2" heading>{t('tq.priceListTitle')}</Txt>
+            <Txt variant="footnote" color="inkMuted">{t('tq.priceListBody')}</Txt>
+            {parts.length === 0 ? <Txt variant="callout" color="inkMuted">{t('tq.noParts')}</Txt> : parts.map((p) => (
+              <Tap key={p.id} onPress={() => {
+                add('MATERIAL', l(p.name), String(p.price), p.id);
+                setPicking(false);
+              }} style={styles.part} accessibilityLabel={`${l(p.name)} ${formatRupees(p.price)}`} testID={`tq-part-${p.id}`}>
+                <Icon name="cube" size={18} color="orange" />
+                <Txt variant="bodyStrong" style={styles.flex}>{l(p.name)}</Txt>
+                <Txt variant="label">{t('tq.perUnit', { price: formatRupees(p.price), unit: p.unit })}</Txt>
+                <Icon name="add-circle" size={22} color="blue" />
+              </Tap>
+            ))}
+          </Sheet>
           {suggestions.length > 0 ? (
             <View style={styles.block}>
               <Txt variant="label" color="inkMuted">{t('tq.common')}</Txt>
@@ -227,6 +267,7 @@ const styles = StyleSheet.create({
   price: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.xs, minHeight: 48, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.blue, paddingHorizontal: space.md, backgroundColor: colors.surface },
   priceInput: { flex: 1, fontSize: 20, fontWeight: '700', color: colors.ink, minHeight: 44 },
   addRow: { flexDirection: 'row', gap: space.sm },
+  part: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 52, paddingHorizontal: space.sm, borderRadius: radius.md, borderBottomWidth: 1, borderBottomColor: colors.line },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   totals: { gap: space.sm },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

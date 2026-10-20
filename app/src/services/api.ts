@@ -2,9 +2,7 @@
 // (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
 // build of the app uses it.
 import type {
-  Address, AddressInput, Booking, CancelReason, Category, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo,
-  ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession,
-  TechVerifyResult, VisitTime,
+  Address, AddressInput, Booking, CancelReason, Category, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
 
@@ -135,6 +133,13 @@ export interface BookingApi {
    */
   decideQuote(token: string, id: string, which: 'MAIN' | 'EXTRA', answer: QuoteAnswer): Promise<Booking>;
   rate(token: string, id: string, rating: Omit<Rating, 'at'>): Promise<Booking>;
+  /** A coupon on the final bill (while it is due). A code that cannot be used comes back with why, not as an error. */
+  applyCoupon(token: string, id: string, code: string): Promise<CouponResult>;
+  removeCoupon(token: string, id: string): Promise<Booking>;
+  /** "Not fixed? Free revisit" within 15 days of a completed job: the new booking (or the one already asked for). */
+  claimWarranty(token: string, id: string, note: string): Promise<Booking>;
+  /** A link (valid 15 minutes) that opens the invoice PDF in the browser. CONFLICT before the job is done. */
+  invoiceLink(token: string, id: string): Promise<string>;
   /**
    * The digital ID card of the technician assigned to this customer's booking. NOT_FOUND unless the booking is the
    * customer's own and a technician is assigned (the same answer for other people's bookings, so nothing leaks).
@@ -165,7 +170,9 @@ export type NotificationKind =
   // a chat message from the other side (shown by the chat bubble, not in the inbox)
   | 'CHAT_MESSAGE'
   // the Housefi team answered in the person's support conversation
-  | 'SUPPORT_REPLY';
+  | 'SUPPORT_REPLY'
+  // a message from Housefi HQ to everyone (params: title, body, titleTe, bodyTe)
+  | 'ANNOUNCEMENT';
 
 export interface AppNotification {
   readonly id: string;
@@ -259,6 +266,18 @@ export interface QuoteLineInput {
   readonly name: string;
   readonly qty: number;
   readonly unitPrice: number;
+  /** A part from Housefi's price list (materials): listed parts at their price pass the price check. */
+  readonly partId?: string;
+}
+
+export type CouponProblem = 'UNKNOWN' | 'INACTIVE' | 'NOT_YET' | 'EXPIRED' | 'USED_UP' | 'ALREADY_USED' | 'FIRST_BOOKING_ONLY' | 'BILL_TOO_SMALL';
+
+export interface CouponResult {
+  readonly applied: boolean;
+  readonly problem: CouponProblem | null;
+  /** Whole rupees off. */
+  readonly discount: number;
+  readonly booking: Booking;
 }
 
 export interface QuoteInput {
@@ -307,6 +326,10 @@ export interface TechApi {
   verifyStartCode(token: string, id: string, code: string): Promise<Job>;
   /** Sends the repair quote (MAIN) or extra work (EXTRA); it is price-checked before the customer sees it. */
   submitQuote(token: string, id: string, which: 'MAIN' | 'EXTRA', input: QuoteInput): Promise<Job>;
+  /** A warranty revisit closed as fixed at no charge (after the start code). */
+  warrantyFixed(token: string, id: string): Promise<Job>;
+  /** Housefi's parts price list for this job's trade. */
+  parts(token: string, id: string): Promise<readonly Part[]>;
   startWork(token: string, id: string): Promise<Job>;
   completeWork(token: string, id: string): Promise<Job>;
   /** The customer chose cash; the technician confirms it was received. */

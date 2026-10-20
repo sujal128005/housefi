@@ -3,10 +3,10 @@
 // (uploads.ts); live updates stream (liveStream.ts); payments open Razorpay's checkout through `openCheckout`.
 import {
   ApiError, isApiError, type AiApi, type AppNotification, type Backend, type BookingApi, type Chat, type ChatApi, type ChatSummary, type KeyValueStore, type NotificationApi,
-  type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
+  type CouponResult, type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
-  Address, Booking, Category, Customer, Earnings, Job, JobOffer, Photo, ProblemDescription, Service, Slot, TechProfile, VoiceNote,
+  Address, Booking, Category, Customer, Earnings, Job, JobOffer, Part, Photo, ProblemDescription, Service, Slot, TechProfile, VoiceNote,
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
@@ -266,6 +266,13 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     reschedule: (handle, id, time) => call(handle, 'POST', apiPath`/bookings/${id}/reschedule`, decodeBooking, { time }),
     decideQuote: (handle, id, which, answer) => call(handle, 'POST', apiPath`/bookings/${id}/quotes/${which}/answer`, decodeBooking, { answer }),
     rate: (handle, id, r) => call(handle, 'POST', apiPath`/bookings/${id}/rating`, decodeBooking, { satisfied: r.satisfied, stars: r.stars, tags: r.tags, comment: r.comment, byWoman: r.byWoman === true }),
+    applyCoupon: (handle, id, code) => call(handle, 'POST', apiPath`/bookings/${id}/coupon`, (j) => {
+      const o = obj(j, 'coupon');
+      return { applied: o.applied === true, problem: (typeof o.problem === 'string' ? o.problem : null) as CouponResult['problem'], discount: typeof o.discount === 'number' ? o.discount : 0, booking: decodeBooking(o.booking) };
+    }, { code: code.slice(0, 30) }),
+    removeCoupon: (handle, id) => call(handle, 'DELETE', apiPath`/bookings/${id}/coupon`, decodeBooking),
+    claimWarranty: (handle, id, note) => call(handle, 'POST', apiPath`/bookings/${id}/warranty`, decodeBooking, { note: note.slice(0, 400) }),
+    invoiceLink: async (handle, id) => `${base}${(await call(handle, 'POST', apiPath`/bookings/${id}/invoice-link`, (j) => str(obj(j, 'invoice link'), 'path'))).replace(/^(?!\/)/, '/')}`,
     technicianCard: (handle, id) => call(handle, 'GET', apiPath`/bookings/${id}/technician-card`, decodeTechIdCard),
     watch: (handle, id, onChange, onError) =>
       watchStream(handle, apiPath`/bookings/${id}/stream`, 'booking', decodeBooking, () => bookings.get(handle, id), onChange, onError),
@@ -318,7 +325,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
 
   // ---------- technician ----------
 
-  const techAction = (action: 'start-trip' | 'arrived' | 'start-work' | 'complete' | 'confirm-cash') => (handle: string, id: string) =>
+  const techAction = (action: 'start-trip' | 'arrived' | 'start-work' | 'complete' | 'confirm-cash' | 'warranty-fixed') => (handle: string, id: string) =>
     call(handle, 'POST', apiPath`/tech/jobs/${id}/${action}`, decodeJob);
 
   const tech: TechApi = {
@@ -352,6 +359,8 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     arrived: techAction('arrived'),
     verifyStartCode: (handle, id, code) => call(handle, 'POST', apiPath`/tech/jobs/${id}/verify-start-code`, decodeJob, { code }),
     submitQuote: (handle, id, which, input) => call(handle, 'POST', apiPath`/tech/jobs/${id}/quotes`, decodeJob, { which, diagnosis: input.diagnosis, lines: input.lines }),
+    warrantyFixed: techAction('warranty-fixed'),
+    parts: (handle, id) => call(handle, 'GET', apiPath`/tech/jobs/${id}/parts`, (j) => list(j, (x) => record<Part>(x, 'part', ['id', 'name', 'unit', 'price']), 'parts')),
     startWork: techAction('start-work'),
     completeWork: techAction('complete'),
     confirmCash: techAction('confirm-cash'),

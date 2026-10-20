@@ -20,6 +20,7 @@ import {
   Banner, Button, Card, Chip, ConfirmSheet, Divider, ErrorBanner, ErrorView, Header, Icon, Screen, Sheet, Skeleton, Tap, Txt, useToast, type IconName,
 } from '../../ui';
 import { ArrivalOtpCard, BillCard, ProgressStepper, QuoteCard, SafetyRow, TechnicianCard } from '../../ui/BookingParts';
+import { CouponBox, InvoiceButton, WarrantyBanner, WarrantyCard } from '../../ui/GrowthParts';
 import { Appear, Celebrate, Pulse } from '../../ui/motion';
 import { PhotoThumb } from '../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../ui/present';
@@ -264,7 +265,9 @@ export default function BookingHub() {
         </Card>
       ) : null}
 
+      <WarrantyBanner booking={b} />
       {['PAYMENT_DUE', 'COMPLETED'].includes(b.status) ? <BillCard booking={b} /> : null}
+      {b.status === 'PAYMENT_DUE' ? <CouponBox booking={b} onChanged={setBooking} /> : null}
       {b.status === 'PAYMENT_DUE' ? (
         <View style={styles.stack}>
           {b.finalPayment?.state === 'PENDING' && b.finalPayment.method !== 'CASH' ? <Banner tone="warning" icon="hourglass" text={t('pay.pendingBody')} /> : null}
@@ -288,6 +291,8 @@ export default function BookingHub() {
                 router.push('/book/problem');
               }} testID="hub-book-again" />
           ) : null}
+          {b.status === 'COMPLETED' ? <WarrantyCard booking={b} /> : null}
+          <InvoiceButton booking={b} />
           <Button label={t('pay.viewReceipt')} icon="receipt-outline" variant="outline" onPress={() => router.push({ pathname: '/booking/receipt', params: { id: b.id } })} testID="hub-receipt" />
         </View>
       ) : null}

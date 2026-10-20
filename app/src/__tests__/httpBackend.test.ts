@@ -59,6 +59,12 @@ function server() {
     'POST /ai/transcribe': () => json(200, { text: 'నీళ్లు కారుతున్నాయి' }),
     'POST /support/callback': () => json(201, { ticketId: 't1' }),
     'POST /support/tickets': () => json(201, { ticketId: 't2' }),
+    [`POST /bookings/${BOOKING.id}/coupon`]: (c) => json(200, (c.body as { code: string }).code === 'FIRST50'
+      ? { applied: true, problem: null, discount: 50, booking: { ...BOOKING, finalPayment: { kind: 'FINAL', amount: 450, state: 'DUE', method: null, txnId: null, at: null, discount: 50, couponCode: 'FIRST50' } } }
+      : { applied: false, problem: 'EXPIRED', discount: 0, booking: BOOKING }),
+    [`DELETE /bookings/${BOOKING.id}/coupon`]: () => json(200, BOOKING),
+    [`POST /bookings/${BOOKING.id}/warranty`]: () => json(201, { ...BOOKING, id: 'b-revisit', warrantyOf: 'HF-48291' }),
+    [`POST /bookings/${BOOKING.id}/invoice-link`]: () => json(200, { path: '/invoices/abc.123.sig', expiresAt: 9e12 }),
     'GET /support/conversation': () => json(200, { conversation: null }),
     'POST /support/conversation': (c) => json(201, { conversation: { id: 'cv1', state: 'OPEN', topic: (c.body as { topic: string }).topic, bookingCode: 'HF-48291', createdAt: 1, messages: [{ id: 'm1', from: 'ME', text: (c.body as { text: string }).text, at: 1 }] } }),
     'POST /support/conversation/messages': () => json(409, { error: { code: 'CONFLICT' } }),
@@ -258,6 +264,19 @@ describe('live client: bookings, uploads, payments', () => {
     expect(t.calls.at(-1)).toMatchObject({ url: '/support/conversation', body: { topic: 'PAYMENT', bookingId: BOOKING.id, text: 'Charged twice' } });
     expect(c).toMatchObject({ id: 'cv1', state: 'OPEN', messages: [{ from: 'ME', text: 'Charged twice' }] });
     await expect(t.backend.support.sendToTeam(s.token, 'hello')).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  it('applies and removes coupons, books the warranty revisit, and links to the invoice PDF', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    const ok = await t.backend.bookings.applyCoupon(s.token, BOOKING.id, 'FIRST50');
+    expect(ok).toMatchObject({ applied: true, problem: null, discount: 50, booking: { finalPayment: { amount: 450, discount: 50, couponCode: 'FIRST50' } } });
+    expect(await t.backend.bookings.applyCoupon(s.token, BOOKING.id, 'OLD')).toMatchObject({ applied: false, problem: 'EXPIRED' });
+    await t.backend.bookings.removeCoupon(s.token, BOOKING.id);
+    expect(t.calls.at(-1)).toMatchObject({ method: 'DELETE', url: `/bookings/${BOOKING.id}/coupon` });
+    expect((await t.backend.bookings.claimWarranty(s.token, BOOKING.id, 'still leaking')).warrantyOf).toBe('HF-48291');
+    expect(t.calls.at(-1)?.body).toEqual({ note: 'still leaking' });
+    expect(await t.backend.bookings.invoiceLink(s.token, BOOKING.id)).toBe(`${BASE.replace(/\/+$/, '')}/invoices/abc.123.sig`);
   });
 
   it('reads signed links to photos and the voice note', () => {

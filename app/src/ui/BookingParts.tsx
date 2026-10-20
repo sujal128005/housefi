@@ -257,13 +257,19 @@ export function BillCard({ booking }: { readonly booking: Booking }) {
       </View>
       {booking.quote?.decision === 'APPROVED' ? <QuoteLines quote={booking.quote} /> : null}
       {booking.extraQuote?.decision === 'APPROVED' ? <QuoteLines quote={booking.extraQuote} /> : null}
+      {booking.finalPayment && (booking.finalPayment.discount ?? 0) > 0 ? (
+        <View style={styles.line} testID="bill-discount">
+          <Txt variant="callout" color="success" style={styles.flex}>{t('coupon.line', { code: booking.finalPayment.couponCode ?? '' })}</Txt>
+          <Txt variant="label" color="success">− {formatRupees(booking.finalPayment.discount ?? 0)}</Txt>
+        </View>
+      ) : null}
       <Divider />
       {booking.finalPayment?.method === 'CASH' && booking.finalPayment.state === 'PENDING' ? (
         <Banner tone="warning" icon="cash-outline" text={t('bill.cashPending', { amount: formatRupees(booking.finalPayment.amount) })} testID="bill-cash-pending" />
       ) : null}
       <View style={styles.line}>
         <Txt variant="bodyStrong" style={styles.flex}>{booking.status === 'COMPLETED' ? t('bill.totalPaid') : t('bill.toPay')}</Txt>
-        <Txt variant="title2" testID="bill-total">{formatRupees(repair)}</Txt>
+        <Txt variant="title2" testID="bill-total">{formatRupees(booking.finalPayment ? booking.finalPayment.amount : repair)}</Txt>
       </View>
     </Card>
   );
