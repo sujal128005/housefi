@@ -481,7 +481,7 @@ export class PaymentsService {
   }
 
   private newAttempt(tx: Prisma.TransactionClient, previous: Payment): Promise<Payment> {
-    return tx.payment.create({ data: { bookingId: previous.bookingId, kind: previous.kind, amountPaise: previous.amountPaise, state: 'DUE', createdAt: this.core.now() } });
+    return tx.payment.create({ data: { bookingId: previous.bookingId, kind: previous.kind, amountPaise: previous.amountPaise, discountPaise: previous.discountPaise, couponCode: previous.couponCode, state: 'DUE', createdAt: this.core.now() } });
   }
 
   private startResult(p: Payment): StartResult {

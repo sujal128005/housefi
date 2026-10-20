@@ -72,6 +72,8 @@ export interface Payment {
   readonly state: string;
   readonly method: string | null;
   readonly at: number | null;
+  readonly discount?: number;
+  readonly couponCode?: string | null;
 }
 
 export interface BookingDetail {
@@ -94,6 +96,8 @@ export interface BookingDetail {
     readonly quote: { readonly total: number } | null;
     readonly rating: { readonly stars: number; readonly comment?: string } | null;
     readonly demo: boolean;
+    readonly warrantyOf?: string | null;
+    readonly warrantyClaim?: { readonly id: string; readonly code: string } | null;
   };
   readonly customer: { readonly id: string; readonly name: string; readonly phone: string };
   readonly technician: { readonly id: string; readonly name: string; readonly phone: string } | null;
@@ -293,6 +297,80 @@ export interface LeaderRow {
   readonly at: number;
 }
 
+export type CategoryId = 'PLUMBING' | 'ELECTRICAL' | 'AC' | 'APPLIANCE' | 'CLEANING' | 'CARPENTRY';
+export const CATEGORY_IDS: readonly CategoryId[] = ['PLUMBING', 'ELECTRICAL', 'AC', 'APPLIANCE', 'CLEANING', 'CARPENTRY'];
+
+export interface Bi {
+  readonly en: string;
+  readonly te: string;
+}
+
+export interface AdminService {
+  readonly id: string;
+  readonly categoryId: CategoryId;
+  readonly name: Bi;
+  readonly description: Bi;
+  readonly visitFee: number;
+  readonly repairFrom: number;
+  readonly repairTypicalMax: number;
+  readonly durationMin: number;
+  readonly durationMax: number;
+  readonly popular: boolean;
+  readonly active: boolean;
+  readonly sort: number;
+  readonly keywords: readonly string[];
+  readonly issues: readonly { readonly id?: string; readonly name: Bi }[];
+  readonly bookings: number;
+  readonly editedInHq: boolean;
+}
+
+export type ServiceInput = Omit<AdminService, 'id' | 'sort' | 'bookings' | 'editedInHq'>;
+
+export interface AdminPart {
+  readonly id: string;
+  readonly categoryId: CategoryId;
+  readonly serviceId: string | null;
+  readonly name: Bi;
+  readonly unit: string;
+  readonly price: number;
+  readonly active: boolean;
+  readonly sort: number;
+  readonly used: number;
+}
+
+export type PartInput = Omit<AdminPart, 'id' | 'used'>;
+
+export interface Coupon {
+  readonly id: string;
+  readonly code: string;
+  readonly description: string;
+  readonly kind: 'FLAT' | 'PERCENT';
+  readonly value: number;
+  readonly maxDiscount: number | null;
+  readonly minBill: number;
+  readonly validFrom: number | null;
+  readonly validTo: number | null;
+  readonly maxUses: number | null;
+  readonly perCustomer: number;
+  readonly firstBookingOnly: boolean;
+  readonly active: boolean;
+  readonly uses: number;
+  readonly discountGiven: number;
+  readonly createdAt: number;
+}
+
+export type CouponInput = Omit<Coupon, 'id' | 'uses' | 'discountGiven' | 'createdAt'>;
+
+export interface Announcement {
+  readonly id: string;
+  readonly audience: 'CUSTOMERS' | 'TECHNICIANS' | 'ALL' | 'DEMO';
+  readonly title: string;
+  readonly body: string;
+  readonly recipients: number;
+  readonly by: string;
+  readonly at: number;
+}
+
 export type TechAction = 'approve' | 'reject' | 'suspend' | 'reinstate' | 'offline';
 
 /** "?a=1&b=x", leaving out empty values. */
@@ -363,6 +441,16 @@ export const api = {
   stepUp: (id: string) => call<{ options: unknown }>('POST', `/guide/actions/${id}/step-up`),
   approve: (id: string, input: { typed?: string; typedAgain?: string; passkey?: unknown }) => call<Proposal>('POST', `/guide/actions/${id}/approve`, input),
   reject: (id: string) => call<Proposal>('POST', `/guide/actions/${id}/reject`),
+  services: () => call<AdminService[]>('GET', '/services'),
+  saveService: (id: string | null, input: ServiceInput) => call<AdminService>('POST', id ? `/services/${id}` : '/services', input),
+  parts: () => call<AdminPart[]>('GET', '/parts'),
+  savePart: (id: string | null, input: PartInput) => call<void>('POST', id ? `/parts/${id}` : '/parts', input),
+  coupons: () => call<Coupon[]>('GET', '/coupons'),
+  saveCoupon: (id: string | null, input: CouponInput) => call<void>('POST', id ? `/coupons/${id}` : '/coupons', input),
+  announcements: () => call<Announcement[]>('GET', '/announcements'),
+  announce: (input: { audience: Announcement['audience']; title: Bi; body: Bi }) => call<{ recipients: number }>('POST', '/announcements', input),
+  /** Opens in a new tab (the session cookie goes with it). */
+  invoiceUrl: (bookingId: string) => `/v1/admin/bookings/${bookingId}/invoice`,
 };
 
 /** Phones and tablets, and small windows: the portal is for laptops and big screens only. */

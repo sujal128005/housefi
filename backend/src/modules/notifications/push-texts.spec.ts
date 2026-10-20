@@ -1,7 +1,7 @@
 import { NotificationKind } from '@prisma/client';
 import { pushText } from './push-texts';
 
-const PARAMS = { code: 'HF-48291', amount: 320, etaMin: 12, earning: 30, version: 1, minutes: 9, startHour: 10, endHour: 12, count: 3 };
+const PARAMS = { code: 'HF-48291', amount: 320, etaMin: 12, earning: 30, version: 1, minutes: 9, startHour: 10, endHour: 12, count: 3, title: 'Rain today', body: 'Technicians may be late', titleTe: 'ఈరోజు వర్షం', bodyTe: 'ఆలస్యం కావచ్చు' };
 
 describe('push texts', () => {
   it.each(Object.values(NotificationKind))('%s has English and Telugu text with every value filled in', (kind) => {
@@ -16,6 +16,11 @@ describe('push texts', () => {
   it('uses the values and the language', () => {
     expect(pushText('QUOTE_READY', 'en', PARAMS)).toEqual({ title: 'Repair quote ready', body: '₹320 for HF-48291. Review and approve it in the app.' });
     expect(pushText('QUOTE_READY', 'te', PARAMS).body).toBe('HF-48291 కోసం ₹320. యాప్‌లో చూసి ఆమోదించండి.');
+  });
+
+  it("shows HQ's own announcement words in the reader's language", () => {
+    expect(pushText('ANNOUNCEMENT', 'en', PARAMS)).toEqual({ title: 'Rain today', body: 'Technicians may be late' });
+    expect(pushText('ANNOUNCEMENT', 'te', PARAMS)).toEqual({ title: 'ఈరోజు వర్షం', body: 'ఆలస్యం కావచ్చు' });
   });
 
   it('falls back to a text without the ETA when there is none', () => {

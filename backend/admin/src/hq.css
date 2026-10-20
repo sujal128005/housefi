@@ -299,3 +299,40 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .proposal-type { display: block; font-size: 12px; color: var(--muted); font-weight: 600; }
 .proposal-type input { display: block; width: 100%; margin-top: 6px; border-radius: 9px; border: 1.5px solid #e3ddff; padding: 0 10px; outline: none; }
 .proposal-type input:focus { border-color: #8a6cff; }
+
+/* ---------- Grow: services, parts, coupons, announcements ---------- */
+.form label { display: grid; gap: 6px; }
+.form input:not([type='checkbox']), .form select, .form textarea { width: 100%; }
+.form input:not([type='checkbox']):not([type='date']) { height: 42px; border-radius: 10px; border: 1.5px solid var(--line); padding: 0 12px; background: #fbfcff; color: var(--ink); outline: none; font: inherit; }
+.form input:focus { border-color: var(--brand); box-shadow: 0 0 0 4px var(--brand-tint); }
+.form input:disabled, .form select:disabled { background: #f1f3f8; color: var(--muted); }
+.bi { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: end; }
+.row-checks { display: flex; gap: 24px; flex-wrap: wrap; }
+.num-field { display: flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); border-radius: 10px; padding: 0 10px; background: #fbfcff; height: 42px; }
+.num-field:focus-within { border-color: var(--brand); box-shadow: 0 0 0 4px var(--brand-tint); }
+.num-field input { border: 0 !important; box-shadow: none !important; height: 38px !important; padding: 0 !important; background: none !important; }
+.num-field em { font-style: normal; color: var(--muted); font-weight: 700; }
+.hint { margin: -6px 0 0; }
+.issues { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+.issues-head { display: flex; justify-content: space-between; align-items: center; }
+.issue-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+.table tr.dim td { opacity: 0.55; }
+.coupon-code { display: inline-block; font-family: 'Cascadia Mono', Consolas, monospace; font-weight: 800; letter-spacing: 0.08em; padding: 4px 10px; border-radius: 8px; border: 1.5px dashed var(--brand); color: var(--brand); background: var(--brand-tint); }
+.form input.coupon-input { font-family: 'Cascadia Mono', Consolas, monospace; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.phone-preview { display: grid; gap: 12px; align-content: start; background: linear-gradient(160deg, #1b2a5a, #0b1430); color: #fff; }
+.phone-preview .muted { color: #9fb0d9; }
+.notif { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(6px); }
+.notif img { width: 34px; height: 34px; border-radius: 9px; }
+.notif b { display: block; font-size: 14px; }
+.notif span { font-size: 13px; color: #dbe5ff; }
+
+/* Fixes from the Grow screenshots: a compact sidebar (more sections now), one-line checkboxes, room above the orb. */
+.nav-group { margin-bottom: 8px; }
+.nav-title { padding: 4px 10px; }
+.nav-item { padding: 7px 10px; }
+nav { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+.form label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 600; }
+.form label.check input { width: 18px; height: 18px; margin: 0; }
+.drawer-body { padding-bottom: 110px; }
+.modal { padding-bottom: 28px; }

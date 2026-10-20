@@ -7,7 +7,7 @@ import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { type AuthUser, CurrentUser, Roles } from '../auth/auth.guard';
 import { BookingUpdates } from './booking-updates';
 import type { BookingDto } from './booking-view';
-import { CancelBody, IdempotencyKey, ListQuery, NewBooking, RatingInput, RescheduleBody } from './bookings.schemas';
+import { CancelBody, IdempotencyKey, ListQuery, NewBooking, RatingInput, RescheduleBody, WarrantyBody } from './bookings.schemas';
 import { BookingsService } from './bookings.service';
 
 @Controller('bookings')
@@ -50,6 +50,13 @@ export class BookingsController {
   @HttpCode(200)
   rate(@CurrentUser() user: AuthUser, @Param('bookingId') id: string, @Body(new ZodValidationPipe(RatingInput)) body: z.infer<typeof RatingInput>): Promise<BookingDto> {
     return this.bookings.rate(user.id, id, body);
+  }
+
+  /** "Not fixed? Free revisit" (within 15 days of a completed job): returns the new booking. */
+  @Post(':bookingId/warranty')
+  @HttpCode(201)
+  warranty(@CurrentUser() user: AuthUser, @Param('bookingId') id: string, @Body(new ZodValidationPipe(WarrantyBody)) body: z.infer<typeof WarrantyBody>): Promise<BookingDto> {
+    return this.bookings.claimWarranty(user.id, id, body.note);
   }
 
   @Post(':bookingId/reschedule')

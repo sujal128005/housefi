@@ -10,6 +10,7 @@ import { PrismaService } from '../../../common/prisma/prisma.module';
 import { FieldCipher } from '../../../common/crypto/field-cipher';
 import { UUID } from '../../bookings/booking-core';
 import { AdminBookingsService, type AdminActor } from '../admin-bookings.service';
+import { AdminGrowthService } from '../admin-growth.service';
 import { AdminOpsService } from '../admin-ops.service';
 import { AdminOverviewService } from '../admin-overview.service';
 import { AdminPeopleService } from '../admin-people.service';
@@ -55,6 +56,9 @@ export const TOOLS: readonly ToolSpec[] = [
   { name: 'read_booking_chat', kind: 'look', description: 'The customer–technician chat of one booking (reading it is recorded in the audit log). Only when the admin asks.', params: z.object({ booking }) },
   { name: 'analytics', kind: 'look', description: 'Trends over the last `days` (7 to 365): daily bookings / completed / cancelled / revenue, by category, funnel, cancel reasons, busy hours, top areas, top technicians, ratings, payment methods, timing.', params: z.object({ days: z.number().int().min(7).max(365).default(30) }) },
   { name: 'payouts', kind: 'look', description: 'Weekly technician payouts by state: PENDING (to pay), PAID, FAILED.', params: z.object({ state: z.enum(['PENDING', 'PAID', 'FAILED']).default('PENDING') }) },
+  { name: 'services', kind: 'look', description: 'Every service with its visit fee, repair-from price, usual maximum, whether it is on sale, and its booking count.', params: z.object({}) },
+  { name: 'coupons', kind: 'look', description: 'Every coupon: code, discount, rules, dates, uses and discount given.', params: z.object({}) },
+  { name: 'announcements', kind: 'look', description: 'Announcements sent to customers / technicians, newest first.', params: z.object({}) },
   { name: 'audit_log', kind: 'look', description: 'Who did what and when (the latest 100), optionally searching an action name like "booking_cancel" or an id.', params: z.object({ search: z.string().max(60).optional() }) },
 
   // ---------- action (proposals only) ----------
@@ -100,6 +104,7 @@ export class GuideTools {
     private readonly bookings: AdminBookingsService,
     private readonly people: AdminPeopleService,
     private readonly ops: AdminOpsService,
+    private readonly growth: AdminGrowthService,
   ) {}
 
   /** A LOOK tool's answer, for the model (phones masked, sizes capped). */
@@ -144,6 +149,12 @@ export class GuideTools {
         return (await this.people.payouts(a.state)).slice(0, 50);
       case 'audit_log':
         return (await this.ops.auditLog({ search: a.search })).slice(0, 50);
+      case 'services':
+        return (await this.growth.services()).map((x) => ({ id: x.id, trade: x.categoryId, name: x.name.en, visitFee: x.visitFee, repairFrom: x.repairFrom, usualMax: x.repairTypicalMax, onSale: x.active, bookings: x.bookings }));
+      case 'coupons':
+        return await this.growth.coupons();
+      case 'announcements':
+        return await this.growth.announcements();
     }
     throw new AppError('VALIDATION', {}, `unknown tool ${name}`);
   }

@@ -255,6 +255,10 @@ export const envSchema = z
      * password manager). Unset: no recovery from the portal (the command line can still reset a password).
      */
     ADMIN_RECOVERY_CODE: z.string().regex(/^\d{6,8}$/).optional(),
+    /** Who issues invoices (the PDF a customer downloads after a job). GSTIN only once registered for GST. */
+    INVOICE_SELLER_NAME: z.string().min(1).max(80).default('Housefi'),
+    INVOICE_SELLER_ADDRESS: z.string().min(1).max(200).default('Hyderabad, Telangana, India'),
+    INVOICE_GSTIN: z.string().regex(/^[0-9A-Z]{15}$/).optional(),
     /** Approve technicians automatically once their identity checks all pass (Aadhaar genuine, 18+, name matches, photo). */
     AUTO_APPROVE_TECHNICIANS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
 

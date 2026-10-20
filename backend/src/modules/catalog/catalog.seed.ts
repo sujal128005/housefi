@@ -81,6 +81,9 @@ export async function seedCatalog(prisma: PrismaClient, raw: unknown = rawCatalo
           active: true,
           sort,
         };
+        // A service changed in Housefi HQ keeps HQ's prices, names and issues: the seed only adds what is missing.
+        const existing = await tx.service.findUnique({ where: { id: s.id }, select: { editedInHqAt: true } });
+        if (existing?.editedInHqAt) continue;
         await tx.service.upsert({ where: { id: s.id }, create: { id: s.id, ...fields }, update: fields });
         for (const [issueSort, i] of s.issues.entries()) {
           const issue = { serviceId: s.id, nameEn: i.name.en, nameTe: i.name.te, sort: issueSort };
@@ -88,7 +91,8 @@ export async function seedCatalog(prisma: PrismaClient, raw: unknown = rawCatalo
         }
         await tx.serviceIssue.deleteMany({ where: { serviceId: s.id, id: { notIn: s.issues.map((i) => i.id) } } });
       }
-      const gone = await tx.service.findMany({ where: { id: { notIn: data.services.map((s) => s.id) }, active: true }, select: { id: true } });
+      // Services made in HQ are not in this file: they stay.
+      const gone = await tx.service.findMany({ where: { id: { notIn: data.services.map((s) => s.id) }, active: true, editedInHqAt: null }, select: { id: true } });
       await tx.service.updateMany({ where: { id: { in: gone.map((g) => g.id) } }, data: { active: false } });
       await tx.serviceIssue.deleteMany({ where: { serviceId: { in: gone.map((g) => g.id) } } });
       return {

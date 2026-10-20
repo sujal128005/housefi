@@ -30,15 +30,20 @@ const ART: Record<NotificationKind, ArtName> = {
   PAY_REMINDER: 'pay_due', BOOKING_REMINDER: 'alarm', JOB_REMINDER: 'alarm', QUOTE_REMINDER: 'hourglass', RATE_REMINDER: 'star',
   PROFILE_SUSPENDED: 'locked', PROFILE_REINSTATED: 'verify_ok', PROFILE_REJECTED: 'verify_fix',
   BOOKING_TOMORROW: 'calendar', JOB_TOMORROW: 'calendar', JOB_DAY_PLAN: 'spiral_calendar',
-  CHAT_MESSAGE: 'memo', SUPPORT_REPLY: 'handshake',
+  CHAT_MESSAGE: 'memo', SUPPORT_REPLY: 'handshake', ANNOUNCEMENT: 'alarm',
 };
 
 /** Notification text in the reader's language. */
 export function useNotificationText(): (n: AppNotification) => string {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (n) => {
     const params: Record<string, string | number> = { ...n.params };
     if (typeof n.params.amount === 'number') params.amount = formatRupees(n.params.amount);
+    // HQ's announcements carry both languages: show the reader's.
+    if (n.kind === 'ANNOUNCEMENT' && locale === 'te') {
+      params.title = n.params.titleTe ?? n.params.title ?? '';
+      params.body = n.params.bodyTe ?? n.params.body ?? '';
+    }
     return t(`notif.${n.kind}`, params);
   };
 }
@@ -80,7 +85,7 @@ export function NotificationList({ items, onOpen }: { readonly items: readonly A
   );
 }
 
-const TOAST_KINDS: readonly NotificationKind[] = ['TECH_ASSIGNED', 'TECH_ON_THE_WAY', 'TECH_ARRIVED', 'PAYMENT_DUE', 'BOOKING_COMPLETED', 'NO_TECHNICIAN', 'BOOKING_CANCELLED'];
+const TOAST_KINDS: readonly NotificationKind[] = ['TECH_ASSIGNED', 'TECH_ON_THE_WAY', 'TECH_ARRIVED', 'PAYMENT_DUE', 'BOOKING_COMPLETED', 'NO_TECHNICIAN', 'BOOKING_CANCELLED', 'ANNOUNCEMENT'];
 
 /** Customer app: watches the inbox and pops up new quotes (sheet) and other updates (toast), with sound and vibration. */
 export function CustomerAlerts() {

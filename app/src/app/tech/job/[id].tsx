@@ -30,6 +30,7 @@ import { PhotoThumb } from '../../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../../ui/present';
 import { InfoRow, MoneyRow, openDirections, TechStepper } from '../../../ui/TechParts';
 import { quickPosition } from '../../../services/device';
+import { WarrantyFixedButton } from '../../../ui/GrowthParts';
 
 const ISSUES: readonly { issue: TechIssue; icon: IconName }[] = [
   { issue: 'CUSTOMER_UNAVAILABLE', icon: 'person-remove-outline' },
@@ -246,6 +247,10 @@ export default function JobScreen() {
           ) : null}
         </Card>
       ) : null}
+
+      {j.warrantyOf ? <Banner tone="success" icon="shield-checkmark" text={`${t('tj.warranty', { code: j.warrantyOf })}. ${t('tj.warrantyBody')}`} testID="tj-warranty" /> : null}
+      <WarrantyFixedButton visible={!!j.warrantyOf && j.status === 'INSPECTING' && !j.quote} busy={busy}
+        onConfirm={() => void act(() => backend.tech.warrantyFixed(session.token, j.id), 'success')} />
 
       {/* quote state */}
       {j.quote && ['INSPECTING', 'QUOTE_SHARED', 'IN_PROGRESS', 'EXTRA_WORK', 'PAYMENT_DUE', 'COMPLETED'].includes(j.status) ? (

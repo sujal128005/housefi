@@ -43,6 +43,8 @@ export interface JobDto {
   readonly practice: false;
   /** A team demo booking (simulated payments). */
   readonly demo: boolean;
+  /** A free warranty revisit of that earlier booking (its code): fix it at no charge, or quote for a new problem. */
+  readonly warrantyOf: string | null;
 }
 
 export interface JobViewOptions {
@@ -113,5 +115,6 @@ export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOpti
     acceptedAt: accepted?.getTime() ?? 0,
     practice: false,
     demo: b.isDemo,
+    warrantyOf: b.warrantyOf?.code ?? null,
   };
 }

@@ -11,7 +11,8 @@ export const TRANSITIONS: Readonly<Record<BookingStatus, readonly BookingStatus[
   ASSIGNED: ['MATCHING', 'EN_ROUTE', 'CANCELLED'],
   EN_ROUTE: ['ARRIVED', 'CANCELLED'],
   ARRIVED: ['INSPECTING', 'CLOSED_NO_REPAIR'],
-  INSPECTING: ['QUOTE_SHARED', 'CLOSED_NO_REPAIR'],
+  // COMPLETED from INSPECTING: a warranty revisit fixed at no charge (jobs.service checks it is one).
+  INSPECTING: ['QUOTE_SHARED', 'CLOSED_NO_REPAIR', 'COMPLETED'],
   QUOTE_SHARED: ['QUOTE_SHARED', 'IN_PROGRESS', 'CLOSED_NO_REPAIR'],
   IN_PROGRESS: ['EXTRA_WORK', 'PAYMENT_DUE', 'CLOSED_NO_REPAIR'],
   EXTRA_WORK: ['IN_PROGRESS'],

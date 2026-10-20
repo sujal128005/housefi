@@ -44,6 +44,7 @@ const EN: Texts = {
   PROFILE_REINSTATED: { title: 'Account active again', body: 'You can go online and receive jobs.' },
   PROFILE_REJECTED: { title: 'Registration not approved', body: 'Contact Housefi support for details.' },
   SUPPORT_REPLY: { title: 'Housefi team replied', body: 'Open Help to read the reply.' },
+  ANNOUNCEMENT: { title: '{title}', body: '{body}' },
 };
 
 const TE: Texts = {
@@ -79,6 +80,7 @@ const TE: Texts = {
   PROFILE_REINSTATED: { title: 'ఖాతా మళ్లీ యాక్టివ్', body: 'మీరు ఆన్‌లైన్‌కు వెళ్లి పనులు పొందవచ్చు.' },
   PROFILE_REJECTED: { title: 'రిజిస్ట్రేషన్ ఆమోదించబడలేదు', body: 'వివరాల కోసం Housefi సపోర్ట్‌ను సంప్రదించండి.' },
   SUPPORT_REPLY: { title: 'Housefi టీమ్ జవాబిచ్చింది', body: 'జవాబు చదవడానికి సహాయం తెరవండి.' },
+  ANNOUNCEMENT: { title: '{titleTe}', body: '{bodyTe}' },
 };
 
 /** Used when a value the main text needs is missing (no location yet, so no ETA). */
@@ -104,7 +106,8 @@ export function pushText(kind: NotificationKind, locale: Locale, params: NoticeP
   for (const text of [TEXTS[locale][kind], FALLBACK[locale]?.[kind]]) {
     if (!text) continue;
     const body = fill(text.body, params);
-    if (body !== null) return { title: text.title, body };
+    // Titles are fixed words, except announcements (HQ's own title).
+    if (body !== null) return { title: fill(text.title, params) ?? text.title, body };
   }
   // A notice built without a value its text needs: still say what happened, without the detail.
   return { title: TEXTS[locale][kind].title, body: '' };

@@ -1,4 +1,7 @@
 import { type DynamicModule, Module } from '@nestjs/common';
+import { CouponsModule } from './modules/coupons/coupons.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
+import { PartsModule } from './modules/parts/parts.module';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AuditModule } from './common/audit/audit.module';
 import { ClockModule } from './common/clock';
@@ -40,7 +43,7 @@ export class AppModule {
   static forRoot(config: Env): DynamicModule {
     return {
       module: AppModule,
-      imports: [ConfigModule.forRoot(config), ClockModule, RedisModule, PrismaModule, StorageModule, CryptoModule, AuditModule, NotifierModule, RateLimitModule, AuthModule, UploadsModule, UsersModule, CatalogModule, AddressesModule, SlotsModule, BookingsModule, PaymentsModule, TechniciansModule, DispatchModule, JobsModule, EarningsModule, NotificationsModule, AiModule, SupportModule, ChatModule, CoordinatorModule, IdentityModule, TelephonyModule, AdminModule, HealthModule],
+      imports: [ConfigModule.forRoot(config), ClockModule, RedisModule, PrismaModule, StorageModule, CryptoModule, AuditModule, NotifierModule, RateLimitModule, AuthModule, UploadsModule, UsersModule, CatalogModule, AddressesModule, SlotsModule, BookingsModule, PaymentsModule, TechniciansModule, DispatchModule, JobsModule, EarningsModule, NotificationsModule, AiModule, SupportModule, ChatModule, CoordinatorModule, IdentityModule, TelephonyModule, CouponsModule, InvoicesModule, PartsModule, AdminModule, HealthModule],
       providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
         // Guards run in this order: per-IP rate limit first (cheap, stops floods before token checks), then auth.

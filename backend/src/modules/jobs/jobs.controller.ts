@@ -13,6 +13,7 @@ import { LocationBody } from '../technicians/technicians.schemas';
 import { TechniciansService } from '../technicians/technicians.service';
 import { AnswerBody, QuoteInput, QuoteWhichParam, ReportBody, StartCodeBody } from './jobs.schemas';
 import { JobsService } from './jobs.service';
+import type { PartDto } from '../parts/parts.service';
 
 const JobsQuery = z.object({ scope: z.enum(['active', 'past', 'all']).default('all') });
 
@@ -78,6 +79,19 @@ export class JobsController {
   @HttpCode(200)
   complete(@CurrentUser() user: AuthUser, @Param('jobId') id: string): Promise<JobDto> {
     return this.jobs.complete(user.id, id);
+  }
+
+  /** A warranty revisit fixed at no charge (after the start code). */
+  @Post('jobs/:jobId/warranty-fixed')
+  @HttpCode(200)
+  warrantyFixed(@CurrentUser() user: AuthUser, @Param('jobId') id: string): Promise<JobDto> {
+    return this.jobs.warrantyFixed(user.id, id);
+  }
+
+  /** The parts price list for this job's trade (picking materials for a quote). */
+  @Get('jobs/:jobId/parts')
+  parts(@CurrentUser() user: AuthUser, @Param('jobId') id: string): Promise<PartDto[]> {
+    return this.jobs.partsFor(user.id, id);
   }
 
   @Post('jobs/:jobId/confirm-cash')

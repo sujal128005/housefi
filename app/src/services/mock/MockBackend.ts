@@ -1135,6 +1135,32 @@ export function createMockBackend(opts: MockOptions): Backend {
         return store(list, index, nb);
       },
 
+      // Coupons, warranty revisits and invoices live on the real server only (this is a test double).
+      async applyCoupon(token, bookingId) {
+        await request('WRITE');
+        const { list, index, b } = await touch(token, bookingId);
+        if (b.status !== 'PAYMENT_DUE') throw new ApiError('CONFLICT');
+        return { applied: false, problem: 'UNKNOWN', discount: 0, booking: await store(list, index, b) };
+      },
+
+      async removeCoupon(token, bookingId) {
+        await request('WRITE');
+        const { list, index, b } = await touch(token, bookingId);
+        return store(list, index, b);
+      },
+
+      async claimWarranty(token, bookingId) {
+        await request('WRITE');
+        await touch(token, bookingId);
+        throw new ApiError('CONFLICT');
+      },
+
+      async invoiceLink(token, bookingId) {
+        await request('READ');
+        await touch(token, bookingId);
+        throw new ApiError('CONFLICT');
+      },
+
       async decideQuote(token, bookingId, which, answer) {
         await request('WRITE');
         const { list, index, b } = await touch(token, bookingId);
@@ -1463,6 +1489,18 @@ export function createMockBackend(opts: MockOptions): Backend {
         const fp = b.finalPayment;
         if (b.status !== 'PAYMENT_DUE' || !fp || fp.method !== 'CASH' || fp.state !== 'PENDING') throw new ApiError('CONFLICT');
         return storeJob(list, index, go(b, 'COMPLETED', now(), { finalPayment: { ...fp, state: 'PAID', at: now() } }));
+      },
+
+      async warrantyFixed(token, jobId) {
+        await request('WRITE');
+        await touchJob(token, jobId);
+        throw new ApiError('CONFLICT');
+      },
+
+      async parts(token, jobId) {
+        await request('READ');
+        await touchJob(token, jobId);
+        return [];
       },
 
       async report(token, jobId, issue, note) {

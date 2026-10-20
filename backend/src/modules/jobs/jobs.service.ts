@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { type PartDto, PartsService } from '../parts/parts.service';
 import { type Position, positionColumns } from '../support/support.schemas';
 import type { Booking, Prisma, Quote, TicketPriority } from '@prisma/client';
 import { timingSafeEqual } from 'node:crypto';
@@ -46,6 +47,7 @@ export class JobsService {
     private readonly payments: PaymentsService,
     private readonly audit: AuditService,
     private readonly notifier: Notifier,
+    private readonly parts: PartsService,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
@@ -123,8 +125,10 @@ export class JobsService {
         if (b.status !== 'IN_PROGRESS' || !b.workStarted || extraOpen) throw new AppError('CONFLICT');
       }
       const service = await tx.service.findUniqueOrThrow({ where: { id: b.serviceId } });
+      if (input.lines.some((l) => l.partId && l.kind !== 'MATERIAL')) throw new AppError('VALIDATION', { fields: { 'lines.partId': 'INVALID' } }, 'only materials come from the price list');
+      const listed = await this.parts.listedPrices(b.categoryId, input.lines.flatMap((l) => (l.partId ? [l.partId] : [])), tx);
       const t = totals(input.lines);
-      const review = priceCheck(input.lines, service.repairTypicalMaxPaise);
+      const review = priceCheck(input.lines, service.repairTypicalMaxPaise, listed);
       if (previous) await tx.quote.update({ where: { id: previous.id }, data: { superseded: true } });
       await tx.quote.create({
         data: {
@@ -140,7 +144,7 @@ export class JobsService {
           typicalMaxPaise: service.repairTypicalMaxPaise,
           createdBy: technicianId,
           createdAt: this.core.now(),
-          lines: { create: input.lines.map((l, sort) => ({ kind: l.kind, name: l.name, qty: l.qty, unitPaise: rupeesToPaise(l.unitPrice), sort })) },
+          lines: { create: input.lines.map((l, sort) => ({ kind: l.kind, name: l.name, qty: l.qty, unitPaise: rupeesToPaise(l.unitPrice), sort, ...(l.partId ? { part: { connect: { id: l.partId } } } : {}) })) },
         },
       });
       if (review === 'FAIR') await this.share(tx, b, input.which, this.tech(technicianId));
@@ -205,6 +209,26 @@ export class JobsService {
       return { changed: true, result: undefined };
     });
     return this.core.getJob(technicianId, id);
+  }
+
+  /**
+   * A warranty revisit closed as fixed, at no charge (after the start code, before any quote). The visit fee was
+   * Housefi's; the technician's visit share is credited as for any visit. For a different problem they quote as usual.
+   */
+  async warrantyFixed(technicianId: string, id: string): Promise<JobDto> {
+    await this.core.mutateAssigned(technicianId, id, async (tx, b) => {
+      if (!b.warrantyOfId) throw new AppError('CONFLICT', {}, 'only a warranty revisit can be closed at no charge');
+      if (b.status !== 'INSPECTING') throw new AppError('CONFLICT');
+      await this.core.transition(tx, b, 'COMPLETED', { etaMin: null }, this.tech(technicianId), { warranty: 'fixed_no_charge' });
+      return { changed: true, result: undefined };
+    });
+    return this.core.getJob(technicianId, id);
+  }
+
+  /** The parts price list for this job's trade (quote screen). */
+  async partsFor(technicianId: string, id: string): Promise<PartDto[]> {
+    const job = await this.core.getJob(technicianId, id);
+    return this.parts.forJob(job.categoryId, job.serviceId);
   }
 
   async confirmCash(technicianId: string, id: string): Promise<JobDto> {

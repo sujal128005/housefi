@@ -444,7 +444,8 @@ export class DispatchService {
   async offerUnoffered(): Promise<number> {
     const due = await this.prisma.booking.findMany({
       where: { status: { in: [...SEARCHING] }, offers: { none: { state: 'OPEN' } } },
-      orderBy: { matchingStartedAt: 'asc' },
+      // Warranty revisits first, then the longest waiting.
+      orderBy: [{ priority: 'desc' }, { matchingStartedAt: 'asc' }],
       select: { id: true },
       take: BATCH,
     });

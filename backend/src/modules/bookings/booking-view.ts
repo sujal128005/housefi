@@ -13,6 +13,9 @@ export type BookingRow = Booking & {
   quotes: QuoteRow[];
   rating: Rating | null;
   uploads: Upload[];
+  /** Included by BOOKING_INCLUDE (warranty revisits). */
+  warrantyOf?: { code: string } | null;
+  warrantyClaim?: { id: string; code: string } | null;
 };
 
 export const BOOKING_INCLUDE = {
@@ -23,7 +26,19 @@ export const BOOKING_INCLUDE = {
   quotes: { include: { lines: true }, orderBy: [{ which: 'asc' }, { version: 'asc' }] },
   rating: true,
   uploads: { where: { state: 'READY' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+  warrantyOf: { select: { code: true } },
+  warrantyClaim: { select: { id: true, code: true } },
 } satisfies Prisma.BookingInclude;
+
+/** "Not fixed? Free revisit" within this many days of completion (bookings.service.ts claims it). */
+export const WARRANTY_DAYS = 15;
+
+/** Until when the customer can ask for a free revisit (a completed job, not a revisit itself, none claimed yet). */
+export function warrantyUntil(b: { status: string; warrantyOfId: string | null; events: readonly { status: string; at: Date }[] }): number | null {
+  if (b.status !== 'COMPLETED' || b.warrantyOfId) return null;
+  const done = [...b.events].reverse().find((e) => e.status === 'COMPLETED');
+  return done ? done.at.getTime() + WARRANTY_DAYS * 86_400_000 : null;
+}
 
 /** Signs short-lived read URLs for photos (common/storage MediaUrls). */
 export interface PhotoSigner {
@@ -97,6 +112,9 @@ export interface PaymentDto {
   readonly method: Payment['method'];
   readonly txnId: string | null;
   readonly at: number | null;
+  /** A coupon's discount (final bill): `amount` is what is paid after it. */
+  readonly discount: number;
+  readonly couponCode: string | null;
 }
 
 export interface BookingDto {
@@ -132,6 +150,12 @@ export interface BookingDto {
   readonly viaTechApp: true;
   /** A team demo booking: simulated payments, demo technicians only. */
   readonly demo: boolean;
+  /** This booking is a free warranty revisit of that earlier booking (its code). */
+  readonly warrantyOf: string | null;
+  /** Until when a free revisit can be asked for (null: not eligible); stays set after one was claimed. */
+  readonly warrantyUntil: number | null;
+  /** The free revisit asked for, if any. */
+  readonly warrantyClaim: { readonly id: string; readonly code: string } | null;
 }
 
 export interface TripLocationDto {
@@ -153,6 +177,8 @@ export function payment(p: Payment): PaymentDto {
     method: p.method,
     txnId: p.providerPaymentId,
     at: p.settledAt?.getTime() ?? null,
+    discount: paiseToRupees(p.discountPaise),
+    couponCode: p.couponCode,
   };
 }
 
@@ -229,5 +255,8 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
     workStarted: b.workStarted,
     viaTechApp: true,
     demo: b.isDemo,
+    warrantyOf: b.warrantyOf?.code ?? null,
+    warrantyUntil: warrantyUntil(b),
+    warrantyClaim: b.warrantyClaim ? { id: b.warrantyClaim.id, code: b.warrantyClaim.code } : null,
   };
 }

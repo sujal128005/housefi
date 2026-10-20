@@ -119,6 +119,9 @@ export interface Payment {
   /** Demo transaction id once paid. */
   readonly txnId: string | null;
   readonly at: number | null;
+  /** A coupon's discount on the final bill (amount is what is paid after it). Missing on older servers. */
+  readonly discount?: number;
+  readonly couponCode?: string | null;
 }
 
 /**
@@ -282,6 +285,12 @@ export interface Booking {
   readonly viaTechApp: boolean;
   /** True when the record comes from the demo backend; false from the live backend. */
   readonly demo: boolean;
+  /** This booking is a free warranty revisit of that earlier booking (its code). */
+  readonly warrantyOf?: string | null;
+  /** Until when "Not fixed? Free revisit" can be used (completed jobs). */
+  readonly warrantyUntil?: number | null;
+  /** The free revisit already asked for. */
+  readonly warrantyClaim?: { readonly id: string; readonly code: string } | null;
 }
 
 export interface Customer {
@@ -457,6 +466,17 @@ export interface Job {
   readonly practice: boolean;
   /** True when the record comes from the demo backend; false from the live backend. */
   readonly demo: boolean;
+  /** A free warranty revisit of that earlier booking (its code): fix it at no charge, or quote for a new problem. */
+  readonly warrantyOf?: string | null;
+}
+
+/** A part on Housefi's price list (standard price for the trade). */
+export interface Part {
+  readonly id: string;
+  readonly name: Localized;
+  readonly unit: string;
+  /** Whole rupees. */
+  readonly price: number;
 }
 
 export type PayoutState = 'PENDING' | 'PAID';

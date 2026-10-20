@@ -2,7 +2,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Share, StyleSheet, View } from 'react-native';
 import { serviceById } from '../../data/catalog';
-import { finalAmount } from '../../domain/rules';
 import type { Payment } from '../../domain/types';
 import { Art3D } from '../../illustrations/Art3D';
 import { formatDate, formatRupees } from '../../i18n/format';
@@ -12,6 +11,7 @@ import { useSession } from '../../state/AppState';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Card, Divider, ErrorView, Header, Screen, Skeleton, Txt, useToast } from '../../ui';
 import { QuoteLines } from '../../ui/BookingParts';
+import { InvoiceButton } from '../../ui/GrowthParts';
 import { Pop } from '../../ui/motion';
 import { addressLine } from '../../ui/present';
 
@@ -78,13 +78,20 @@ export default function Receipt() {
             {payLine(b.visitPayment, t('confirm.visitFee'))}
             {b.quote?.decision === 'APPROVED' ? <QuoteLines quote={b.quote} /> : null}
             {b.extraQuote?.decision === 'APPROVED' ? <QuoteLines quote={b.extraQuote} /> : null}
-            {b.finalPayment ? payLine({ ...b.finalPayment, amount: finalAmount(b.quote, b.extraQuote) }, t('receipt.repairPayment')) : null}
+            {b.finalPayment && (b.finalPayment.discount ?? 0) > 0 ? (
+              <View style={styles.line}>
+                <Txt variant="callout" color="success" style={styles.flex}>{t('coupon.line', { code: b.finalPayment.couponCode ?? '' })}</Txt>
+                <Txt variant="label" color="success">− {formatRupees(b.finalPayment.discount ?? 0)}</Txt>
+              </View>
+            ) : null}
+            {b.finalPayment ? payLine(b.finalPayment, t('receipt.repairPayment')) : null}
             <Divider />
             <View style={styles.line}>
               <Txt variant="bodyStrong" style={styles.flex}>{t('receipt.totalPaid')}</Txt>
               <Txt variant="title2">{formatRupees(paidTotal)}</Txt>
             </View>
           </Card>
+          <InvoiceButton booking={b} />
           {isDemo ? <Banner tone="demo" text={t('receipt.demo')} /> : null}
         </>
       ) : null}

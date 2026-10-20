@@ -89,7 +89,7 @@ describe('bookings (e2e)', () => {
         arrivalOtp: '',
         etaMin: null,
         technicianLocation: null,
-        visitPayment: { kind: 'VISIT', amount: 49, state: 'DUE', method: null, txnId: null, at: null },
+        visitPayment: { kind: 'VISIT', amount: 49, state: 'DUE', method: null, txnId: null, at: null, discount: 0, couponCode: null },
         quote: null,
         extraQuote: null,
         finalPayment: null,
@@ -101,6 +101,9 @@ describe('bookings (e2e)', () => {
         workStarted: false,
         viaTechApp: true,
         demo: false,
+        warrantyOf: null,
+        warrantyUntil: null,
+        warrantyClaim: null,
       });
     });
 

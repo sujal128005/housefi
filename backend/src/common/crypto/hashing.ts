@@ -41,4 +41,9 @@ export class Hashing {
   refreshToken(token: string): Bytes {
     return this.tokenKey.digest('refresh', token);
   }
+
+  /** Signs a short-lived invoice download link (booking id + expiry). */
+  invoiceLink(bookingId: string, expiresAtMs: number): Bytes {
+    return this.tokenKey.digest('invoice', bookingId, String(expiresAtMs));
+  }
 }

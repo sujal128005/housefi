@@ -62,6 +62,9 @@ export const CancelBody = z
 
 export const RescheduleBody = z.object({ time: VisitTime });
 
+/** What is still wrong (optional words for the technician). */
+export const WarrantyBody = z.object({ note: z.string().trim().max(400).default('') }).strict();
+
 /** README §5 Rating: satisfied, 1-5 stars, tags from a fixed list, a comment of up to 500 characters. */
 export const RATING_TAGS = ['onTime', 'polite', 'clean', 'fair', 'explained', 'fixed'] as const;
 export const RatingInput = z

@@ -76,7 +76,8 @@ export async function transitionNotices(tx: Prisma.TransactionClient, before: Bo
     case 'COMPLETED': {
       const p = await finalPayment(true);
       customer('BOOKING_COMPLETED');
-      technician(after.technicianId, 'PAYMENT_RECEIVED', p ? { amount: rupees(p.amountPaise), method: p.method ?? 'UPI' } : {});
+      // A warranty revisit fixed at no charge has no bill: nothing was received.
+      if (p) technician(after.technicianId, 'PAYMENT_RECEIVED', { amount: rupees(p.amountPaise), method: p.method ?? 'UPI' });
       break;
     }
     case 'CANCELLED':
