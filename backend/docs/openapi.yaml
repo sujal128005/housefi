@@ -266,6 +266,66 @@ paths:
       responses:
         '200': { description: Cancelled (visitPayment REFUNDED if before EN_ROUTE), content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
         '409': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/coupon:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    post:
+      tags: [bookings]
+      summary: Puts a coupon on the final bill (PAYMENT_DUE, before paying). A code that cannot be used is answered with why (applied false), not an error
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [code], properties: { code: { type: string, maxLength: 30 } } } } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [applied, problem, discount, booking]
+                properties:
+                  applied: { type: boolean }
+                  problem: { type: [string, 'null'], enum: [UNKNOWN, INACTIVE, NOT_YET, EXPIRED, USED_UP, ALREADY_USED, FIRST_BOOKING_ONLY, BILL_TOO_SMALL, null] }
+                  discount: { type: integer }
+                  booking: { $ref: '#/components/schemas/Booking' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [bookings]
+      summary: Takes the coupon off the final bill (before paying)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/warranty:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    post:
+      tags: [bookings]
+      summary: '"Not fixed? Free revisit" within 15 days of a completed job (once): a new booking, visit fee paid by Housefi, same technician first'
+      requestBody:
+        required: false
+        content: { application/json: { schema: { type: object, properties: { note: { type: string, maxLength: 400 } } } } }
+      responses:
+        '201': { description: The revisit booking, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/invoice-link:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    post:
+      tags: [bookings]
+      summary: A download link for the invoice PDF of a finished booking (path to add to the API base; valid 15 minutes)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [path, expiresAt], properties: { path: { type: string }, expiresAt: { $ref: '#/components/schemas/EpochMs' } } } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /invoices/{token}:
+    parameters:
+      - { name: token, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [bookings]
+      summary: The invoice PDF behind a signed link (no sign-in; the link is the key; 404 when wrong or expired)
+      security: []
+      responses:
+        '200': { description: The PDF, content: { application/pdf: { schema: { type: string, format: binary } } } }
+        '404': { $ref: '#/components/responses/Error' }
   /bookings/{bookingId}/reschedule:
     parameters:
       - $ref: '#/components/parameters/BookingId'
@@ -827,6 +887,31 @@ paths:
   /tech/jobs/{jobId}/complete:
     parameters: [ { $ref: '#/components/parameters/JobId' } ]
     post: { tags: [technician], responses: { '200': { $ref: '#/components/responses/JobOk' }, '409': { $ref: '#/components/responses/Error' } } }
+  /tech/jobs/{jobId}/warranty-fixed:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    post: { tags: [technician], summary: A warranty revisit closed as fixed at no charge (INSPECTING), responses: { '200': { $ref: '#/components/responses/JobOk' }, '409': { $ref: '#/components/responses/Error' } } }
+  /tech/jobs/{jobId}/parts:
+    parameters: [ { $ref: '#/components/parameters/JobId' } ]
+    get:
+      tags: [technician]
+      summary: The parts price list for this job's trade
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, categoryId, serviceId, name, unit, price]
+                  properties:
+                    id: { type: string }
+                    categoryId: { $ref: '#/components/schemas/CategoryId' }
+                    serviceId: { type: [string, 'null'] }
+                    name: { $ref: '#/components/schemas/Localized' }
+                    unit: { type: string }
+                    price: { type: integer }
   /tech/jobs/{jobId}/confirm-cash:
     parameters: [ { $ref: '#/components/parameters/JobId' } ]
     post: { tags: [technician], responses: { '200': { $ref: '#/components/responses/JobOk' }, '409': { $ref: '#/components/responses/Error' } } }
@@ -1221,6 +1306,8 @@ components:
         method: { oneOf: [{ $ref: '#/components/schemas/PaymentMethod' }, { type: 'null' }] }
         txnId: { type: [string, 'null'] }
         at: { type: [integer, 'null'] }
+        discount: { type: integer, description: A coupon's discount (final bill); amount is what is paid after it }
+        couponCode: { type: [string, 'null'] }
     PaymentOrder:
       type: object
       required: [paymentId, provider, orderId, keyId, amount]
@@ -1408,6 +1495,9 @@ components:
         workStarted: { type: boolean }
         viaTechApp: { type: boolean, description: Always true from the real backend }
         demo: { type: boolean, description: 'A team demo booking (DEMO_PHONES): simulated payments, demo technicians only' }
+        warrantyOf: { type: [string, 'null'], description: This booking is a free warranty revisit of that booking (its code) }
+        warrantyUntil: { type: [integer, 'null'], description: Until when a free revisit can be asked for (completed jobs) }
+        warrantyClaim: { oneOf: [{ type: object, required: [id, code], properties: { id: { type: string }, code: { type: string } } }, { type: 'null' }] }
     TechProfileInput:
       type: object
       required: [name, gender, experienceYears, skills, city, pincode, areas, vehicle]
@@ -1491,6 +1581,7 @@ components:
         acceptedAt: { $ref: '#/components/schemas/EpochMs' }
         practice: { type: boolean, description: Always false from the real backend }
         demo: { type: boolean }
+        warrantyOf: { type: [string, 'null'], description: A free warranty revisit of that booking (fix at no charge, or quote for a new problem) }
     QuoteInput:
       type: object
       required: [which, diagnosis, lines]
@@ -1509,6 +1600,7 @@ components:
               name: { type: string, minLength: 1, maxLength: 80 }
               qty: { type: integer, minimum: 1, maximum: 99 }
               unitPrice: { type: integer, minimum: 1, maximum: 100000 }
+              partId: { type: string, description: A part from the price list (materials only) }
     Earnings:
       type: object
       required: [today, jobsToday, total, pendingPayout, nextPayoutOn, entries, weeks]
@@ -1649,7 +1741,7 @@ components:
                  NO_TECHNICIAN, JOB_OFFER, QUOTE_APPROVED, QUOTE_REVISION, QUOTE_DECLINED, EXTRA_APPROVED, EXTRA_DECLINED, PAYMENT_RECEIVED,
                  JOB_CANCELLED, PROFILE_APPROVED, PROFILE_NEEDS_CORRECTION, PAY_REMINDER, BOOKING_REMINDER, JOB_REMINDER, QUOTE_REMINDER,
                  RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, BOOKING_TOMORROW, JOB_TOMORROW, JOB_DAY_PLAN,
-                 CHAT_MESSAGE, SUPPORT_REPLY]
+                 CHAT_MESSAGE, SUPPORT_REPLY, ANNOUNCEMENT]
           description: >-
             Reminders: PAY_REMINDER {code, minutes} 10 min before an unpaid booking expires; BOOKING_REMINDER / JOB_REMINDER
             {code, startHour} an hour before a scheduled visit; BOOKING_TOMORROW / JOB_TOMORROW {code, startHour, endHour}

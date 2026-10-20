@@ -13,7 +13,7 @@ import { SlotsService } from '../slots/slots.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { type Actor, BookingCore } from './booking-core';
 import { ACTIVE_STATUSES, CANCELLABLE, REFUND_ON_CANCEL, RESCHEDULABLE } from './booking-status';
-import { BOOKING_INCLUDE, type BookingDto, type BookingRow } from './booking-view';
+import { BOOKING_INCLUDE, type BookingDto, type BookingRow, WARRANTY_DAYS } from './booking-view';
 import type { NewBooking, VisitTime } from './bookings.schemas';
 
 const CODE_ATTEMPTS = 10;
@@ -141,6 +141,79 @@ export class BookingsService {
           if (winner) return this.replay(winner, requestHash);
         }
         if (!target.includes('code')) throw e;
+      }
+    }
+    throw new Error('could not allocate a unique booking code');
+  }
+
+  // ---------- warranty ----------
+
+  /**
+   * "Not fixed? Free revisit": within WARRANTY_DAYS of a completed job, once per booking (and not for a revisit
+   * itself). A new booking for the same service and address starts searching at once with the visit fee paid by
+   * Housefi, offered first to the same technician, ahead of other searching jobs. The technician can close it as fixed
+   * at no charge, or quote as usual for a different problem.
+   */
+  async claimWarranty(customerId: string, id: string, note: string): Promise<BookingDto> {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new AppError('NOT_FOUND');
+    const original = await this.prisma.booking.findFirst({ where: { id, customerId }, include: { warrantyClaim: { select: { id: true } }, events: { where: { status: 'COMPLETED' }, select: { at: true } } } });
+    if (!original) throw new AppError('NOT_FOUND');
+    const doneAt = original.events[0]?.at.getTime();
+    if (original.status !== 'COMPLETED' || !doneAt) throw new AppError('CONFLICT', {}, 'only a completed job has a warranty');
+    if (original.warrantyOfId) throw new AppError('CONFLICT', {}, 'a free revisit is already a warranty visit');
+    if (original.warrantyClaim) return this.core.get(customerId, original.warrantyClaim.id);
+    if (this.clock.now() > doneAt + WARRANTY_DAYS * 86_400_000) throw new AppError('CONFLICT', {}, `the ${WARRANTY_DAYS}-day warranty has ended`);
+    const service = await this.prisma.service.findUniqueOrThrow({ where: { id: original.serviceId } });
+    const text = note.trim().slice(0, 400);
+    const now = new Date(this.clock.now());
+    const actor: Actor = { type: 'CUSTOMER', id: customerId };
+    const arrivalCodeEnc = await this.cipher.encrypt('bookings.arrival_code', String(randomInt(0, 10_000)).padStart(4, '0'));
+    for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
+      const code = `HF-${randomInt(attempt < 6 ? 10_000 : 100_000, attempt < 6 ? 100_000 : 1_000_000)}`;
+      try {
+        const newId = await this.prisma.$transaction(async (tx) => {
+          await this.slots.hold(tx, { categoryId: original.categoryId, pincode: original.pincode }, { mode: 'INSTANT', window: null });
+          const b = await tx.booking.create({
+            data: {
+              code,
+              customerId,
+              serviceId: original.serviceId,
+              categoryId: original.categoryId,
+              addressSnapshotEnc: original.addressSnapshotEnc,
+              locality: original.locality,
+              city: original.city,
+              pincode: original.pincode,
+              issueIds: original.issueIds,
+              notes: `Warranty revisit of ${original.code}${text ? `: ${text}` : ''}`.slice(0, 500),
+              ...windowFields({ mode: 'INSTANT', window: null }),
+              preferWomenRated: original.preferWomenRated,
+              preferredTechnicianId: original.technicianId,
+              isDemo: original.isDemo,
+              status: 'MATCHING',
+              matchingStartedAt: now,
+              arrivalCodeEnc,
+              idempotencyKey: `warranty-${original.id}`,
+              idempotencyHash: new Uint8Array(createHash('sha256').update(`warranty:${original.id}`).digest()),
+              warrantyOfId: original.id,
+              priority: true,
+              createdAt: now,
+            },
+            select: { id: true },
+          });
+          await tx.$executeRaw`UPDATE bookings SET location = (SELECT location FROM bookings WHERE id = ${original.id}::uuid) WHERE id = ${b.id}::uuid`;
+          // The visit is on Housefi (not revenue).
+          await tx.payment.create({ data: { bookingId: b.id, kind: 'VISIT', amountPaise: service.visitFeePaise, state: 'PAID', provider: 'WAIVED', settledAt: now, createdAt: now } });
+          await this.core.event(tx, b.id, 'MATCHING', actor, { warrantyOf: original.code });
+          return b.id;
+        });
+        await this.dispatch.offerNext(newId);
+        return this.core.get(customerId, newId);
+      } catch (e) {
+        if (isUniqueViolation(e) && String(e.meta?.target ?? '').includes('warranty')) {
+          const claim = await this.prisma.booking.findUnique({ where: { warrantyOfId: original.id }, select: { id: true } });
+          if (claim) return this.core.get(customerId, claim.id);
+        }
+        if (!isUniqueViolation(e) || !String(e.meta?.target ?? '').includes('code')) throw e;
       }
     }
     throw new Error('could not allocate a unique booking code');

@@ -12,6 +12,8 @@ export const QuoteInput = z.object({
         name: z.string().trim().min(1).max(80),
         qty: z.number().int().min(1).max(99),
         unitPrice: z.number().int().min(1).max(100_000),
+        /** A part picked from the price list (materials only). */
+        partId: z.uuid().optional(),
       }),
     )
     .min(1)

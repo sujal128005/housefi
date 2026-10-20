@@ -17,6 +17,9 @@ import { UsersModule } from '../users/users.module';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminBookingsService } from './admin-bookings.service';
 import { AdminController } from './admin.controller';
+import { AdminGrowthController } from './admin-growth.controller';
+import { AdminGrowthService } from './admin-growth.service';
+import { InvoicesModule } from '../invoices/invoices.module';
 import { AdminGuard, AdminHostGuard } from './admin.guard';
 import { AdminManageController } from './admin-manage.controller';
 import { AdminOpsController } from './admin-ops.controller';
@@ -30,8 +33,8 @@ import { GuideService } from './guide/guide.service';
 
 /** The super admin portal's API: its own sign-in, and the same services the apps use for every change. */
 @Module({
-  imports: [AuthModule, AddressesModule, BookingCoreModule, BookingsModule, CatalogModule, ChatModule, DispatchModule, EarningsModule, PaymentsModule, SupportModule, TechniciansModule, UsersModule],
-  controllers: [AdminController, AdminManageController, AdminOpsController],
+  imports: [AuthModule, AddressesModule, BookingCoreModule, BookingsModule, CatalogModule, ChatModule, DispatchModule, EarningsModule, PaymentsModule, SupportModule, TechniciansModule, UsersModule, InvoicesModule],
+  controllers: [AdminController, AdminManageController, AdminOpsController, AdminGrowthController],
   providers: [
     AdminAuthService,
     AdminRecoveryService,
@@ -39,6 +42,7 @@ import { GuideService } from './guide/guide.service';
     AdminBookingsService,
     AdminPeopleService,
     AdminOpsService,
+    AdminGrowthService,
     AdminGuard,
     AdminHostGuard,
     GuideTools,
