@@ -79,6 +79,7 @@ function BookingPanel({ id, onClose, onChanged, onOpenPerson }: { readonly id: s
               run: ({ reason, checked }) => api.cancelBooking(id, checked, reason),
               done: 'Booking cancelled',
             })}>Cancel booking</button> : null}
+            {['COMPLETED', 'CLOSED_NO_REPAIR'].includes(b.booking.status) ? <a className="btn" href={api.invoiceUrl(id)} target="_blank" rel="noreferrer noopener">Invoice (PDF) ↗</a> : null}
             <button className="btn danger-outline" onClick={() => confirm({
               title: 'Erase this booking?',
               body: 'The address, notes, voice note, photos and chat are deleted for good (it is cancelled first if still running). Payments and the history stay.',
@@ -109,7 +110,8 @@ function BookingPanel({ id, onClose, onChanged, onOpenPerson }: { readonly id: s
             ['Address', b.booking.address.house ? <>{b.booking.address.house}, {b.booking.address.street}{b.booking.address.landmark ? ` (near ${b.booking.address.landmark})` : ''}, {b.booking.address.city} {b.booking.address.pincode}{b.booking.address.lat ? <> · <a href={`https://www.google.com/maps?q=${b.booking.address.lat},${b.booking.address.lng}`} target="_blank" rel="noreferrer noopener">map</a></> : null}</> : <span className="muted">Erased</span>],
             ['Time', b.booking.time.mode === 'SCHEDULED' ? `${b.booking.time.window.date}, ${b.booking.time.window.startHour}:00–${b.booking.time.window.endHour}:00` : 'As soon as possible'],
             ['Visit fee', `${rupees(b.booking.visitPayment.amount)} · ${b.booking.visitPayment.state.toLowerCase()}${b.booking.visitPayment.method ? ` (${b.booking.visitPayment.method})` : ''}`],
-            ['Repair', b.booking.finalPayment ? `${rupees(b.booking.finalPayment.amount)} · ${b.booking.finalPayment.state.toLowerCase()}` : b.booking.quote ? `Quote ${rupees(b.booking.quote.total)}` : '–'],
+            ['Repair', b.booking.finalPayment ? `${rupees(b.booking.finalPayment.amount)} · ${b.booking.finalPayment.state.toLowerCase()}${b.booking.finalPayment.discount ? ` (coupon ${b.booking.finalPayment.couponCode ?? ''}: ${rupees(b.booking.finalPayment.discount)} off)` : ''}` : b.booking.quote ? `Quote ${rupees(b.booking.quote.total)}` : '–'],
+            ['Warranty', b.booking.warrantyOf ? `Free revisit of ${b.booking.warrantyOf} (priority, visit on Housefi)` : b.booking.warrantyClaim ? `Revisit booked: ${b.booking.warrantyClaim.code}` : '–'],
             ['Rating', b.booking.rating ? `${'★'.repeat(b.booking.rating.stars)}${'☆'.repeat(5 - b.booking.rating.stars)}` : '–'],
             ['Chat', `${b.chatMessages} message${b.chatMessages === 1 ? '' : 's'}`],
           ]} />

@@ -6,6 +6,7 @@ import { api, type Alerts, type Me, timeLeft } from './api.ts';
 import { Bookings } from './Bookings.tsx';
 import { Dashboard } from './Dashboard.tsx';
 import { Guide, type GuideLink } from './Guide.tsx';
+import { AnnouncementsPage, CouponsPage, ServicesPage } from './Growth.tsx';
 import { AnalyticsPage, AuditPage } from './Insight.tsx';
 import { Payouts } from './Payouts.tsx';
 import { People, PersonPanel } from './People.tsx';
@@ -13,8 +14,8 @@ import { SosPage } from './Sos.tsx';
 import { ChatsPage, QueriesPage, ReportsPage } from './Support.tsx';
 import { ActionsProvider, useActions } from './ui.tsx';
 
-export type Section = 'dashboard' | 'sos' | 'reports' | 'queries' | 'bookings' | 'customers' | 'technicians' | 'payouts' | 'chats' | 'analytics' | 'audit' | 'arcade';
-const SECTIONS: readonly Section[] = ['dashboard', 'sos', 'reports', 'queries', 'bookings', 'customers', 'technicians', 'payouts', 'chats', 'analytics', 'audit', 'arcade'];
+export type Section = 'dashboard' | 'sos' | 'reports' | 'queries' | 'bookings' | 'customers' | 'technicians' | 'payouts' | 'chats' | 'services' | 'coupons' | 'announcements' | 'analytics' | 'audit' | 'arcade';
+const SECTIONS: readonly Section[] = ['dashboard', 'sos', 'reports', 'queries', 'bookings', 'customers', 'technicians', 'payouts', 'chats', 'services', 'coupons', 'announcements', 'analytics', 'audit', 'arcade'];
 
 interface NavItem {
   readonly id: Section;
@@ -44,6 +45,14 @@ const NAV: readonly { readonly title: string; readonly items: readonly NavItem[]
       { id: 'technicians', label: 'Technicians', icon: I('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z') },
       { id: 'payouts', label: 'Payouts', icon: I('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') },
       { id: 'chats', label: 'Chats', icon: I('M7 8h10M7 12h6m-9 9 3.6-3H19a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16z') },
+    ],
+  },
+  {
+    title: 'Grow',
+    items: [
+      { id: 'services', label: 'Services & prices', icon: I('M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01') },
+      { id: 'coupons', label: 'Coupons', icon: I('M3 9a3 3 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a3 3 0 0 0 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1zm10-4v2m0 4v2m0 4v2') },
+      { id: 'announcements', label: 'Announcements', icon: I('M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zm13-3a5 5 0 0 1 0 8m3-11a9 9 0 0 1 0 14') },
     ],
   },
   {
@@ -245,6 +254,9 @@ function Frame({ me, onSignedOut, onRefreshMe }: { readonly me: Me; readonly onS
         {section === 'customers' || section === 'technicians' ? <People key={section} role={section} openId={personId} onOpenPerson={setPersonId} onOpenBooking={openBooking} /> : null}
         {section === 'payouts' ? <Payouts /> : null}
         {section === 'chats' ? <ChatsPage onOpenBooking={openBooking} /> : null}
+        {section === 'services' ? <ServicesPage /> : null}
+        {section === 'coupons' ? <CouponsPage /> : null}
+        {section === 'announcements' ? <AnnouncementsPage /> : null}
         {section === 'analytics' ? <AnalyticsPage /> : null}
         {section === 'audit' ? <AuditPage /> : null}
         {section === 'arcade' ? <ArcadePage me={me.displayName} /> : null}

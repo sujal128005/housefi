@@ -22,7 +22,7 @@ const SUGGESTIONS = ['What needs my attention right now?', 'Summarise today in 5
 const TOOL_LABEL: Readonly<Record<string, string>> = {
   overview: 'today', list_bookings: 'bookings', get_booking: 'a booking', find_people: 'people', get_person: 'a profile', list_tickets: 'tickets',
   list_conversations: 'conversations', read_conversation: 'a conversation', list_booking_chats: 'chats', read_booking_chat: 'a chat', analytics: 'analytics',
-  payouts: 'payouts', audit_log: 'audit log',
+  payouts: 'payouts', audit_log: 'audit log', services: 'services & prices', coupons: 'coupons', announcements: 'announcements',
 };
 
 // ---------- text with light formatting and portal links ----------
