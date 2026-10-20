@@ -149,6 +149,21 @@ describe('technicians (e2e)', () => {
       expect(await t.prisma.notification.count({ where: { userId: id, kind: 'PROFILE_APPROVED' } })).toBe(0);
     });
 
+    it('approves automatically once the identity checks pass; anything else waits for a person', async () => {
+      const ok = await createTechnician(t, PHONE, { approve: false });
+      const differs = await createTechnician(t, '9876500012', { approve: false });
+      const noAadhaar = await createTechnician(t, '9876500013', { approve: false });
+      const checked = { aadhaarVerifiedAt: new Date(t.clock.now()), aadhaarLast4: '1234' };
+      await t.prisma.technician.update({ where: { userId: ok.id }, data: { ...checked, aadhaarNameMatch: true } });
+      await t.prisma.technician.update({ where: { userId: differs.id }, data: { ...checked, aadhaarNameMatch: false } });
+      expect(await verification().autoApprove()).toBe(1);
+      const state = async (id: string) => (await t.prisma.technician.findUniqueOrThrow({ where: { userId: id } })).verification;
+      expect([await state(ok.id), await state(differs.id), await state(noAadhaar.id)]).toEqual(['APPROVED', 'PENDING', 'PENDING']);
+      const audit = await t.prisma.auditLog.findFirst({ where: { entityId: ok.id, action: 'tech.approve' } });
+      expect(audit).toMatchObject({ actorType: 'SYSTEM', after: { verification: 'APPROVED', via: 'auto' } });
+      expect(await verification().autoApprove()).toBe(0); // once
+    });
+
     it('sends a profile back with a note; resubmitting puts it back into review', async () => {
       const { id, token } = await createTechnician(t, PHONE, { approve: false });
       await cli('correct', id, 'Please add your vehicle number', 'దయచేసి మీ వాహన నంబర్ జోడించండి');

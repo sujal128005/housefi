@@ -29,6 +29,7 @@ import { Celebrate, Pulse, RideIn, useReducedMotion } from '../../../ui/motion';
 import { PhotoThumb } from '../../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../../ui/present';
 import { InfoRow, MoneyRow, openDirections, TechStepper } from '../../../ui/TechParts';
+import { quickPosition } from '../../../services/device';
 
 const ISSUES: readonly { issue: TechIssue; icon: IconName }[] = [
   { issue: 'CUSTOMER_UNAVAILABLE', icon: 'person-remove-outline' },
@@ -172,7 +173,11 @@ export default function JobScreen() {
     const closes = issue === 'CUSTOMER_UNAVAILABLE' || issue === 'CANNOT_COMPLETE';
     setConfirm(null);
     setReport(false);
-    await act(() => backend.tech.report(session.token, j.id, issue, note.trim()), closes ? 'warning' : 'send', closes ? undefined : t('tj.reported'));
+    await act(async () => {
+      // An unsafe report shows HQ where the technician is (when the phone gives it quickly).
+      const where = issue === 'UNSAFE' ? await quickPosition() : null;
+      return backend.tech.report(session.token, j.id, issue, note.trim(), where);
+    }, closes ? 'warning' : 'send', closes ? undefined : t('tj.reported'));
     setIssue(null);
     setNote('');
   };
@@ -322,6 +327,9 @@ export default function JobScreen() {
             <Button label={t('tj.navigate')} icon="navigate" variant="secondary" size="md" onPress={() => void directions()} style={styles.flex} testID="tj-navigate" />
             <Button label={t('track.call')} icon="call" variant="secondary" size="md" onPress={() => void callCustomer.call()} loading={callCustomer.calling} style={styles.flex} testID="tj-call" />
           </View>
+        ) : null}
+        {live ? (
+          <Button label={t('chat.open')} icon="chatbubbles" variant="secondary" size="md" onPress={() => router.push({ pathname: '/chat/[id]', params: { id: j.id, as: 'tech' } })} testID="tj-chat" />
         ) : null}
         {live ? <Txt variant="caption" color="inkMuted" align="center">{t('tj.masked')}</Txt> : null}
       </Card>

@@ -196,7 +196,8 @@ export default function Home() {
         <Txt variant="title2" heading>{t('home.notifications')}</Txt>
         <NotificationList items={extra.inbox} onOpen={(n) => {
           setBell(false);
-          if (n.bookingId) router.push(`/booking/${n.bookingId}`);
+          if (n.kind === 'SUPPORT_REPLY') router.push('/support');
+          else if (n.bookingId) router.push(`/booking/${n.bookingId}`);
         }} />
       </Sheet>
     </View>

@@ -37,11 +37,13 @@ const EN: Texts = {
   BOOKING_TOMORROW: { title: 'Visit tomorrow', body: 'Your technician comes for {code} tomorrow, {startHour}:00 to {endHour}:00.' },
   JOB_TOMORROW: { title: 'Job tomorrow', body: '{code} tomorrow, {startHour}:00 to {endHour}:00. Check your schedule in Jobs.' },
   JOB_DAY_PLAN: { title: "Today's jobs", body: '{count} scheduled today, the first at {startHour}:00. See your schedule in Jobs.' },
+  CHAT_MESSAGE: { title: 'New message', body: 'About {code}. Open the chat to read and reply.' },
   QUOTE_REMINDER: { title: 'Your technician is waiting', body: 'Please answer the quote for {code} in the app.' },
   RATE_REMINDER: { title: 'How was the visit?', body: 'Rate your technician for {code}. It takes a few seconds.' },
   PROFILE_SUSPENDED: { title: 'Account on hold', body: 'You will not get jobs for now. Contact your Housefi coordinator.' },
   PROFILE_REINSTATED: { title: 'Account active again', body: 'You can go online and receive jobs.' },
   PROFILE_REJECTED: { title: 'Registration not approved', body: 'Contact Housefi support for details.' },
+  SUPPORT_REPLY: { title: 'Housefi team replied', body: 'Open Help to read the reply.' },
 };
 
 const TE: Texts = {
@@ -70,11 +72,13 @@ const TE: Texts = {
   BOOKING_TOMORROW: { title: 'రేపు విజిట్', body: '{code} కోసం రేపు {startHour}:00 నుండి {endHour}:00 మధ్య టెక్నీషియన్ వస్తారు.' },
   JOB_TOMORROW: { title: 'రేపు పని', body: '{code} రేపు {startHour}:00 నుండి {endHour}:00. Jobs లో మీ షెడ్యూల్ చూడండి.' },
   JOB_DAY_PLAN: { title: 'ఈరోజు పనులు', body: 'ఈరోజు {count} పనులు, మొదటిది {startHour}:00 కు. Jobs లో మీ షెడ్యూల్ చూడండి.' },
+  CHAT_MESSAGE: { title: 'కొత్త సందేశం', body: '{code} గురించి. చదవడానికి, జవాబు ఇవ్వడానికి చాట్ తెరవండి.' },
   QUOTE_REMINDER: { title: 'టెక్నీషియన్ ఎదురుచూస్తున్నారు', body: '{code} కొటేషన్‌కు యాప్‌లో సమాధానం ఇవ్వండి.' },
   RATE_REMINDER: { title: 'విజిట్ ఎలా ఉంది?', body: '{code} కోసం మీ టెక్నీషియన్‌కు రేటింగ్ ఇవ్వండి.' },
   PROFILE_SUSPENDED: { title: 'ఖాతా నిలిపివేయబడింది', body: 'ప్రస్తుతం పనులు రావు. మీ Housefi కోఆర్డినేటర్‌ను సంప్రదించండి.' },
   PROFILE_REINSTATED: { title: 'ఖాతా మళ్లీ యాక్టివ్', body: 'మీరు ఆన్‌లైన్‌కు వెళ్లి పనులు పొందవచ్చు.' },
   PROFILE_REJECTED: { title: 'రిజిస్ట్రేషన్ ఆమోదించబడలేదు', body: 'వివరాల కోసం Housefi సపోర్ట్‌ను సంప్రదించండి.' },
+  SUPPORT_REPLY: { title: 'Housefi టీమ్ జవాబిచ్చింది', body: 'జవాబు చదవడానికి సహాయం తెరవండి.' },
 };
 
 /** Used when a value the main text needs is missing (no location yet, so no ETA). */

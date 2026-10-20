@@ -97,7 +97,7 @@ export class TechniciansService {
       aadhaar: row.aadhaarVerifiedAt && row.aadhaarLast4
         ? { last4: row.aadhaarLast4, nameMatches: row.aadhaarNameMatch === true, verifiedAt: row.aadhaarVerifiedAt.getTime() }
         : null,
-      reviewBy: reviewBy(row.submittedAt.getTime()),
+      reviewBy: reviewBy(row.submittedAt.getTime(), user.isDemo),
       correctionNote: row.correctionNoteEn !== null ? { en: row.correctionNoteEn, te: row.correctionNoteTe ?? row.correctionNoteEn } : null,
       online: row.online,
       rating: row.ratingAvg !== null ? Number(row.ratingAvg) : null,

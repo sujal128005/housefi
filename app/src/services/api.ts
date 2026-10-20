@@ -163,7 +163,11 @@ export type NotificationKind =
   | 'PAY_REMINDER' | 'BOOKING_REMINDER' | 'JOB_REMINDER' | 'QUOTE_REMINDER' | 'RATE_REMINDER' | 'PROFILE_SUSPENDED'
   | 'PROFILE_REINSTATED' | 'PROFILE_REJECTED'
   // the day's schedule: the evening before a visit (both sides), the technician's morning plan
-  | 'BOOKING_TOMORROW' | 'JOB_TOMORROW' | 'JOB_DAY_PLAN';
+  | 'BOOKING_TOMORROW' | 'JOB_TOMORROW' | 'JOB_DAY_PLAN'
+  // a chat message from the other side (shown by the chat bubble, not in the inbox)
+  | 'CHAT_MESSAGE'
+  // the Housefi team answered in the person's support conversation
+  | 'SUPPORT_REPLY';
 
 export interface AppNotification {
   readonly id: string;
@@ -196,6 +200,20 @@ export interface ChatReply {
   readonly suggestions: readonly string[];
   /** The assistant thinks a person should take over. */
   readonly offerHuman: boolean;
+  /** Links under the answer (e.g. the founders' profiles). Missing on older servers. */
+  readonly links?: readonly { readonly label: string; readonly url: string }[];
+  /** Something the customer can confirm (never done by the assistant itself). */
+  readonly action?: ChatAction | null;
+}
+
+/** "Cancel HF-12345?": shown as a confirm card; only the customer's tap cancels, through the usual endpoint. */
+export interface ChatAction {
+  readonly kind: 'CANCEL_BOOKING';
+  readonly bookingId: string;
+  readonly code: string;
+  readonly reason: CancelReason;
+  /** Rupees refunded. */
+  readonly refund: number;
 }
 
 export interface LocalProblem {
@@ -263,6 +281,8 @@ export interface TechAuthApi {
 /** Everything the technician app does. Technician accounts and tokens are separate from customer ones. */
 export interface TechApi {
   readonly auth: TechAuthApi;
+  /** The technician's chats with their customers. */
+  readonly chat: ChatApi;
   me(token: string): Promise<TechProfile>;
   /**
    * First submission and corrections; puts the profile (back) into verification. The first submission needs a photo
@@ -293,8 +313,8 @@ export interface TechApi {
   completeWork(token: string, id: string): Promise<Job>;
   /** The customer chose cash; the technician confirms it was received. */
   confirmCash(token: string, id: string): Promise<Job>;
-  /** CUSTOMER_UNAVAILABLE and CANNOT_COMPLETE close the visit; the others alert support. */
-  report(token: string, id: string, issue: TechIssue, note: string): Promise<Job>;
+  /** CUSTOMER_UNAVAILABLE and CANNOT_COMPLETE close the visit; the others alert support (UNSAFE with where the phone was). */
+  report(token: string, id: string, issue: TechIssue, note: string, location?: Position | null): Promise<Job>;
   earnings(token: string): Promise<Earnings>;
   /**
    * Verifies the technician's Aadhaar offline from the Secure QR code on the card (the text the camera read). Stores only
@@ -340,18 +360,85 @@ export interface DemoControls {
   reset(): Promise<void>;
 }
 
+/** Where the phone was (SOS and reports): sent when the phone gives a position. */
+export interface Position {
+  readonly lat: number;
+  readonly lng: number;
+  readonly accuracyM: number | null;
+}
+
+export type SupportTopic = 'BOOKING' | 'PAYMENT' | 'TECHNICIAN' | 'APP' | 'OTHER';
+
+/** A live conversation with the Housefi team (after the assistant's questions). */
+export interface SupportConversation {
+  readonly id: string;
+  readonly state: 'OPEN' | 'CLOSED';
+  readonly topic: SupportTopic;
+  readonly bookingCode: string | null;
+  readonly createdAt: number;
+  readonly messages: readonly { readonly id: string; readonly from: 'ME' | 'HQ' | 'SYSTEM'; readonly text: string; readonly at: number }[];
+}
+
 /** Customer care, for customers and technicians alike. */
 export interface SupportApi {
   /** Asks Housefi to call this person back (about a booking, when given). */
   callback(token: string, bookingId: string | null, reason?: string): Promise<void>;
-  /** Reports a problem to the support team. UNSAFE is urgent: the safety team calls at once. */
-  ticket(token: string, kind: 'UNSAFE' | 'PAYMENT_PROBLEM' | 'OTHER', bookingId: string | null, note?: string): Promise<void>;
+  /** Reports a problem to the support team. UNSAFE is urgent: the safety team calls at once, and sees where the phone was. */
+  ticket(token: string, kind: 'UNSAFE' | 'PAYMENT_PROBLEM' | 'OTHER', bookingId: string | null, note?: string, location?: Position | null): Promise<void>;
+  /** The open conversation with the team (or one closed in the last day), or null. */
+  conversation(token: string): Promise<SupportConversation | null>;
+  /** Starts it after the intake (or adds to the open one). NOT_FOUND for a booking that is not theirs. */
+  startConversation(token: string, input: { topic: SupportTopic; bookingId: string | null; text: string }): Promise<SupportConversation>;
+  /** Writes in the open conversation. CONFLICT once the team closed it. */
+  sendToTeam(token: string, text: string): Promise<SupportConversation>;
 }
 
 /** Housefi's public verification page for a scanned Technician ID card. No sign-in; minimal data. */
 export interface VerifyApi {
   /** NOT_FOUND for an unknown or withdrawn token. */
   technician(verifyToken: string): Promise<TechVerifyResult>;
+}
+
+/** One chat message: words and/or a photo. */
+export interface ChatMessage {
+  readonly id: string;
+  /** ME: sent from this phone's account; THEM: from the other side. */
+  readonly from: 'ME' | 'THEM';
+  readonly text: string;
+  /** A link to the photo (short-lived; the screen asks again for fresh ones); null for words only. */
+  readonly photo: string | null;
+  readonly at: number;
+}
+
+/** The chat between a customer and the assigned technician, from assignment until the job is done. */
+export interface Chat {
+  readonly bookingId: string;
+  /** Messages can be sent (the job is on). */
+  readonly open: boolean;
+  /** The job is done: either side can clear it; it clears itself at clearsAt anyway. */
+  readonly clearable: boolean;
+  readonly clearsAt: number | null;
+  /** Oldest first. */
+  readonly messages: readonly ChatMessage[];
+}
+
+/** A chat in the floating chat bubble: open, or with unread messages. */
+export interface ChatSummary {
+  readonly bookingId: string;
+  readonly code: string;
+  readonly open: boolean;
+  readonly unread: number;
+}
+
+/** The same calls for the customer (their bookings) and the technician (their jobs). */
+export interface ChatApi {
+  list(token: string): Promise<readonly ChatSummary[]>;
+  /** Reading it marks it read. */
+  get(token: string, bookingId: string): Promise<Chat>;
+  /** Words and/or a photo (a local file; uploaded first). */
+  send(token: string, bookingId: string, input: { readonly text: string; readonly photoUri?: string }): Promise<Chat>;
+  /** Only once the job is done (CONFLICT before). */
+  clear(token: string, bookingId: string): Promise<void>;
 }
 
 export interface Backend {
@@ -365,6 +452,8 @@ export interface Backend {
   readonly tech: TechApi;
   readonly verify: VerifyApi;
   readonly support: SupportApi;
+  /** The customer's chats with their technicians. */
+  readonly chat: ChatApi;
   readonly demo: DemoControls | null;
 }
 

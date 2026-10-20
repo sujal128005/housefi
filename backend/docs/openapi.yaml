@@ -15,6 +15,8 @@ servers:
 security:
   - bearer: []
 tags:
+  - name: chat
+    description: Customer and assigned technician, from assignment until the job is done; cleared after.
   - name: auth
   - name: me
   - name: catalog
@@ -328,6 +330,76 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
         '409': { $ref: '#/components/responses/Error' }
+  /chats:
+    get:
+      tags: [chat]
+      summary: The customer's chats that are open or have messages, with unread counts (the chat bubble)
+      responses:
+        '200':
+          description: Newest booking first
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ChatSummary' } } } }
+  /bookings/{bookingId}/chat:
+    parameters:
+      - $ref: '#/components/parameters/BookingId'
+    get:
+      tags: [chat]
+      summary: The chat with the assigned technician (reading it marks it read)
+      description: Only messages since the current technician was assigned. 409 before a technician is assigned.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Chat' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [chat]
+      summary: Send words and/or a photo (an upload with stage CHAT)
+      description: From assignment until the job is done (409 otherwise). At most 30 messages a minute. The other side gets a CHAT_MESSAGE notification (never the text).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ChatMessageInput' } } }
+      responses:
+        '200': { description: The chat after sending, content: { application/json: { schema: { $ref: '#/components/schemas/Chat' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [chat]
+      summary: Clear the chat (messages and photos, for both sides); only once the job is done
+      description: 409 while the job is on. Finished chats are also cleared by themselves 24 h after the job.
+      responses:
+        '204': { description: Cleared }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/chats:
+    get:
+      tags: [chat]
+      summary: The technician's chats that are open or have messages, with unread counts
+      responses:
+        '200':
+          description: Newest booking first
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ChatSummary' } } } }
+  /tech/jobs/{jobId}/chat:
+    parameters:
+      - $ref: '#/components/parameters/JobId'
+    get:
+      tags: [chat]
+      summary: The chat with the customer of the job (reading it marks it read)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Chat' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [chat]
+      summary: Send words and/or a photo to the customer
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ChatMessageInput' } } }
+      responses:
+        '200': { description: The chat after sending, content: { application/json: { schema: { $ref: '#/components/schemas/Chat' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [chat]
+      summary: Clear the chat; only once the job is done
+      responses:
+        '204': { description: Cleared }
+        '409': { $ref: '#/components/responses/Error' }
   /bookings/{bookingId}/call:
     parameters:
       - $ref: '#/components/parameters/BookingId'
@@ -416,7 +488,7 @@ paths:
               properties:
                 contentType: { type: string, enum: [image/jpeg, image/png, image/heic] }
                 bytes: { type: integer, maximum: 8388608 }
-                stage: { type: string, enum: [PROBLEM, INSPECTION, COMPLETION, PROFILE], default: PROBLEM, description: 'Customers: PROBLEM. Technicians: INSPECTION, COMPLETION, PROFILE (registration photo). Coordinators: PROFILE only.' }
+                stage: { type: string, enum: [PROBLEM, INSPECTION, COMPLETION, PROFILE, CHAT], default: PROBLEM, description: 'Customers: PROBLEM, CHAT. Technicians: INSPECTION, COMPLETION, PROFILE (registration photo), CHAT. Coordinators: PROFILE only.' }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UploadTicket' } } } }
   /uploads/audio:
@@ -557,8 +629,42 @@ paths:
                 bookingId: { type: string }
                 kind: { type: string, enum: [UNSAFE, PAYMENT_PROBLEM, OTHER] }
                 note: { type: string, maxLength: 1000 }
+                location: { $ref: '#/components/schemas/Position' }
       responses:
         '201': { description: OK, content: { application/json: { schema: { type: object, properties: { ticketId: { type: string } } } } } }
+  /support/conversation:
+    get:
+      tags: [support]
+      summary: The live conversation with the Housefi team (open, or closed in the last day), or null
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [conversation], properties: { conversation: { oneOf: [{ $ref: '#/components/schemas/SupportConversation' }, { type: 'null' }] } } } } } }
+    post:
+      tags: [support]
+      summary: Talk to the Housefi team, after the assistant asked what it is about (returns the open one if there is one)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topic, text]
+              properties:
+                topic: { type: string, enum: [BOOKING, PAYMENT, TECHNICIAN, APP, OTHER] }
+                bookingId: { type: [string, 'null'] }
+                text: { type: string, maxLength: 1000 }
+      responses:
+        '201': { description: OK, content: { application/json: { schema: { type: object, required: [conversation], properties: { conversation: { $ref: '#/components/schemas/SupportConversation' } } } } } }
+        '422': { $ref: '#/components/responses/Error' }
+  /support/conversation/messages:
+    post:
+      tags: [support]
+      summary: Write in the open conversation
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string, maxLength: 1000 } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [conversation], properties: { conversation: { $ref: '#/components/schemas/SupportConversation' } } } } } }
+        '409': { description: No open conversation, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorBody' } } } }
 
   # ---------------- technician ----------------
   /tech/me:
@@ -760,6 +866,7 @@ paths:
               properties:
                 issue: { $ref: '#/components/schemas/TechIssue' }
                 note: { type: string, maxLength: 500 }
+                location: { $ref: '#/components/schemas/Position' }
       responses:
         '200': { $ref: '#/components/responses/JobOk' }
         '409': { $ref: '#/components/responses/Error' }
@@ -946,6 +1053,33 @@ components:
       description: Updated job
       content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } }
   schemas:
+    Position:
+      type: object
+      description: Where the phone was (SOS and reports); sent only when the phone gives a position
+      required: [lat, lng]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        accuracyM: { type: [number, 'null'] }
+    SupportConversation:
+      type: object
+      required: [id, state, topic, bookingCode, createdAt, messages]
+      properties:
+        id: { type: string }
+        state: { type: string, enum: [OPEN, CLOSED] }
+        topic: { type: string, enum: [BOOKING, PAYMENT, TECHNICIAN, APP, OTHER] }
+        bookingCode: { type: [string, 'null'] }
+        createdAt: { type: integer }
+        messages:
+          type: array
+          items:
+            type: object
+            required: [id, from, text, at]
+            properties:
+              id: { type: string }
+              from: { type: string, enum: [ME, HQ, SYSTEM] }
+              text: { type: string }
+              at: { type: integer }
     ErrorBody:
       type: object
       required: [error]
@@ -1438,6 +1572,37 @@ components:
                   on: { type: [string, 'null'], format: date, description: 'The Monday it is paid on; for PAID the day it was paid' }
                   amount: { type: [integer, 'null'], description: 'The payout amount (may include earlier weeks carried over)' }
                   ref: { type: [string, 'null'], description: 'Bank / UPI reference once paid' }
+    Chat:
+      type: object
+      required: [bookingId, open, clearable, clearsAt, messages]
+      properties:
+        bookingId: { type: string }
+        open: { type: boolean, description: Messages can be sent (from assignment until the job is done) }
+        clearable: { type: boolean, description: The job is done; either side can clear the chat }
+        clearsAt: { oneOf: [{ $ref: '#/components/schemas/EpochMs' }, { type: 'null' }], description: When it clears by itself (24 h after the job) }
+        messages: { type: array, items: { $ref: '#/components/schemas/ChatMessage' }, description: Oldest first }
+    ChatMessage:
+      type: object
+      required: [id, from, text, photo, at]
+      properties:
+        id: { type: string }
+        from: { type: string, enum: [ME, THEM] }
+        text: { type: string }
+        photo: { type: [string, 'null'], description: Short-lived link }
+        at: { $ref: '#/components/schemas/EpochMs' }
+    ChatMessageInput:
+      type: object
+      properties:
+        text: { type: string, maxLength: 1000 }
+        photoUploadId: { type: string, description: An upload with stage CHAT }
+    ChatSummary:
+      type: object
+      required: [bookingId, code, open, unread]
+      properties:
+        bookingId: { type: string }
+        code: { type: string }
+        open: { type: boolean }
+        unread: { type: integer }
     UploadTicket:
       type: object
       required: [id, uploadUrl, expiresAt]
@@ -1470,11 +1635,30 @@ components:
               recentCount: { type: integer }
     ChatReply:
       type: object
-      required: [text, suggestions, offerHuman]
+      required: [text, suggestions, offerHuman, links, action]
       properties:
         text: { type: string }
         suggestions: { type: array, items: { type: string } }
         offerHuman: { type: boolean }
+        links:
+          type: array
+          description: Links to show under the answer (e.g. the founders' profiles)
+          items: { type: object, required: [label, url], properties: { label: { type: string }, url: { type: string } } }
+        action:
+          description: >-
+            Something the app may do once the customer confirms it, never done by the assistant itself. CANCEL_BOOKING
+            only before the technician starts the trip, with a checked reason; the app then calls POST
+            /bookings/{bookingId}/cancel with that reason, which checks everything again.
+          oneOf:
+            - type: object
+              required: [kind, bookingId, code, reason, refund]
+              properties:
+                kind: { type: string, enum: [CANCEL_BOOKING] }
+                bookingId: { type: string }
+                code: { type: string }
+                reason: { type: string, enum: [PLANS_CHANGED, FIXED, TOO_LONG, MISTAKE, OTHER] }
+                refund: { type: integer, description: Rupees refunded }
+            - { type: 'null' }
         conversationId: { type: string }
     AppNotification:
       type: object
@@ -1486,7 +1670,8 @@ components:
           enum: [TECH_ASSIGNED, TECH_ON_THE_WAY, TECH_ARRIVED, QUOTE_READY, EXTRA_QUOTE, PAYMENT_DUE, BOOKING_COMPLETED, BOOKING_CANCELLED,
                  NO_TECHNICIAN, JOB_OFFER, QUOTE_APPROVED, QUOTE_REVISION, QUOTE_DECLINED, EXTRA_APPROVED, EXTRA_DECLINED, PAYMENT_RECEIVED,
                  JOB_CANCELLED, PROFILE_APPROVED, PROFILE_NEEDS_CORRECTION, PAY_REMINDER, BOOKING_REMINDER, JOB_REMINDER, QUOTE_REMINDER,
-                 RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, BOOKING_TOMORROW, JOB_TOMORROW, JOB_DAY_PLAN]
+                 RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, BOOKING_TOMORROW, JOB_TOMORROW, JOB_DAY_PLAN,
+                 CHAT_MESSAGE, SUPPORT_REPLY]
           description: >-
             Reminders: PAY_REMINDER {code, minutes} 10 min before an unpaid booking expires; BOOKING_REMINDER / JOB_REMINDER
             {code, startHour} an hour before a scheduled visit; BOOKING_TOMORROW / JOB_TOMORROW {code, startHour, endHour}

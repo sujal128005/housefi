@@ -21,6 +21,7 @@ import type { Env } from '../../config/env';
 import { CATEGORY_ORDER } from '../technicians/technicians.schemas';
 import { AadhaarQrError, identityFingerprint, namesMatch, uidaiKeys, verifyAadhaarQr } from './aadhaar-qr';
 import { displayName, newVerifyToken, VERIFY_TOKEN, verifyTokenHash } from './identity-codes';
+import { TechVerificationService } from '../technicians/tech-verification.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Booking statuses in which the customer sees the assigned technician's ID card. */
@@ -81,6 +82,7 @@ export class IdentityService {
     private readonly audit: AuditService,
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
+    private readonly verification: TechVerificationService,
   ) {}
 
   // ---------- ID card ----------
@@ -198,7 +200,8 @@ export class IdentityService {
       details = verifyAadhaarQr(qrText, keys);
     } catch (err) {
       if (err instanceof AadhaarQrError) {
-        this.log.warn(`Aadhaar QR refused for technician ${technicianId} (${err.reason})`);
+        // The month a refused QR was made says which UIDAI certificate it needs (UIDAI_QR_CERT_PEM_B64).
+        this.log.warn(`Aadhaar QR refused for technician ${technicianId} (${err.reason}${err.madeIn ? `, QR made ${err.madeIn}` : ''})`);
         throw new AppError('VALIDATION', { fields: { qr: 'INVALID' } }, `not a genuine, readable Aadhaar Secure QR (${err.reason})`);
       }
       throw err;
@@ -231,6 +234,8 @@ export class IdentityService {
       }
       throw e;
     }
+    // Every check passed: approved now (AutoApproveWorker would within a minute), shown at the promised time.
+    if (this.config.AUTO_APPROVE_TECHNICIANS && nameMatches) await this.verification.approveIfReady(t.userId);
     return { last4: details.last4, nameMatches, verifiedAt: now.getTime() };
   }
 

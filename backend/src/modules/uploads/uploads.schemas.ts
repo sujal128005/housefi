@@ -6,7 +6,7 @@ export const PhotoTicketBody = z
   .object({
     contentType: z.enum(PHOTO_TYPES),
     bytes: z.number().int().min(1).max(8 * 1024 * 1024),
-    stage: z.enum(['PROBLEM', 'INSPECTION', 'COMPLETION', 'PROFILE']).optional(),
+    stage: z.enum(['PROBLEM', 'INSPECTION', 'COMPLETION', 'PROFILE', 'CHAT']).optional(),
   })
   .strict();
 

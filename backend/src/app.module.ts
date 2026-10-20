@@ -12,11 +12,13 @@ import { StorageModule } from './common/storage/object-store';
 import { ConfigModule } from './config/config.module';
 import type { Env } from './config/env';
 import { AddressesModule } from './modules/addresses/addresses.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AuthGuard } from './modules/auth/auth.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { CoordinatorModule } from './modules/coordinator/coordinator.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { EarningsModule } from './modules/earnings/earnings.module';
@@ -38,7 +40,7 @@ export class AppModule {
   static forRoot(config: Env): DynamicModule {
     return {
       module: AppModule,
-      imports: [ConfigModule.forRoot(config), ClockModule, RedisModule, PrismaModule, StorageModule, CryptoModule, AuditModule, NotifierModule, RateLimitModule, AuthModule, UploadsModule, UsersModule, CatalogModule, AddressesModule, SlotsModule, BookingsModule, PaymentsModule, TechniciansModule, DispatchModule, JobsModule, EarningsModule, NotificationsModule, AiModule, SupportModule, CoordinatorModule, IdentityModule, TelephonyModule, HealthModule],
+      imports: [ConfigModule.forRoot(config), ClockModule, RedisModule, PrismaModule, StorageModule, CryptoModule, AuditModule, NotifierModule, RateLimitModule, AuthModule, UploadsModule, UsersModule, CatalogModule, AddressesModule, SlotsModule, BookingsModule, PaymentsModule, TechniciansModule, DispatchModule, JobsModule, EarningsModule, NotificationsModule, AiModule, SupportModule, ChatModule, CoordinatorModule, IdentityModule, TelephonyModule, AdminModule, HealthModule],
       providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
         // Guards run in this order: per-IP rate limit first (cheap, stops floods before token checks), then auth.

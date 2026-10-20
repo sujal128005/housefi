@@ -30,6 +30,7 @@ const ART: Record<NotificationKind, ArtName> = {
   PAY_REMINDER: 'pay_due', BOOKING_REMINDER: 'alarm', JOB_REMINDER: 'alarm', QUOTE_REMINDER: 'hourglass', RATE_REMINDER: 'star',
   PROFILE_SUSPENDED: 'locked', PROFILE_REINSTATED: 'verify_ok', PROFILE_REJECTED: 'verify_fix',
   BOOKING_TOMORROW: 'calendar', JOB_TOMORROW: 'calendar', JOB_DAY_PLAN: 'spiral_calendar',
+  CHAT_MESSAGE: 'memo', SUPPORT_REPLY: 'handshake',
 };
 
 /** Notification text in the reader's language. */

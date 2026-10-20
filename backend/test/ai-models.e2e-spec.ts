@@ -123,8 +123,10 @@ describe('AI with models (e2e)', () => {
 
     it('falls back to the rules when the model fails or declines, and never asks it about danger', async () => {
       claude.replies.push(503);
-      const failed = (await chat({ message: 'cancel', locale: 'en' }).expect(200)).body;
-      expect(failed.text).toContain(`You can cancel ${code} in the booking`);
+      const failed = (await chat({ message: 'how much does it cost', locale: 'en' }).expect(200)).body;
+      expect(failed.text).toContain('The visit fee is ₹49');
+      // Cancelling never reaches the model: the rules ask for the reason (no model reply is used up).
+      expect((await chat({ message: 'cancel', locale: 'en' }).expect(200)).body.text).toContain(`Why do you want to cancel ${code}`);
 
       claude.replies.push('refusal');
       const declined = (await chat({ message: 'what does it cost', locale: 'en' }).expect(200)).body;
@@ -192,6 +194,8 @@ describe('AI with models (e2e)', () => {
       expect(call.form.get('language_code')).toBe('te-IN');
       expect(call.form.get('model')).toBe('saaras:v4');
       expect(call.form.get('file')).toBeInstanceOf(Blob);
+      // Sarvam refuses "audio/m4a" (what phones send) and takes the same file as "audio/x-m4a".
+      expect((call.form.get('file') as Blob).type).toBe('audio/x-m4a');
 
       const long = await uploaded('audio', m4a(45), 'audio/m4a');
       expect((await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId: long, locale: 'en' }).expect(200)).body).toEqual({ text: '' });
