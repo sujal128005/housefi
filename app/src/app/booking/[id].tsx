@@ -10,7 +10,7 @@ import type { Booking, CancelReason } from '../../domain/types';
 import { Anim3D, type AnimName } from '../../illustrations/Anim3D';
 import { Art3D, type ArtName } from '../../illustrations/Art3D';
 import { LiveMap } from '../../ui/LiveMap';
-import { formatHour, formatRupees } from '../../i18n/format';
+import { formatClock, formatHour, formatRupees } from '../../i18n/format';
 import { useI18n, type StringKey } from '../../i18n/I18n';
 import type { DemoOutcome } from '../../services/api';
 import { useBackend } from '../../services/ServicesProvider';
@@ -26,6 +26,7 @@ import { PhotoThumb } from '../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../ui/present';
 import { feedback } from '../../services/feedback';
 import { useDraft } from '../../state/BookingDraft';
+import { useNow } from '../../state/useNow';
 
 const STEPS: readonly StringKey[] = ['track.step.received', 'track.step.searching', 'track.step.availability', 'track.step.matching'];
 const REASONS: readonly CancelReason[] = ['PLANS_CHANGED', 'FIXED', 'TOO_LONG', 'MISTAKE', 'OTHER'];
@@ -60,6 +61,8 @@ export default function BookingHub() {
   const [loadError, setLoadError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  // For "Arriving by": the time now, kept current.
+  const timeNow = useNow();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState<CancelReason | null>(null);
   const [busy, setBusy] = useState(false);
@@ -162,6 +165,11 @@ export default function BookingHub() {
         {b.status === 'ASSIGNED' ? (
           <View style={styles.art}>
             <Celebrate size={150}><Anim3D name="assigned" size={150} testID="anim-assigned" /></Celebrate>
+            {b.etaMin !== null ? (
+              <Txt variant="bodyStrong" align="center" testID="eta-assigned">
+                {t('hub.arriveIn', { time: formatClock(new Date(timeNow + b.etaMin * 60_000), locale), min: b.etaMin })}
+              </Txt>
+            ) : null}
           </View>
         ) : null}
         {b.status === 'EN_ROUTE' ? (
@@ -170,6 +178,7 @@ export default function BookingHub() {
             <View style={styles.eta}>
               <Txt variant="caption" color="onNavy">{t('hub.eta')}</Txt>
               <Txt variant="title1" color="onNavy" testID="eta">{t('hub.etaMin', { min: b.etaMin ?? 0 })}</Txt>
+              {b.etaMin !== null ? <Txt variant="caption" color="onNavy" testID="eta-by">{t('hub.arriveBy', { time: formatClock(new Date(timeNow + b.etaMin * 60_000), locale) })}</Txt> : null}
             </View>
           </View>
         ) : null}

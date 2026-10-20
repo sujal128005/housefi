@@ -218,6 +218,15 @@ describe('live client: bookings, uploads, payments', () => {
     expect(t.calls.filter((c) => c.url === '/bookings').at(-1)?.body).toMatchObject({ repeatOf: BOOKING.id });
   });
 
+  it('asks for the "Now" estimate (minutes only), and reads "unknown" as null', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['GET /eta?serviceId=plumb-tap&addressId=ad1'] = () => json(200, { minutes: [25, 35] });
+    expect(await t.backend.bookings.eta(s.token, 'plumb-tap', 'ad1')).toEqual({ minutes: [25, 35] });
+    t.routes['GET /eta?serviceId=plumb-tap&addressId=ad1'] = () => json(200, { minutes: null });
+    expect(await t.backend.bookings.eta(s.token, 'plumb-tap', 'ad1')).toEqual({ minutes: null });
+  });
+
   it('uploads a voice note and returns what was said', async () => {
     const t = setup();
     const s = await signIn(t.backend);

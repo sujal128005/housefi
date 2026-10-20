@@ -110,6 +110,8 @@ export interface PaymentResult {
 }
 
 export interface BookingApi {
+  /** Before booking "Now": roughly when a technician could arrive here (minutes, e.g. [25, 35]); null when unknown. */
+  eta(token: string, serviceId: string, addressId: string): Promise<{ readonly minutes: readonly [number, number] | null }>;
   /** GET /slots: the two-hour windows for a date. Needs the signed-in customer (like every booking call). */
   slots(token: string, serviceId: string, date: string): Promise<readonly Slot[]>;
   /**

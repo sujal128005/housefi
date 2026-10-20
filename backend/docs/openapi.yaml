@@ -194,6 +194,28 @@ paths:
         '204': { description: Removed (soft delete; past bookings keep their copy) }
 
   # ---------------- slots + bookings ----------------
+  /eta:
+    get:
+      tags: [bookings]
+      summary: 'Before booking "Now": roughly when a technician could arrive (minutes only)'
+      description: >-
+        From the nearest technician who could take the job right now (the same rules as an offer): matching, accepting,
+        getting ready and the trip at the time of day's city speed, as a 10-minute range rounded up to 5 minutes.
+        null when nobody is free nearby or the address has no map point. Never reveals anyone's location.
+      parameters:
+        - { name: serviceId, in: query, required: true, schema: { type: string } }
+        - { name: addressId, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [minutes]
+                properties:
+                  minutes: { oneOf: [{ type: array, items: { type: integer }, minItems: 2, maxItems: 2 }, { type: 'null' }] }
+        '404': { $ref: '#/components/responses/Error' }
   /slots:
     get:
       tags: [bookings]
