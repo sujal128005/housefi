@@ -82,6 +82,7 @@ minute); the per-phone OTP limits live in Postgres and always apply.
 | `npm run dev` | Start with reload, pretty logs |
 | `npm test` | Unit + e2e tests against a real database: `DATABASE_URL_TEST` if set (CI: PostgreSQL 16 + PostGIS), otherwise an in-memory PGlite with PostGIS (no Docker needed) |
 | `npm run db:local` | Local PGlite + PostGIS database for development without Docker |
+| `npm run demo` (`-- --rebuild` after app changes) | The whole app on this laptop for a demo: one page at http://localhost:8090 with the customer's phone and the technician's phone side by side, on a fresh local database with a ready technician; simulated payments, nothing leaves the laptop (`scripts/demo.mjs`, `demo/server.ts`) |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run build` then `npm start` | Production build in `dist/` |
 | `npm run secrets:prod` | Create `.env.production` with fresh production secrets (docs/DEPLOY.md) |

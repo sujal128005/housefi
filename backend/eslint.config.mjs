@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   // admin/: the portal's website, with its own checks (typecheck, tests, build).
-  { ignores: ['dist/**', 'node_modules/**', 'docs/**', 'coverage/**', 'admin/**'] },
+  { ignores: ['dist/**', '.demo-dist/**', 'node_modules/**', 'docs/**', 'coverage/**', 'admin/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
