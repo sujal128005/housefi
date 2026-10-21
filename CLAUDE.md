@@ -154,7 +154,8 @@ client, the app's checkout (`app/src/services/checkout.ts`) and the website's `/
 
 **Give a demo without phones**: `cd backend && npm run demo` (needs `npm install` in `app/` once). Opens one page with
 both phones (customer 98765 00001, technician 98765 00002, code 482916, all fake, local only); a fresh database every
-start. After app changes: `npm run demo -- --rebuild`. Ctrl+C stops it.
+start. "Start over" on the page signs both phones out and shows the welcome screen. After app changes:
+`npm run demo -- --rebuild`. Ctrl+C stops it.
 
 **Ship a backend change**: merge the PR → on the server: `cd /opt/housefi/backend && git pull && dc up -d --build`
 (`dc` shorthand in `docs/DEPLOY.md` step 6; migrations run first; a failed one keeps the old API running).

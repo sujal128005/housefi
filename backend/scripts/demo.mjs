@@ -84,9 +84,12 @@ navigator.geolocation.watchPosition=function(ok){setTimeout(function(){ok(pos())
 navigator.geolocation.clearWatch=function(){};
 if(navigator.permissions){var q=navigator.permissions.query.bind(navigator.permissions);navigator.permissions.query=function(d){return d&&d.name==='geolocation'?Promise.resolve({state:'granted',onchange:null,addEventListener:function(){},removeEventListener:function(){}}):q(d)}}})()</script>`;
 
-/** Every start is a fresh database: each phone forgets the sign-in it kept from an earlier demo. */
+/**
+ * Every start is a fresh database: each phone forgets the sign-in it kept from an earlier demo. "Start over" on the page
+ * opens a phone with ?demo-reset, which does the same at any time and shows the welcome screen again.
+ */
 const RUN = Date.now().toString(36);
-const freshScript = `<script>try{if(localStorage.getItem('housefi-demo-run')!=='${RUN}'){localStorage.clear();sessionStorage.clear();localStorage.setItem('housefi-demo-run','${RUN}')}}catch(e){}</script>`;
+const freshScript = `<script>try{var r=/[?&]demo-reset/.test(location.search);if(r||localStorage.getItem('housefi-demo-run')!=='${RUN}'){localStorage.clear();sessionStorage.clear();localStorage.setItem('housefi-demo-run','${RUN}')}if(r)history.replaceState(null,'','/')}catch(e){}</script>`;
 
 /**
  * A back-history of its own for each phone. Frames in one page share the browser's back history, so "back" in the
@@ -146,7 +149,7 @@ const page = `<!doctype html>
 <body>
 <header>
   <h1>Housefi</h1><span class="tag">LIVE DEMO</span>
-  <div class="right"><button id="reload">Reload both</button></div>
+  <div class="right"><button id="reload">Reload both</button><button id="reset" title="Signs both phones out and shows the welcome screen">Start over</button></div>
 </header>
 <main>
   <section class="side">
@@ -168,7 +171,9 @@ const page = `<!doctype html>
   fit(); addEventListener('resize', fit);
   // Browsers without overflow: clip: put a frame back if focusing a field scrolled it.
   document.querySelectorAll('.screen').forEach(function (el) { el.addEventListener('scroll', function () { el.scrollTop = 0; el.scrollLeft = 0; }); });
-  document.getElementById('reload').onclick = function () { ['customer', 'technician'].forEach(function (id) { var f = document.getElementById(id); f.src = f.src; }); };
+  var phones = { customer: '${CUSTOMER_URL}', technician: '${TECHNICIAN_URL}' };
+  document.getElementById('reload').onclick = function () { Object.keys(phones).forEach(function (id) { var f = document.getElementById(id); f.src = f.src; }); };
+  document.getElementById('reset').onclick = function () { Object.keys(phones).forEach(function (id) { document.getElementById(id).src = phones[id] + '/?demo-reset=' + Date.now(); }); };
 </script>
 </body></html>`;
 
