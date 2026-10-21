@@ -56,8 +56,11 @@ export const SLOT_HOURS: readonly (readonly [number, number])[] = [[8, 10], [10,
 export const BOOKABLE_DAYS = 7;
 /** A slot can be booked until this many minutes before it starts. */
 export const SLOT_CUTOFF_MIN = 60;
-/** Instant visits are offered between these hours. */
-export const INSTANT_HOURS: readonly [number, number] = [7, 21];
+/**
+ * Instant visits are offered between these hours. The laptop demo (`npm run demo` in backend/) builds with
+ * EXPO_PUBLIC_INSTANT_ALL_DAY=1, so it can be shown in the evening too; store builds never set it.
+ */
+export const INSTANT_HOURS: readonly [number, number] = process.env.EXPO_PUBLIC_INSTANT_ALL_DAY === '1' ? [0, 24] : [7, 21];
 /** Typical arrival time promised for an instant visit. */
 export const INSTANT_ETA_MIN: readonly [number, number] = [45, 60];
 

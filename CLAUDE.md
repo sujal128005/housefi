@@ -46,6 +46,7 @@ npm run db:local                    # local DB without Docker (PGlite + PostGIS)
 npm run db:deploy && npm run db:seed && npm run dev    # http://localhost:4000/v1/health
 npm run lint && npm run typecheck && npm test          # 460+ tests (unit + e2e on PGlite)
 npm run tech -- pending | approve <phone>              # technician review CLI
+npm run demo                        # laptop demo: customer + technician phones side by side on localhost:8090
 ```
 
 GitHub checks (`.github/workflows/`): `app.yml` (typecheck, tests, expo-doctor, Android release build opened on an
@@ -150,6 +151,10 @@ example, `SPEECH_TO_TEXT_PROVIDER` in `env.ts`, wiring in `ai.module.ts`. Keep t
 
 **Payments**: `src/modules/payments/` (`razorpay.client.ts`, signatures, webhook). Another gateway means a new
 client, the app's checkout (`app/src/services/checkout.ts`) and the website's `/pay/` page.
+
+**Give a demo without phones**: `cd backend && npm run demo` (needs `npm install` in `app/` once). Opens one page with
+both phones (customer 98765 00001, technician 98765 00002, code 482916, all fake, local only); a fresh database every
+start. After app changes: `npm run demo -- --rebuild`. Ctrl+C stops it.
 
 **Ship a backend change**: merge the PR → on the server: `cd /opt/housefi/backend && git pull && dc up -d --build`
 (`dc` shorthand in `docs/DEPLOY.md` step 6; migrations run first; a failed one keeps the old API running).
