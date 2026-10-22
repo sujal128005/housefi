@@ -4,11 +4,7 @@ import { type Clock, InjectClock } from '../../common/clock';
 import { AppError } from '../../common/errors/app-error';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { Public } from '../auth/auth.guard';
-import { type CategoryDto, CatalogService, type ServiceDto } from './catalog.service';
-import { type Festival, festivalAt } from './festivals';
-
-/** openapi.yaml Greeting: the festival of the day for the home screens. `until`: its last moment (ms). */
-export type GreetingDto = Omit<Festival, 'from' | 'to'> & { readonly until: number };
+import { type CategoryDto, CatalogService, type GreetingDto, type ServiceDto } from './catalog.service';
 
 const ServicesQuery = z.object({ categoryId: z.enum(['PLUMBING', 'ELECTRICAL', 'AC', 'APPLIANCE', 'CLEANING', 'CARPENTRY']).optional() });
 const ServiceParam = z.string().regex(/^[a-z0-9-]{1,40}$/);
@@ -24,15 +20,11 @@ export class CatalogController {
     @InjectClock() private readonly clock: Clock,
   ) {}
 
-  /** The festive greeting for the home screens today, or null on ordinary days (festivals.ts). */
+  /** The festive greeting for the home screens today, or null on ordinary days. Short cache: a coupon made in HQ shows soon. */
   @Get('greeting')
-  @Header('cache-control', 'public, max-age=3600')
-  greeting(): GreetingDto | null {
-    const f = festivalAt(this.clock.now());
-    if (!f) return null;
-    const { from: _from, to, ...rest } = f;
-    // The end of the last day, India time.
-    return { ...rest, until: Date.parse(`${to}T23:59:59.999+05:30`) };
+  @Header('cache-control', CACHE)
+  greeting(): Promise<GreetingDto | null> {
+    return this.catalog.greeting(this.clock.now());
   }
 
   @Get('categories')

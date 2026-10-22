@@ -120,6 +120,7 @@ const ICONS = {
   check: require('../../assets/icons3d/check.webp'),
   clipboard: require('../../assets/icons3d/clipboard.webp'),
   customer: require('../../assets/icons3d/customer.webp'),
+  diya: require('../../assets/icons3d/diya.webp'),
   earnings: require('../../assets/icons3d/earnings.webp'),
   finding: require('../../assets/icons3d/finding.webp'),
   globe: require('../../assets/icons3d/globe.webp'),
@@ -127,6 +128,7 @@ const ICONS = {
   hourglass: require('../../assets/icons3d/hourglass.webp'),
   house: require('../../assets/icons3d/house.webp'),
   house_garden: require('../../assets/icons3d/house_garden.webp'),
+  gift: require('../../assets/icons3d/gift.webp'),
   inspecting: require('../../assets/icons3d/inspecting.webp'),
   job_offer: require('../../assets/icons3d/job_offer.webp'),
   key: require('../../assets/icons3d/key.webp'),
@@ -199,6 +201,14 @@ const ICONS = {
 } as const satisfies Record<string, ImageSourcePropType>;
 
 export type ArtName = keyof typeof ART | keyof typeof ICONS;
+
+/** Names that have a 3D picture. */
+export type Art3DIconName = keyof typeof ICONS;
+
+/** The bare 3D picture (no tile, no stage), for artwork that sits straight on a coloured background. */
+export function art3dImage(name: Art3DIconName): ImageSourcePropType {
+  return ICONS[name];
+}
 
 /** Symbols for the small, functional size (under 32 pt), where a detailed illustration would turn to blur. */
 const FLAT: Partial<Record<string, Glyph>> = {

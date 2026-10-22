@@ -128,6 +128,9 @@ export function ServiceAreaFields({ value, onChange, touched, area }: {
         label={t('tsetup.state')} placeholder={t('tsetup.statePick')} testID="tsetup-state"
         options={(states.data ?? []).map((s) => ({ value: s }))} loading={states.loading}
         value={value.state} onChange={(state) => state !== value.state && onChange({ ...value, state, district: null, localities: [] })}
+        loadFailed={!!states.error} onRetry={states.reload}
+        // Without the list (no internet, or a server without the directory yet) the state can be typed in.
+        onAdd={states.error ? (state) => onChange({ ...value, state, district: null, localities: [] }) : undefined}
         error={touched && problems.state ? t('address.required') : states.error ? t('tsetup.placesError') : null}
       />
       <SearchPicker
@@ -135,6 +138,8 @@ export function ServiceAreaFields({ value, onChange, touched, area }: {
         options={(districts.data ?? []).map((d) => ({ value: d }))} loading={!!value.state && districts.loading}
         disabledHint={value.state ? null : t('tsetup.stateFirst')}
         value={value.district} onChange={(district) => district !== value.district && onChange({ ...value, district, localities: [] })}
+        loadFailed={!!districts.error} onRetry={districts.reload}
+        onAdd={districts.error ? (district) => onChange({ ...value, district, localities: [] }) : undefined}
         error={touched && problems.district && value.state ? t('address.required') : null}
       />
       <SearchPicker
@@ -142,6 +147,7 @@ export function ServiceAreaFields({ value, onChange, touched, area }: {
         label={t('tsetup.localities')} placeholder={t('tsetup.localitiesPick')} testID="tsetup-localities"
         options={[...custom.map((c) => ({ value: c, detail: t('tsetup.addedByYou') })), ...list.map((p) => ({ value: p.name, detail: p.pincodes.join(', ') }))]}
         loading={!!value.district && localities.loading}
+        loadFailed={!!localities.error} onRetry={localities.reload}
         disabledHint={value.district ? null : t('tsetup.districtFirst')}
         value={value.localities} onChange={(next) => onChange({ ...value, localities: next })}
         onAdd={(name) => value.localities.length < MAX_LOCALITIES && onChange({ ...value, localities: [...value.localities, name] })}

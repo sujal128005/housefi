@@ -85,6 +85,8 @@ export default function TechSetup() {
       const profile = await backend.tech.submitProfile(session.token, {
         name: locked ? (p.identity?.legalName ?? name) : name, gender, experienceYears: years, skills, vehicle,
         state: area.state, district: area.district, localities: area.localities, pincode: area.pincode.trim(),
+        // For a server from before the directory (it knows only these two); newer ones fill them in themselves.
+        city: area.district.slice(0, 60), areas: area.localities.join(', ').slice(0, 200),
         photo: locked ? undefined : (photo ?? undefined),
       });
       updateTech(profile);

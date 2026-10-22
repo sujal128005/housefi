@@ -585,7 +585,21 @@ export interface Greeting {
   readonly body: Localized;
   readonly categoryId: CategoryId | null;
   readonly cta: Localized | null;
+  /** The festival's coupon, made in Housefi HQ; null unless it can be used right now. */
+  readonly coupon?: FestiveCoupon | null;
   readonly techBody: Localized;
   /** Last moment of the festival days (ms). */
   readonly until: number;
+}
+
+/** A festival's coupon as the home screen shows it. Rupees; `value` is rupees off (FLAT) or percent off (PERCENT). */
+export interface FestiveCoupon {
+  readonly code: string;
+  readonly kind: 'FLAT' | 'PERCENT';
+  readonly value: number;
+  /** Caps a PERCENT coupon. */
+  readonly maxDiscount: number | null;
+  readonly minBill: number;
+  readonly firstBookingOnly: boolean;
+  readonly validTo: number | null;
 }

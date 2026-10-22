@@ -32,6 +32,9 @@ interface Common {
   readonly hint?: string;
   /** Offers "Add “…”" for typed text that is not in the list. */
   readonly onAdd?: (text: string) => void;
+  /** The list could not be loaded: the sheet says so and offers to try again (instead of "nothing matches"). */
+  readonly loadFailed?: boolean;
+  readonly onRetry?: () => void;
   readonly testID: string;
 }
 
@@ -129,7 +132,13 @@ export function SearchPicker(props: Props) {
                 </View>
               </Tap>
             ) : null}
-            ListEmptyComponent={canAdd ? null : <Txt variant="callout" color="inkMuted" align="center" style={styles.empty}>{props.loading ? t('common.loading') : t('picker.none')}</Txt>}
+            ListEmptyComponent={props.loadFailed && !props.loading ? (
+              <View style={styles.failed} testID={`${props.testID}-load-failed`}>
+                <Icon name="cloud-offline-outline" size={28} color="inkMuted" />
+                <Txt variant="callout" color="inkMuted" align="center">{props.onAdd ? t('picker.loadErrorType') : t('picker.loadError')}</Txt>
+                {props.onRetry ? <Button label={t('common.retry')} size="sm" variant="secondary" icon="refresh" onPress={props.onRetry} testID={`${props.testID}-retry`} /> : null}
+              </View>
+            ) : canAdd ? null : <Txt variant="callout" color="inkMuted" align="center" style={styles.empty}>{props.loading ? t('common.loading') : t('picker.none')}</Txt>}
             renderItem={({ item }) => {
               const on = chosen.includes(item.value);
               return (
@@ -173,4 +182,5 @@ const styles = StyleSheet.create({
   box2: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: colors.lineStrong, alignItems: 'center', justifyContent: 'center' },
   box2On: { backgroundColor: colors.blue, borderColor: colors.blue },
   empty: { paddingVertical: space.xl },
+  failed: { alignItems: 'center', gap: space.md, paddingVertical: space.xl },
 });

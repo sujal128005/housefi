@@ -1,6 +1,6 @@
 // Technician home: one clear next action. Online / offline switch, today's and total earnings, the current job (or
 // "Waiting for new jobs" while online), today's jobs and the notification inbox. New offers open by themselves. On
-// festival days a greeting card and the festival's colours; the Housefi sign-off closes the page.
+// festival days the header dresses up in the festival's colours with its banner; the Housefi sign-off closes the page.
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useState } from 'react';
@@ -20,7 +20,7 @@ import { useAppState, useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, shadow, space } from '../../../theme/tokens';
 import { Banner, DemoPill, ErrorBanner, Icon, SectionTitle, Sheet, Tap, Txt, Wash } from '../../../ui';
 import { jobsText } from '../../../ui/present';
-import { FestiveCard, SignOff } from '../../../ui/Festive';
+import { FestiveBackdrop, FestiveBanner, SignOff } from '../../../ui/Festive';
 import { Appear, Pulse } from '../../../ui/motion';
 import { NotificationList } from '../../../ui/Notifications';
 import { JobCard, techStepIndex, TECH_STEPS } from '../../../ui/TechParts';
@@ -122,7 +122,9 @@ export default function TechHome() {
   return (
     <View style={styles.root} testID="tech-home">
       {festival ? (
-        <LinearGradient colors={[...festiveLook(festival.theme).wash, colors.canvas]} locations={[0, 0.55, 1]} start={{ x: 0.2, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.wash} />
+        <LinearGradient colors={[...festiveLook(festival.theme).wash, colors.canvas]} locations={[0, 0.55, 1]} start={{ x: 0.2, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.wash}>
+          <FestiveBackdrop theme={festival.theme} />
+        </LinearGradient>
       ) : <Wash name="festive" fade style={styles.wash} />}
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space.md }]} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
@@ -138,6 +140,8 @@ export default function TechHome() {
           </Tap>
         </View>
 
+        {festival ? <FestiveBanner greeting={festival} /> : null}
+
         <View style={[styles.online, p.online ? styles.onlineOn : styles.onlineOff]} testID="tech-online-card">
           <View style={styles.onlineDot}>
             {p.online ? <Pulse size={44} color={colors.onLimeTint} /> : null}
@@ -150,7 +154,6 @@ export default function TechHome() {
           <Switch value={p.online} onValueChange={(v) => void setOnline(v)} disabled={busy} trackColor={{ true: colors.onLimeTint, false: colors.lineStrong }} thumbColor={colors.surface}
             accessibilityLabel={t('thome.availability')} testID="tech-online-switch" />
         </View>
-        {festival ? <FestiveCard greeting={festival} name={first} audience="technician" /> : null}
         <ErrorBanner error={error && isApiError(error, 'CONFLICT') ? null : error} />
         {error && isApiError(error, 'CONFLICT') ? <Banner tone="info" text={t('thome.finishFirst')} /> : null}
 

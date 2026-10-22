@@ -1,5 +1,6 @@
 // Places (India Post's All India Pincode Directory) for address forms, the technician's service area checked against
 // it, and the festive greeting for the home screens.
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { FESTIVALS, festivalAt } from '../src/modules/catalog/festivals';
 import { buildTestApp, requireTestDatabase, resetDatabase, signIn, TECH_PROFILE, type TestApp, uploadProfilePhoto } from './helpers';
@@ -126,6 +127,22 @@ describe('places and greeting (e2e)', () => {
       expect((await api().get('/v1/catalog/greeting').expect(200)).body).toBeNull();
     });
 
+    it('shows the festival coupon only once HQ has made it, and only while it can be used', async () => {
+      t.clock.t = Date.parse('2026-10-25T10:00:00+05:30');
+      const greeting = async () => (await api().get('/v1/catalog/greeting').expect(200)).body;
+      expect((await greeting()).coupon).toBeNull();
+      const now = new Date(t.clock.now());
+      const until = t.clock.now() + 86_400_000;
+      await t.prisma.coupon.create({ data: { code: 'DIWALI26', kind: 'PERCENT', value: 26, maxDiscountPaise: 30000n, createdBy: randomUUID(), createdAt: now, validTo: new Date(until) } });
+      expect((await greeting()).coupon).toEqual({ code: 'DIWALI26', kind: 'PERCENT', value: 26, maxDiscount: 300, minBill: 0, firstBookingOnly: false, validTo: until });
+      await t.prisma.coupon.update({ where: { code: 'DIWALI26' }, data: { active: false } });
+      expect((await greeting()).coupon).toBeNull();
+      await t.prisma.coupon.update({ where: { code: 'DIWALI26' }, data: { active: true, maxUses: 0 } });
+      expect((await greeting()).coupon).toBeNull();
+      await t.prisma.coupon.update({ where: { code: 'DIWALI26' }, data: { maxUses: null, validTo: new Date(t.clock.now() - 1) } });
+      expect((await greeting()).coupon).toBeNull();
+    });
+
     it('uses India time: just after midnight on the first day counts', () => {
       expect(festivalAt(Date.parse('2026-10-23T00:05:00+05:30'))?.id).toBe('diwali-2026');
       expect(festivalAt(Date.parse('2026-10-22T23:55:00+05:30'))).toBeNull();
@@ -137,8 +154,9 @@ describe('places and greeting (e2e)', () => {
       sorted.forEach((f, i) => {
         expect(f.from <= f.to).toBe(true);
         if (i > 0) expect(sorted[i - 1]!.to < f.from).toBe(true);
-        for (const text of [f.title, f.body, f.techBody, ...(f.cta ? [f.cta] : [])]) expect(text.te).toMatch(/[ఀ-౿]/);
+        for (const text of [f.title, f.body, f.techBody, ...(f.cta ? [f.cta] : [])]) expect(text.te).toMatch(/[\u0C00-\u0C7F]/);
         expect(f.cta === null).toBe(f.categoryId === null);
+        if (f.coupon) expect(f.coupon).toMatch(/^[A-Z0-9]{4,20}$/);
       });
     });
   });

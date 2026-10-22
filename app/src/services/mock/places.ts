@@ -87,6 +87,7 @@ export function mockGreeting(now: number): Greeting {
     body: { en: 'May every corner of your home glow. Get a spotless home and safe lights before the festival.', te: 'మీ ఇంటి ప్రతి మూల వెలుగులతో నిండాలి. పండుగకు ముందే ఇల్లు శుభ్రంగా, లైట్లు సురక్షితంగా.' },
     categoryId: 'CLEANING',
     cta: { en: 'Book a festive clean', te: 'పండుగ క్లీనింగ్ బుక్ చేయండి' },
+    coupon: { code: 'DIWALI26', kind: 'PERCENT', value: 26, maxDiscount: 300, minBill: 0, firstBookingOnly: false, validTo: now + 86_400_000 },
     techBody: { en: 'Festive weeks are the busiest: stay online to get more jobs. Have a bright Diwali!', te: 'పండుగ రోజుల్లో పని ఎక్కువ: ఎక్కువ పనుల కోసం ఆన్‌లైన్‌లో ఉండండి. దీపావళి శుభాకాంక్షలు!' },
     until: now + 86_400_000,
   };

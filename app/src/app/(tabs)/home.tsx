@@ -1,7 +1,7 @@
 // Customer home: a soft header (greeting, location, a cobalt "Snap the problem" card with the AI, search), the live booking,
 // the service categories and the AI-ranked top 6 problems in the customer's locality. The bell opens the inbox. On
-// festival days (the server's calendar) the header takes the festival's colours and a greeting card appears; the
-// Housefi sign-off closes the page.
+// festival days (the server's calendar) the header dresses up in the festival's colours with a glowing banner and "Book
+// now", and a strip shows the festival's coupon from Housefi HQ; the Housefi sign-off closes the page.
 // Adapts from small phones to tablets (columns and widths from ui/responsive).
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
@@ -22,7 +22,7 @@ import { BRAND_GRADIENT, colors, radius, shadow, space, washes } from '../../the
 import { ErrorView, Icon, SectionTitle, Sheet, Skeleton, Tap, Txt } from '../../ui';
 import { BookingCard } from '../../ui/BookingCard';
 import { CategoryTile } from '../../ui/CategoryTile';
-import { FestiveCard, SignOff } from '../../ui/Festive';
+import { FestiveBackdrop, FestiveBanner, FestiveStrip, SignOff } from '../../ui/Festive';
 import { Appear } from '../../ui/motion';
 import { NotificationList } from '../../ui/Notifications';
 import { MAX_CONTENT, useLayout } from '../../ui/responsive';
@@ -88,6 +88,8 @@ export default function Home() {
     router.push('/book/problem');
   };
 
+  const bookFestive = () => router.push(festival?.categoryId ? `/category/${festival.categoryId}` : '/services');
+
   const pad = { paddingHorizontal: layout.gutter };
 
   return (
@@ -97,6 +99,7 @@ export default function Home() {
         {/* header: a soft lavender-pink wash with the cobalt hero card (the look of super.money's scan card) */}
         <LinearGradient colors={[...(festival ? festiveLook(festival.theme).wash : washes.festive), colors.canvas]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
           style={[styles.hero, { paddingTop: insets.top + space.md }]}>
+          {festival ? <FestiveBackdrop theme={festival.theme} /> : null}
           <View style={[styles.column, pad, styles.heroInner]}>
             <View style={styles.topRow}>
               <View style={styles.avatar}><Txt variant="title3" color="navy">{(first[0] ?? 'H').toUpperCase()}</Txt></View>
@@ -116,6 +119,8 @@ export default function Home() {
               <Txt variant="label" numberOfLines={1} style={styles.shrink}>{home ? `${home.street}, ${home.city}` : t('home.addAddress')}</Txt>
               <Icon name="chevron-down" size={16} color="inkMuted" />
             </Tap>
+
+            {festival ? <FestiveBanner greeting={festival} onBook={bookFestive} /> : null}
 
             <LinearGradient colors={BRAND_GRADIENT} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.snap}>
               <View style={[styles.blob, styles.blobA]} />
@@ -151,10 +156,7 @@ export default function Home() {
         </LinearGradient>
 
         <View style={[styles.column, pad, styles.body]}>
-          {festival ? (
-            <FestiveCard greeting={festival} name={first} audience="customer"
-              onBook={festival.categoryId ? () => router.push(`/category/${festival.categoryId}`) : undefined} />
-          ) : null}
+          {festival ? <FestiveStrip greeting={festival} onBook={bookFestive} style={[styles.strip, { marginHorizontal: -layout.gutter }]} /> : null}
 
           {active ? (
             <Appear style={styles.block}>
@@ -259,6 +261,8 @@ const styles = StyleSheet.create({
   search: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 52, paddingLeft: space.lg, paddingRight: space.sm, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.blueTint, ...shadow.card },
   searchMic: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
   body: { gap: space.xl, paddingTop: space.md },
+  // Edge to edge, close to the search bar and the services below it.
+  strip: { marginTop: -space.xs, marginBottom: -space.sm },
   block: { gap: space.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -space.xs, rowGap: space.md },
   cell: { paddingHorizontal: space.xs },

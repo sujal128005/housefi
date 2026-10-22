@@ -1302,7 +1302,7 @@ components:
         name: { type: string, description: Empty until the name step }
     Greeting:
       type: object
-      required: [id, theme, title, body, categoryId, cta, techBody, until]
+      required: [id, theme, title, body, categoryId, cta, coupon, techBody, until]
       properties:
         id: { type: string, example: diwali-2026 }
         theme: { type: string, description: 'lights, kites, moon, colours, leaves, flag or flowers; the app draws a plain festive look for one it does not know' }
@@ -1310,8 +1310,20 @@ components:
         body: { $ref: '#/components/schemas/Localized' }
         categoryId: { oneOf: [{ $ref: '#/components/schemas/CategoryId' }, { type: 'null' }] }
         cta: { oneOf: [{ $ref: '#/components/schemas/Localized' }, { type: 'null' }] }
+        coupon: { oneOf: [{ $ref: '#/components/schemas/FestiveCoupon' }, { type: 'null' }], description: 'The festival coupon (festivals.ts names the code, HQ makes it); null unless it exists, is on, within its dates and not used up' }
         techBody: { $ref: '#/components/schemas/Localized' }
         until: { type: integer, description: 'Last moment of the festival days (ms)' }
+    FestiveCoupon:
+      type: object
+      required: [code, kind, value, maxDiscount, minBill, firstBookingOnly, validTo]
+      properties:
+        code: { type: string, example: DIWALI26 }
+        kind: { type: string, enum: [FLAT, PERCENT] }
+        value: { type: integer, description: 'Rupees off (FLAT) or percent off (PERCENT)' }
+        maxDiscount: { type: [integer, 'null'], description: Rupees; caps a PERCENT coupon }
+        minBill: { type: integer, description: Rupees }
+        firstBookingOnly: { type: boolean }
+        validTo: { type: [integer, 'null'], description: ms }
     Locality:
       type: object
       required: [name, pincodes]

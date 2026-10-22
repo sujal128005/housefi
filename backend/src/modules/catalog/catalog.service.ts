@@ -3,6 +3,7 @@ import type { Category, CategoryId, Service, ServiceIssue } from '@prisma/client
 import { AppError } from '../../common/errors/app-error';
 import { paiseToRupees } from '../../common/money';
 import { PrismaService } from '../../common/prisma/prisma.module';
+import { type Festival, festivalAt } from './festivals';
 
 interface Localized {
   readonly en: string;
@@ -58,9 +59,52 @@ function toService(s: Service & { issues: ServiceIssue[] }): ServiceDto {
 }
 
 /** Read-only catalog, in the app's order. Only active services are listed or found. */
+/** openapi.yaml FestiveCoupon, in rupees: `value` is rupees off (FLAT) or percent off (PERCENT, capped by maxDiscount). */
+export interface FestiveCouponDto {
+  readonly code: string;
+  readonly kind: 'FLAT' | 'PERCENT';
+  readonly value: number;
+  readonly maxDiscount: number | null;
+  readonly minBill: number;
+  readonly firstBookingOnly: boolean;
+  readonly validTo: number | null;
+}
+
+/** openapi.yaml Greeting: the festival of the day for the home screens, with its live coupon. `until`: its last moment (ms). */
+export type GreetingDto = Omit<Festival, 'from' | 'to' | 'coupon'> & { readonly coupon: FestiveCouponDto | null; readonly until: number };
+
 @Injectable()
 export class CatalogService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** The festive greeting for the home screens at `now`, or null on ordinary days (festivals.ts). */
+  async greeting(now: number): Promise<GreetingDto | null> {
+    const f = festivalAt(now);
+    if (!f) return null;
+    const { from: _from, to, coupon, ...rest } = f;
+    // The end of the last day, India time.
+    return { ...rest, coupon: coupon ? await this.liveCoupon(coupon, now) : null, until: Date.parse(`${to}T23:59:59.999+05:30`) };
+  }
+
+  /**
+   * The festival's coupon as the home screen shows it, only while anyone could use it: it exists, is switched on, is
+   * within its dates and is not used up (each customer's own limits are checked when they apply it).
+   */
+  private async liveCoupon(code: string, now: number): Promise<FestiveCouponDto | null> {
+    const c = await this.prisma.coupon.findUnique({ where: { code }, include: { _count: { select: { redemptions: true } } } });
+    if (!c || !c.active) return null;
+    if ((c.validFrom && c.validFrom.getTime() > now) || (c.validTo && c.validTo.getTime() <= now)) return null;
+    if (c.maxUses !== null && c._count.redemptions >= c.maxUses) return null;
+    return {
+      code: c.code,
+      kind: c.kind,
+      value: c.value,
+      maxDiscount: c.maxDiscountPaise === null ? null : Number(c.maxDiscountPaise / 100n),
+      minBill: Number(c.minBillPaise / 100n),
+      firstBookingOnly: c.firstBookingOnly,
+      validTo: c.validTo?.getTime() ?? null,
+    };
+  }
 
   async categories(): Promise<CategoryDto[]> {
     const rows = await this.prisma.category.findMany({ orderBy: { sort: 'asc' } });
