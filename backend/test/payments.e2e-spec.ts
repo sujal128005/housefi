@@ -298,7 +298,13 @@ describe('payments (e2e)', () => {
       t.clock.advance(5 * MIN); // the payment attempt is now 16 minutes old
       expect(await t.app.get(BookingsService).expireUnpaid()).toBe(1);
       await webhook('payment.captured', t.razorpay.pay(order.orderId)).expect(200);
+      // The webhook starts the refund in the background (sendRefundsSoon); a sweep may also send it. Wait for either.
       await payments().sendPendingRefunds();
+      for (let i = 0; i < 50; i++) {
+        const p = await t.prisma.payment.findFirst({ where: { providerOrderId: order.orderId } });
+        if (p?.providerRefundId?.startsWith('rfnd_')) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
       const row = await t.prisma.booking.findUniqueOrThrow({ where: { id }, include: { payments: true } });
       expect(row.status).toBe('CANCELLED');
       expect(row.payments.find((p) => p.providerOrderId === order.orderId)).toMatchObject({ state: 'REFUNDED', providerRefundId: expect.stringMatching(/^rfnd_/) });
