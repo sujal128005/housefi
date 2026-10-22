@@ -9,6 +9,7 @@ import { PrismaService } from '../../common/prisma/prisma.module';
 import { MediaUrls } from '../../common/storage/object-store';
 import { TECH_ACTIVE } from '../bookings/booking-status';
 import { newTechCode, newVerifyToken, verifyTokenHash } from '../identity/identity-codes';
+import { PlacesService } from '../places/places.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { CATEGORY_ORDER, type TechProfileInput } from './technicians.schemas';
 import { reviewBy } from './review-window';
@@ -28,6 +29,10 @@ export interface TechProfileDto {
   readonly city: string;
   readonly pincode: string;
   readonly areas: string;
+  /** Service area from India Post's directory; null / empty on profiles from before it (the app then asks again). */
+  readonly state: string | null;
+  readonly district: string | null;
+  readonly localities: readonly string[];
   readonly vehicle: string;
   readonly phoneType: 'SMARTPHONE' | 'KEYPAD' | 'NONE';
   readonly verification: Technician['verification'] | null;
@@ -63,6 +68,7 @@ export class TechniciansService {
     private readonly cipher: FieldCipher,
     private readonly audit: AuditService,
     private readonly hashing: Hashing,
+    private readonly places: PlacesService,
     @InjectClock() private readonly clock: Clock,
     // API only (the command-line tools load this service without storage).
     @Optional() private readonly uploads?: UploadsService,
@@ -77,7 +83,7 @@ export class TechniciansService {
     if (!row) {
       // Not submitted yet (docs/QUESTIONS.md #17: the contract has no shape for an empty profile).
       return {
-        id: user.id, phone, name, gender: 'M', experienceYears: 0, skills: [], city: '', pincode: '', areas: '', vehicle: '',
+        id: user.id, phone, name, gender: 'M', experienceYears: 0, skills: [], city: '', pincode: '', areas: '', state: null, district: null, localities: [], vehicle: '',
         phoneType: 'SMARTPHONE', verification: null, identity: null, aadhaar: null, reviewBy: null, correctionNote: null, online: false, rating: null, jobsDone: 0,
       };
     }
@@ -91,6 +97,9 @@ export class TechniciansService {
       city: row.city,
       pincode: row.pincode.trim(),
       areas: row.areas,
+      state: row.state,
+      district: row.district,
+      localities: row.localities,
       vehicle: row.vehicleEnc.length > 0 ? await this.cipher.decrypt('technicians.vehicle', row.vehicleEnc) : '',
       phoneType: row.phoneType,
       verification: row.verification,
@@ -145,6 +154,10 @@ export class TechniciansService {
       const [photo] = await this.uploads.ready(opts.photoOwnerId ?? userId, [input.photoUploadId], 'PHOTO', 'photoUploadId', 'PROFILE');
       photoId = photo?.id ?? null;
     }
+    // The directory's service area (the PIN code must belong to a chosen locality), or the older free-text fields.
+    const area = input.state && input.district && input.localities
+      ? this.places.serviceArea({ state: input.state, district: input.district, localities: input.localities, pincode: input.pincode })
+      : { state: null, district: null, localities: [], city: input.city ?? '', areas: input.areas ?? '' };
     const vehicleEnc = input.vehicle ? await this.cipher.encrypt('technicians.vehicle', input.vehicle) : new Uint8Array(0);
     const nameEnc = first ? await this.cipher.encrypt('users.name', input.name) : null;
     const legalNameEnc = first ? await this.cipher.encrypt('technicians.legal_name', input.name) : null;
@@ -162,9 +175,12 @@ export class TechniciansService {
             gender: input.gender,
             ...(before?.aadhaarVerifiedAt ? { aadhaarGenderMatch: genderMatches(before.aadhaarGender, input.gender) } : {}),
             experienceYears: input.experienceYears,
-            city: input.city,
+            city: area.city,
             pincode: input.pincode,
-            areas: input.areas,
+            areas: area.areas,
+            state: area.state,
+            district: area.district,
+            localities: [...area.localities],
             vehicleEnc,
             verification: 'PENDING' as const,
             correctionNoteEn: null,

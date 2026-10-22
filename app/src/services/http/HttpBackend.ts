@@ -6,7 +6,7 @@ import {
   type CouponResult, type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
-  Address, Booking, Category, Customer, Earnings, Job, JobOffer, Part, PayoutAccount, Photo, ProblemDescription, Service, Slot, TechProfile, VoiceNote,
+  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, Slot, TechProfile, VoiceNote,
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
@@ -105,6 +105,14 @@ const decodeNotification = (json: unknown): AppNotification => record<AppNotific
 const decodeEarnings = (json: unknown): Earnings => record<Earnings>(json, 'earnings', ['today', 'total', 'entries']);
 const decodePayoutAccount = (json: unknown): PayoutAccount => record<PayoutAccount>(json, 'payout account', ['rail', 'holderName', 'hint', 'updatedAt']);
 const decodeNothing = (): void => undefined;
+const decodeName = (json: unknown): string => {
+  if (typeof json !== 'string') throw new DecodeError('place: expected a name');
+  return json;
+};
+const decodeLocality = (json: unknown): Locality => record<Locality>(json, 'locality', ['name', 'pincodes']);
+const decodePincodePlaces = (json: unknown): PincodePlaces => record<PincodePlaces>(json, 'pincode', ['pincode', 'places']);
+const decodeNearPlace = (json: unknown): NearPlace => record<NearPlace>(json, 'place', ['state', 'district', 'locality', 'pincode']);
+const decodeGreeting = (json: unknown): Greeting | null => (json === null ? null : record<Greeting>(json, 'greeting', ['id', 'theme', 'title', 'body', 'techBody', 'until']));
 const decodeConversation = (json: unknown): SupportConversation => record<SupportConversation>(json, 'conversation', ['id', 'state', 'topic', 'messages']);
 const decodeDial = (json: unknown) => ({ dialNumber: str(obj(json, 'call'), 'dialNumber') });
 
@@ -404,6 +412,17 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
       services: (categoryId) =>
         publicCall('GET', categoryId ? apiPath`/catalog/services?categoryId=${categoryId}` : apiPath`/catalog/services`, (j) => list(j, decodeService, 'services')),
       service: (id) => publicCall('GET', apiPath`/catalog/services/${id}`, decodeService),
+      greeting: () => publicCall('GET', apiPath`/catalog/greeting`, decodeGreeting),
+    },
+    places: {
+      states: () => publicCall('GET', apiPath`/places/states`, (j) => list(j, decodeName, 'states')),
+      districts: (state) => publicCall('GET', apiPath`/places/districts?state=${state}`, (j) => list(j, decodeName, 'districts')),
+      localities: (state, district) => publicCall('GET', apiPath`/places/localities?state=${state}&district=${district}`, (j) => list(j, decodeLocality, 'localities')),
+      pincode: (pin) => publicCall('GET', apiPath`/places/pincodes/${pin}`, decodePincodePlaces),
+      near: (lat, lng, pincode, area) =>
+        publicCall('GET', pincode
+          ? apiPath`/places/near?lat=${lat}&lng=${lng}&pincode=${pincode}&area=${area ?? ''}`
+          : apiPath`/places/near?lat=${lat}&lng=${lng}&area=${area ?? ''}`, decodeNearPlace),
     },
     addresses: {
       list: (handle) => call(handle, 'GET', apiPath`/addresses`, (j) => list(j, decodeAddress, 'addresses')),

@@ -1,6 +1,8 @@
 // Technician home: one clear next action. Online / offline switch, today's and total earnings, the current job (or
-// "Waiting for new jobs" while online), today's jobs and the notification inbox. New offers open by themselves.
+// "Waiting for new jobs" while online), today's jobs and the notification inbox. New offers open by themselves. On
+// festival days the header dresses up in the festival's colours with its banner; the Housefi sign-off closes the page.
 import { router, useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,15 +10,17 @@ import { serviceById } from '../../../data/catalog';
 import { isActive } from '../../../domain/rules';
 import type { Earnings, Job } from '../../../domain/types';
 import { Art3D } from '../../../illustrations/Art3D';
+import { festiveLook } from '../../../illustrations/FestiveArt';
 import { formatRupees } from '../../../i18n/format';
 import { useI18n, type StringKey } from '../../../i18n/I18n';
 import { isApiError, type AppNotification } from '../../../services/api';
 import { feedback } from '../../../services/feedback';
-import { useBackend } from '../../../services/ServicesProvider';
+import { useBackend, useQuery } from '../../../services/ServicesProvider';
 import { useAppState, useTechSession } from '../../../state/AppState';
 import { colors, GUTTER, radius, shadow, space } from '../../../theme/tokens';
 import { Banner, DemoPill, ErrorBanner, Icon, SectionTitle, Sheet, Tap, Txt, Wash } from '../../../ui';
 import { jobsText } from '../../../ui/present';
+import { FestiveBackdrop, FestiveBanner, SignOff } from '../../../ui/Festive';
 import { Appear, Pulse } from '../../../ui/motion';
 import { NotificationList } from '../../../ui/Notifications';
 import { JobCard, techStepIndex, TECH_STEPS } from '../../../ui/TechParts';
@@ -53,6 +57,9 @@ export default function TechHome() {
   const [bell, setBell] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  // The festival of the day (none on ordinary days); one that has just ended is not shown.
+  const greet = useQuery(() => backend.catalog.greeting().then((g) => (g && g.until > Date.now() ? g : null)), [backend]);
+  const festival = greet.data ?? null;
 
   useFocusEffect(useCallback(() => {
     let alive = true;
@@ -114,7 +121,11 @@ export default function TechHome() {
 
   return (
     <View style={styles.root} testID="tech-home">
-      <Wash name="festive" fade style={styles.wash} />
+      {festival ? (
+        <LinearGradient colors={[...festiveLook(festival.theme).wash, colors.canvas]} locations={[0, 0.55, 1]} start={{ x: 0.2, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.wash}>
+          <FestiveBackdrop theme={festival.theme} />
+        </LinearGradient>
+      ) : <Wash name="festive" fade style={styles.wash} />}
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space.md }]} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
           <TechPhoto photo={p.identity?.photo} gender={p.gender} size={48} />
@@ -128,6 +139,8 @@ export default function TechHome() {
             {unread > 0 ? <View style={styles.badge}><Txt variant="caption" color="onNavy">{unread > 9 ? '9+' : String(unread)}</Txt></View> : null}
           </Tap>
         </View>
+
+        {festival ? <FestiveBanner greeting={festival} /> : null}
 
         <View style={[styles.online, p.online ? styles.onlineOn : styles.onlineOff]} testID="tech-online-card">
           <View style={styles.onlineDot}>
@@ -203,6 +216,8 @@ export default function TechHome() {
             <JobCard key={j.id} job={j} onPress={() => router.push(`/tech/job/${j.id}`)} />
           ))}
         </View>
+
+        <SignOff audience="technician" />
       </ScrollView>
       <View pointerEvents="none" style={[styles.scrim, { height: insets.top }]} />
       <Sheet visible={bell} onClose={() => setBell(false)} testID="tech-notifications">

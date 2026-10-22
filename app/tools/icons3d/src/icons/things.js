@@ -298,6 +298,50 @@ export const THING_ICONS = {
       logo(g, [0.3, -0.18, 0.53], 0.1)
     },
   },
+  // Festive home banner (Diwali): a clay lamp with its flame, and two wrapped gifts.
+  diya: {
+    build: (g) => {
+      const clay = plastic('#E8742A', { roughness: 0.42 })
+      // The bowl: a lathe profile, stretched into an oval, with a pinched spout to the right.
+      const profile = [[0.001, -0.32], [0.3, -0.3], [0.52, -0.18], [0.62, 0.02], [0.64, 0.08], [0.58, 0.1], [0.5, 0.0], [0.3, -0.06], [0.001, -0.08]].map(([x, y]) => new THREE.Vector2(x, y))
+      const bowl = group(g, [-0.08, -0.22, 0], [0.32, 0, 0])
+      bowl.scale.set(1.25, 1, 0.9)
+      put(bowl, new THREE.LatheGeometry(profile, 64), clay)
+      put(bowl, torus(0.61, 0.035, Math.PI * 2, 64), plastic(C.gold, { metalness: 0.4, roughness: 0.25 }), [0, 0.09, 0], [Math.PI / 2, 0, 0])
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2
+        put(bowl, sphere(0.035, 16), plastic(C.amber), [Math.cos(a) * 0.5, -0.12, Math.sin(a) * 0.46])
+      }
+      // Oil inside the bowl.
+      put(bowl, cyl(0.5, 0.5, 0.02, 48), plastic('#E9A62B', { roughness: 0.15 }), [0, 0.02, 0])
+      // Wick on the rim and a smooth flame: orange outside, pale yellow core.
+      put(g, cyl(0.025, 0.03, 0.14, 12), matte('#5A3A22'), [0.58, -0.04, 0.08], [0, 0, -0.25])
+      const curve = new THREE.SplineCurve([[0.001, 0], [0.1, 0.05], [0.15, 0.15], [0.13, 0.27], [0.08, 0.4], [0.03, 0.52], [0.001, 0.6]].map(([x, y]) => new THREE.Vector2(x, y)))
+      const flame = curve.getPoints(32)
+      const f = group(g, [0.6, 0.03, 0.08], [0, 0, -0.12])
+      // Unlit, so the flame keeps its colour instead of washing out under the studio lights.
+      put(f, new THREE.LatheGeometry(flame, 64), new THREE.MeshBasicMaterial({ color: '#FF7A0A' }))
+      put(f, new THREE.LatheGeometry(flame, 64), new THREE.MeshBasicMaterial({ color: '#FFD23F' }), [0, 0.01, 0.1], [0, 0, 0], [0.62, 0.7, 0.4])
+      put(f, new THREE.LatheGeometry(flame, 64), new THREE.MeshBasicMaterial({ color: '#FFF8D6' }), [0, 0.02, 0.15], [0, 0, 0], [0.3, 0.4, 0.2])
+    },
+  },
+  gift: {
+    build: (g) => {
+      const ribbon = plastic(C.gold, { metalness: 0.35, roughness: 0.22 })
+      const box = (parent, w, h, color, pos, rot) => {
+        const b = group(parent, pos, rot)
+        put(b, rbox(w, h, w, 0.05), plastic(color, { roughness: 0.28 }), [0, 0, 0])
+        put(b, rbox(w * 1.06, h * 0.16, w * 1.06, 0.04), plastic(color, { roughness: 0.22 }), [0, h * 0.45, 0])
+        put(b, rbox(w * 0.18, h * 1.04, w * 1.08, 0.02), ribbon, [0, 0.01, 0])
+        put(b, rbox(w * 1.08, h * 1.04, w * 0.18, 0.02), ribbon, [0, 0.01, 0])
+        for (const s of [-1, 1]) put(b, torus(w * 0.17, w * 0.05, Math.PI * 2, 32), ribbon, [s * w * 0.15, h * 0.58, 0], [0, s * 0.5, s * 0.6])
+        put(b, sphere(w * 0.08, 20), ribbon, [0, h * 0.56, 0])
+        return b
+      }
+      box(g, 0.95, 0.9, '#C2309A', [0.15, 0.08, -0.2], [0.12, -0.5, 0])
+      box(g, 0.66, 0.62, '#FF7A1A', [-0.5, -0.32, 0.35], [0.12, 0.45, 0])
+    },
+  },
   party: {
     build: (g) => {
       const c = group(g, [-0.25, -0.25, 0], [0, 0, -0.65])

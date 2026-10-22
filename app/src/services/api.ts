@@ -3,6 +3,7 @@
 // build of the app uses it.
 import type {
   Address, AddressInput, Booking, CancelReason, Category, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput,
+  Greeting, Locality, NearPlace, PincodePlaces,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
 
@@ -82,6 +83,22 @@ export interface CatalogApi {
   categories(): Promise<readonly Category[]>;
   services(categoryId?: string): Promise<readonly Service[]>;
   service(id: string): Promise<Service>;
+  /** The festive greeting for the home screens today, or null on ordinary days (the server keeps the calendar). */
+  greeting(): Promise<Greeting | null>;
+}
+
+/** India Post's directory of states, districts, localities and PIN codes, for address forms. No sign-in needed. */
+export interface PlacesApi {
+  states(): Promise<readonly string[]>;
+  /** NOT_FOUND for a state that does not exist. */
+  districts(state: string): Promise<readonly string[]>;
+  localities(state: string, district: string): Promise<readonly Locality[]>;
+  pincode(pincode: string): Promise<PincodePlaces>;
+  /**
+   * The locality where the phone is. `pincode` and `area` (place names, comma-separated) come from the phone's own map
+   * lookup and lead, because India Post's positions are sometimes kilometres off. NOT_FOUND when nothing is near.
+   */
+  near(lat: number, lng: number, pincode?: string, area?: string): Promise<NearPlace>;
 }
 
 export interface AddressApi {
@@ -473,6 +490,7 @@ export interface Backend {
   readonly mode: 'DEMO' | 'LIVE';
   readonly auth: AuthApi;
   readonly catalog: CatalogApi;
+  readonly places: PlacesApi;
   readonly addresses: AddressApi;
   readonly bookings: BookingApi;
   readonly ai: AiApi;
