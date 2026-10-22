@@ -1,5 +1,7 @@
 // Customer home: a soft header (greeting, location, a cobalt "Snap the problem" card with the AI, search), the live booking,
-// the service categories and the AI-ranked top 6 problems in the customer's locality. The bell opens the inbox.
+// the service categories and the AI-ranked top 6 problems in the customer's locality. The bell opens the inbox. On
+// festival days (the server's calendar) the header takes the festival's colours and a greeting card appears; the
+// Housefi sign-off closes the page.
 // Adapts from small phones to tablets (columns and widths from ui/responsive).
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
@@ -10,6 +12,7 @@ import { categoryById, serviceById } from '../../data/catalog';
 import { isActive } from '../../domain/rules';
 import type { Address, Booking } from '../../domain/types';
 import { Art3D, serviceArt } from '../../illustrations/Art3D';
+import { festiveLook } from '../../illustrations/FestiveArt';
 import { useI18n, type StringKey } from '../../i18n/I18n';
 import type { AppNotification } from '../../services/api';
 import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider';
@@ -19,6 +22,7 @@ import { BRAND_GRADIENT, colors, radius, shadow, space, washes } from '../../the
 import { ErrorView, Icon, SectionTitle, Sheet, Skeleton, Tap, Txt } from '../../ui';
 import { BookingCard } from '../../ui/BookingCard';
 import { CategoryTile } from '../../ui/CategoryTile';
+import { FestiveCard, SignOff } from '../../ui/Festive';
 import { Appear } from '../../ui/motion';
 import { NotificationList } from '../../ui/Notifications';
 import { MAX_CONTENT, useLayout } from '../../ui/responsive';
@@ -42,6 +46,9 @@ export default function Home() {
   const scrim = scrollY.interpolate({ inputRange: [0, 48], outputRange: [0, 1], extrapolate: 'clamp' });
   const [extra, setExtra] = useState<{ bookings: readonly Booking[]; addresses: readonly Address[]; inbox: readonly AppNotification[] }>({ bookings: [], addresses: [], inbox: [] });
   const cats = useQuery(() => backend.catalog.categories(), [backend]);
+  // The festival of the day (none on ordinary days); one that has just ended is not shown.
+  const greet = useQuery(() => backend.catalog.greeting().then((g) => (g && g.until > Date.now() ? g : null)), [backend]);
+  const festival = greet.data ?? null;
 
   useFocusEffect(useCallback(() => {
     let alive = true;
@@ -88,7 +95,7 @@ export default function Home() {
       <Animated.ScrollView contentContainerStyle={{ paddingBottom: space.x4 }} showsVerticalScrollIndicator={false} scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}>
         {/* header: a soft lavender-pink wash with the cobalt hero card (the look of super.money's scan card) */}
-        <LinearGradient colors={[...washes.festive, colors.canvas]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+        <LinearGradient colors={[...(festival ? festiveLook(festival.theme).wash : washes.festive), colors.canvas]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
           style={[styles.hero, { paddingTop: insets.top + space.md }]}>
           <View style={[styles.column, pad, styles.heroInner]}>
             <View style={styles.topRow}>
@@ -144,6 +151,11 @@ export default function Home() {
         </LinearGradient>
 
         <View style={[styles.column, pad, styles.body]}>
+          {festival ? (
+            <FestiveCard greeting={festival} name={first} audience="customer"
+              onBook={festival.categoryId ? () => router.push(`/category/${festival.categoryId}`) : undefined} />
+          ) : null}
+
           {active ? (
             <Appear style={styles.block}>
               <SectionTitle title={t('home.active')} />
@@ -198,6 +210,8 @@ export default function Home() {
                   })}
             </View>
           </View>
+
+          <SignOff audience="customer" />
         </View>
       </Animated.ScrollView>
       <Animated.View pointerEvents="none" style={[styles.scrim, { height: insets.top, opacity: scrim }]} />

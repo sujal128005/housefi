@@ -148,6 +148,14 @@ example, `SPEECH_TO_TEXT_PROVIDER` in `env.ts`, wiring in `ai.module.ts`. Keep t
 **Switch the SMS company**: implement `SmsSender` (`src/modules/auth/sms.ts`, see `Msg91SmsSender`), add the value to
 `SMS_PROVIDER` in `env.ts`, choose it where `SMS_SENDER` is provided. Indian OTP SMS need a DLT-approved template.
 
+**Festive greeting on the home screens**: the festival list (dates, theme, English and Telugu words, a service to
+book) is `backend/src/modules/catalog/festivals.ts`; the app only draws each theme (`app/src/illustrations/FestiveArt.tsx`).
+Add next year's dates there and ship a backend change: no new app build needed.
+
+**Addresses: states, districts, localities, PIN codes**: India Post's directory in
+`backend/assets/places/india-pincodes.json.gz` (how to refresh it: `backend/assets/places/README.md`), served by
+`src/modules/places/`. Technician registration uses it (state → district → localities → PIN that belongs to one).
+
 **Telephony** (masked calls, keypad job offers): `TelephonyProvider` in `src/modules/telephony/telephony-provider.ts`
 (Exotel and a fake). `TELEPHONY_PROVIDER=off` until Exotel is set up (calls fall back to "call me back").
 

@@ -554,10 +554,16 @@ model Technician {
   userId             String                                 @id @map("user_id") @db.Uuid
   gender             Gender
   experienceYears    Int                                    @map("experience_years")
+  /// The district (or, on profiles from before the directory, the city as typed).
   city               String
   pincode            String                                 @db.Char(6)
-  /// Localities they cover, free text.
+  /// Localities they cover as one line (the `localities` joined, or free text on older profiles).
   areas              String
+  /// Service area from India Post's directory (GET /places/...): state, district and the chosen localities; the PIN
+  /// code belongs to one of them. Null / empty on profiles from before the directory.
+  state              String?
+  district           String?
+  localities         String[]                               @default([])
   /// Vehicle and registration number, encrypted (customers see it only for their assigned technician).
   vehicleEnc         Bytes                                  @map("vehicle_enc")
   phoneType          PhoneType                              @default(SMARTPHONE) @map("phone_type")

@@ -342,6 +342,36 @@ describe('live client: payout details', () => {
   });
 });
 
+describe('live client: places and the festive greeting', () => {
+  it('asks the directory with the names encoded, and reads the answers', async () => {
+    const t = setup();
+    t.routes['GET /places/states'] = () => json(200, ['Delhi', 'Telangana']);
+    t.routes['GET /places/districts?state=Andaman%20and%20Nicobar%20Islands'] = () => json(200, ['South Andaman']);
+    t.routes['GET /places/localities?state=Telangana&district=Medchal%20Malkajgiri'] = () => json(200, [{ name: 'Kukatpally', pincodes: ['500072'] }]);
+    t.routes['GET /places/pincodes/500072'] = () => json(200, { pincode: '500072', places: [{ state: 'Telangana', district: 'Medchal Malkajgiri', locality: 'Kukatpally' }] });
+    t.routes['GET /places/near?lat=17.48&lng=78.41&pincode=500072&area=Kukatpally%2C%20Hyderabad'] = () =>
+      json(200, { state: 'Telangana', district: 'Medchal Malkajgiri', locality: 'Kukatpally', pincode: '500072', distanceKm: null });
+    expect(await t.backend.places.states()).toEqual(['Delhi', 'Telangana']);
+    expect(await t.backend.places.districts('Andaman and Nicobar Islands')).toEqual(['South Andaman']);
+    expect(await t.backend.places.localities('Telangana', 'Medchal Malkajgiri')).toEqual([{ name: 'Kukatpally', pincodes: ['500072'] }]);
+    expect((await t.backend.places.pincode('500072')).places[0]?.locality).toBe('Kukatpally');
+    expect(await t.backend.places.near(17.48, 78.41, '500072', 'Kukatpally, Hyderabad')).toMatchObject({ locality: 'Kukatpally', distanceKm: null });
+    // No sign-in needed: none of these carry a token.
+    expect(t.calls.every((c) => !c.headers.authorization)).toBe(true);
+    t.routes['GET /places/states'] = () => json(200, [7]);
+    await expect(t.backend.places.states()).rejects.toThrow();
+  });
+
+  it('reads an ordinary day as no greeting', async () => {
+    const t = setup();
+    t.routes['GET /catalog/greeting'] = () => json(200, null);
+    expect(await t.backend.catalog.greeting()).toBeNull();
+    const diwali = { id: 'diwali-2026', theme: 'lights', title: { en: 'Happy Diwali', te: 'దీపావళి శుభాకాంక్షలు' }, body: { en: 'b', te: 'బ' }, categoryId: 'CLEANING', cta: null, techBody: { en: 't', te: 'ట' }, until: 9 };
+    t.routes['GET /catalog/greeting'] = () => json(200, diwali);
+    expect(await t.backend.catalog.greeting()).toEqual(diwali);
+  });
+});
+
 describe('live updates and checkout hand-off', () => {
   it('parses Server-Sent Events across chunks, ignoring heartbeats', () => {
     const text = ': ping\n\nevent: booking\ndata: {"id":"1"}\n\nevent: booking\ndata: {"id"';

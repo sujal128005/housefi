@@ -20,6 +20,8 @@ tags:
   - name: auth
   - name: me
   - name: catalog
+  - name: places
+    description: India Post's All India Pincode Directory (states, districts, localities, PIN codes) for address forms.
   - name: addresses
   - name: bookings
   - name: payments
@@ -161,6 +163,66 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
 
   # ---------------- addresses ----------------
+  /catalog/greeting:
+    get:
+      tags: [catalog]
+      security: []
+      description: The festive greeting for the home screens today (festivals.ts on the server), or null on ordinary days.
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { oneOf: [{ $ref: '#/components/schemas/Greeting' }, { type: 'null' }] } } }
+  # ---------------- places ----------------
+  /places/states:
+    get:
+      tags: [places]
+      security: []
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { type: string } } } } }
+  /places/districts:
+    get:
+      tags: [places]
+      security: []
+      parameters:
+        - { name: state, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { type: string } } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /places/localities:
+    get:
+      tags: [places]
+      security: []
+      parameters:
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: district, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Locality' } } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /places/pincodes/{pincode}:
+    get:
+      tags: [places]
+      security: []
+      parameters:
+        - { name: pincode, in: path, required: true, schema: { type: string, pattern: '^[1-9][0-9]{5}$' } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PincodePlaces' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /places/near:
+    get:
+      tags: [places]
+      security: []
+      description: >-
+        The locality where the phone is, to fill an address form in one tap. India Post's positions are sometimes
+        kilometres off, so the phone's own map lookup leads: `pincode` and `area` (its place names, comma-separated)
+        pick among the localities with that PIN code. Without a known PIN: the nearest locality within 25 km.
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number } }
+        - { name: lng, in: query, required: true, schema: { type: number } }
+        - { name: pincode, in: query, schema: { type: string, pattern: '^[1-9][0-9]{5}$' } }
+        - { name: area, in: query, schema: { type: string, maxLength: 200 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/NearPlace' } } } }
+        '404': { $ref: '#/components/responses/Error' }
   /addresses:
     get:
       tags: [addresses]
@@ -1238,6 +1300,44 @@ components:
         id: { type: string }
         phone: { type: string }
         name: { type: string, description: Empty until the name step }
+    Greeting:
+      type: object
+      required: [id, theme, title, body, categoryId, cta, techBody, until]
+      properties:
+        id: { type: string, example: diwali-2026 }
+        theme: { type: string, description: 'lights, kites, moon, colours, leaves, flag or flowers; the app draws a plain festive look for one it does not know' }
+        title: { $ref: '#/components/schemas/Localized' }
+        body: { $ref: '#/components/schemas/Localized' }
+        categoryId: { oneOf: [{ $ref: '#/components/schemas/CategoryId' }, { type: 'null' }] }
+        cta: { oneOf: [{ $ref: '#/components/schemas/Localized' }, { type: 'null' }] }
+        techBody: { $ref: '#/components/schemas/Localized' }
+        until: { type: integer, description: 'Last moment of the festival days (ms)' }
+    Locality:
+      type: object
+      required: [name, pincodes]
+      properties:
+        name: { type: string, description: Post office name without its B.O / S.O / H.O ending }
+        pincodes: { type: array, items: { type: string } }
+    PincodePlaces:
+      type: object
+      required: [pincode, places]
+      properties:
+        pincode: { type: string }
+        places:
+          type: array
+          items:
+            type: object
+            required: [state, district, locality]
+            properties: { state: { type: string }, district: { type: string }, locality: { type: string } }
+    NearPlace:
+      type: object
+      required: [state, district, locality, pincode, distanceKm]
+      properties:
+        state: { type: string }
+        district: { type: string }
+        locality: { type: string }
+        pincode: { type: string }
+        distanceKm: { type: [number, 'null'], description: null when India Post has no position for the locality }
     Category:
       type: object
       required: [id, name, tagline, art, wash]
@@ -1544,15 +1644,22 @@ components:
         warrantyClaim: { oneOf: [{ type: object, required: [id, code], properties: { id: { type: string }, code: { type: string } } }, { type: 'null' }] }
     TechProfileInput:
       type: object
-      required: [name, gender, experienceYears, skills, city, pincode, areas, vehicle]
+      required: [name, gender, experienceYears, skills, pincode, vehicle]
+      description: >-
+        The service area is either state + district + localities from GET /places/... (the PIN code must belong to one
+        of the localities, else 422 with `fields.pincode`; city and areas are then filled in from them), or, from older
+        apps and coordinators, city + areas as free text.
       properties:
         name: { type: string, minLength: 2, maxLength: 60 }
         gender: { type: string, enum: [M, F] }
         experienceYears: { type: integer, minimum: 0, maximum: 50 }
         skills: { type: array, minItems: 1, maxItems: 6, items: { $ref: '#/components/schemas/CategoryId' } }
-        city: { type: string, minLength: 2, maxLength: 60 }
         pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
-        areas: { type: string, minLength: 2, maxLength: 200 }
+        state: { type: string, minLength: 2, maxLength: 80 }
+        district: { type: string, minLength: 2, maxLength: 80 }
+        localities: { type: array, minItems: 1, maxItems: 10, items: { type: string, minLength: 2, maxLength: 80 }, description: 'A name the directory does not have yet is kept as typed; the PIN code must then be in the district' }
+        city: { type: string, minLength: 2, maxLength: 60, description: 'Older apps; with the directory: the district' }
+        areas: { type: string, minLength: 2, maxLength: 200, description: 'Older apps; with the directory: the localities as one line' }
         vehicle: { type: string, maxLength: 40 }
         photoUploadId:
           type: string
@@ -1564,8 +1671,10 @@ components:
       allOf:
         - $ref: '#/components/schemas/TechProfileInput'
         - type: object
-          required: [id, phone, verification, identity, correctionNote, online, rating, jobsDone]
+          required: [id, phone, city, areas, state, district, localities, verification, identity, correctionNote, online, rating, jobsDone]
           properties:
+            state: { type: [string, 'null'], description: null on profiles from before the directory }
+            district: { type: [string, 'null'] }
             id: { type: string }
             phone: { type: string }
             verification: { oneOf: [{ $ref: '#/components/schemas/Verification' }, { type: 'null' }] }

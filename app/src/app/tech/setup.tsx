@@ -1,11 +1,12 @@
-// Technician profile: profile photo (required), full legal name, gender, experience, skills, service area and vehicle.
+// Technician profile: profile photo (required), full legal name, gender, experience, skills, service area (state,
+// district, localities and PIN code from India Post's directory, or filled from the phone's location) and vehicle.
 // Submitting sends it for verification (Pending -> Approved / Needs correction). Also used to fix or edit the profile
 // (?edit=1): after the first submission the photo and legal name are shown read-only (support corrects them).
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { CATEGORIES } from '../../data/catalog';
-import { isValidName, isValidPincode } from '../../domain/rules';
+import { isValidName } from '../../domain/rules';
 import type { CategoryId, Gender } from '../../domain/types';
 import { techHref } from '../../domain/techReview';
 import { Art3D } from '../../illustrations/Art3D';
@@ -17,6 +18,7 @@ import { useBackend } from '../../services/ServicesProvider';
 import { useAppState, useTechSession } from '../../state/AppState';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Chip, ErrorBanner, Field, Header, Icon, Pill, Screen, Tap, Txt, Wash } from '../../ui';
+import { type AreaValue, ServiceAreaFields, useServiceArea } from '../../ui/ServiceArea';
 import { TechPhoto } from '../../ui/TechIdentity';
 
 export default function TechSetup() {
@@ -34,9 +36,9 @@ export default function TechSetup() {
   const [gender, setGender] = useState<Gender | null>(p.verification ? p.gender : null);
   const [years, setYears] = useState(p.experienceYears);
   const [skills, setSkills] = useState<readonly CategoryId[]>(p.skills);
-  const [city, setCity] = useState(p.city);
-  const [pincode, setPincode] = useState(p.pincode);
-  const [areas, setAreas] = useState(p.areas);
+  // Profiles from before the directory have no state / district: the technician chooses them on the next edit.
+  const [area, setArea] = useState<AreaValue>({ state: p.state ?? null, district: p.district ?? null, localities: p.localities ?? [], pincode: p.pincode });
+  const areaCheck = useServiceArea(area);
   const [vehicle, setVehicle] = useState(p.vehicle);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -47,9 +49,10 @@ export default function TechSetup() {
     name: !isValidName(name),
     gender: gender === null,
     skills: skills.length === 0,
-    city: city.trim().length < 2,
-    pincode: !isValidPincode(pincode.trim()),
-    areas: areas.trim().length < 2,
+    state: areaCheck.problems.state,
+    district: areaCheck.problems.district,
+    localities: areaCheck.problems.localities,
+    pincode: areaCheck.problems.pincode !== null,
   };
   const ok = !Object.values(problems).some(Boolean);
 
@@ -72,7 +75,7 @@ export default function TechSetup() {
 
   const submit = async () => {
     setTouched(true);
-    if (!ok || !gender) {
+    if (!ok || !gender || !area.state || !area.district) {
       feedback('warning');
       return;
     }
@@ -80,7 +83,8 @@ export default function TechSetup() {
     setError(null);
     try {
       const profile = await backend.tech.submitProfile(session.token, {
-        name: locked ? (p.identity?.legalName ?? name) : name, gender, experienceYears: years, skills, city, pincode, areas, vehicle,
+        name: locked ? (p.identity?.legalName ?? name) : name, gender, experienceYears: years, skills, vehicle,
+        state: area.state, district: area.district, localities: area.localities, pincode: area.pincode.trim(),
         photo: locked ? undefined : (photo ?? undefined),
       });
       updateTech(profile);
@@ -205,18 +209,7 @@ export default function TechSetup() {
           : <Txt variant="footnote" color="inkMuted" testID="tsetup-shared">{t('tsetup.sharedTrades')}</Txt>}
       </View>
 
-      <View style={styles.row}>
-        <View style={styles.flex}>
-          <Field label={t('address.city')} value={city} onChangeText={setCity} autoCapitalize="words" maxLength={60} testID="tsetup-city"
-            error={touched && problems.city ? t('address.required') : null} />
-        </View>
-        <View style={styles.flex}>
-          <Field label={t('address.pincode')} value={pincode} onChangeText={(v) => setPincode(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" maxLength={6} testID="tsetup-pincode"
-            error={touched && problems.pincode ? t('address.pincodeInvalid') : null} />
-        </View>
-      </View>
-      <Field label={t('tsetup.areas')} hint={t('tsetup.areasHint')} value={areas} onChangeText={setAreas} maxLength={200} testID="tsetup-areas"
-        error={touched && problems.areas ? t('tsetup.areasErr') : null} />
+      <ServiceAreaFields value={area} onChange={setArea} touched={touched} area={areaCheck} />
       <Field label={t('tsetup.vehicle')} optional value={vehicle} onChangeText={setVehicle} maxLength={40} placeholder="Scooter · TS 09 AB 1234" testID="tsetup-vehicle" />
 
       <View style={styles.idRow}>

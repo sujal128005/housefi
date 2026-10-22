@@ -22,6 +22,7 @@ import type {
 } from '../../domain/types';
 import { payoutHint, payoutProblems, tidyPayout } from '../../domain/payout';
 import { quoteVisible } from '../../domain/types';
+import { mockGreeting, mockPlaces } from './places';
 import {
   ApiError, type AppNotification, type Backend, type ChatReply, type DemoOutcome, type DemoSettings, type KeyValueStore, type NewBooking,
   type Chat, type ChatApi, type NotificationKind, type OtpChallenge, type PaymentResult, type QuoteAnswer, type QuoteInput, type SupportConversation,
@@ -1001,6 +1002,33 @@ export function createMockBackend(opts: MockOptions): Backend {
         if (!svc) throw new ApiError('NOT_FOUND');
         return svc;
       },
+      async greeting() {
+        await request('READ');
+        return mockGreeting(now());
+      },
+    },
+
+    places: {
+      async states() {
+        await request('READ');
+        return mockPlaces.states();
+      },
+      async districts(state) {
+        await request('READ');
+        return mockPlaces.districts(state);
+      },
+      async localities(state, district) {
+        await request('READ');
+        return mockPlaces.localities(state, district);
+      },
+      async pincode(pin) {
+        await request('READ');
+        return mockPlaces.pincode(pin);
+      },
+      async near(lat, lng, pincode) {
+        await request('READ');
+        return mockPlaces.near(lat, lng, pincode);
+      },
     },
 
     addresses: {
@@ -1315,9 +1343,19 @@ export function createMockBackend(opts: MockOptions): Backend {
         const tech = techFor(s, token);
         if (!isValidName(input.name) || input.skills.length === 0 || input.skills.some((k) => !CATEGORIES.some((c) => c.id === k))
           || !Number.isInteger(input.experienceYears) || input.experienceYears < 0 || input.experienceYears > 50
-          || input.city.trim().length < 2 || !isValidPincode(input.pincode.trim()) || input.areas.trim().length < 2) {
+          || !isValidPincode(input.pincode.trim())) {
           throw new ApiError('VALIDATION');
         }
+        // The directory's service area (the PIN code belongs to a chosen locality), or the older city and areas text.
+        const directory = input.state !== undefined || input.district !== undefined || input.localities !== undefined;
+        if (directory
+          ? !input.state || !input.district || !input.localities || !mockPlaces.serviceAreaOk(input.state, input.district, input.localities, input.pincode.trim())
+          : (input.city ?? '').trim().length < 2 || (input.areas ?? '').trim().length < 2) {
+          throw new ApiError('VALIDATION');
+        }
+        const area = directory
+          ? { state: input.state ?? null, district: input.district ?? null, localities: [...(input.localities ?? [])], city: input.district ?? '', areas: (input.localities ?? []).join(', ') }
+          : { state: null, district: null, localities: [], city: (input.city ?? '').trim(), areas: (input.areas ?? '').trim() };
         if (tech.verification === 'REJECTED' || tech.verification === 'SUSPENDED') throw new ApiError('CONFLICT');
         // Identity is fixed at the first submission: legal name and photo, and the permanent Technician ID.
         const first = tech.identity === null;
@@ -1329,7 +1367,7 @@ export function createMockBackend(opts: MockOptions): Backend {
         };
         const next = putTech({
           ...tech, name: identity.legalName, gender: input.gender, experienceYears: input.experienceYears, skills: [...new Set(input.skills)] as CategoryId[],
-          city: input.city.trim(), pincode: input.pincode.trim(), areas: input.areas.trim(), vehicle: input.vehicle.trim().slice(0, 40),
+          ...area, pincode: input.pincode.trim(), vehicle: input.vehicle.trim().slice(0, 40),
           verification: 'PENDING', correctionNote: null, online: false, submittedAt: now(), identity,
           verifyToken: tech.verifyToken ?? issueVerifyToken(`tech:${tech.id}`),
         });

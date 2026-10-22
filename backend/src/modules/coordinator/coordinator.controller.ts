@@ -3,13 +3,13 @@ import { z } from 'zod';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { type AuthUser, CurrentUser, Roles } from '../auth/auth.guard';
 import type { JobDto } from '../bookings/job-view';
-import { TechProfileInput } from '../technicians/technicians.schemas';
+import { TechProfileFields, withServiceArea } from '../technicians/technicians.schemas';
 import { type TechProfileDto, TechniciansService } from '../technicians/technicians.service';
 import { type CoordinatorJobsDto, CoordinatorService, type OfferHistoryDto, type QueueEntryDto } from './coordinator.service';
 
 const AssignBody = z.object({ technicianId: z.string().min(1).max(64) }).strict();
 /** A technician without a smartphone, registered by their coordinator (the profile fields plus their number). */
-const RegisterBody = TechProfileInput.extend({ phone: z.string().regex(/^[6-9][0-9]{9}$/), phoneType: z.enum(['KEYPAD', 'NONE']) });
+const RegisterBody = withServiceArea(TechProfileFields.extend({ phone: z.string().regex(/^[6-9][0-9]{9}$/), phoneType: z.enum(['KEYPAD', 'NONE']) }));
 
 /** Coordinator-assisted jobs (API only in v1; the coordinator portal comes later). */
 @Controller('coordinator')

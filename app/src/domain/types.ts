@@ -374,18 +374,31 @@ export interface TechProfileInput {
   readonly gender: Gender;
   readonly experienceYears: number;
   readonly skills: readonly CategoryId[];
-  /** Base city and PIN code; jobs are offered around this area. */
-  readonly city: string;
+  /** PIN code; jobs are offered around this area. It belongs to one of the localities. */
   readonly pincode: string;
-  /** Localities they cover, free text ("Banjara Hills, Jubilee Hills"). */
-  readonly areas: string;
+  /**
+   * Service area from India Post's directory (backend.places). The server fills city (the district) and areas (the
+   * localities as one line) from them; profiles from before the directory have only city and areas.
+   */
+  readonly state?: string;
+  readonly district?: string;
+  readonly localities?: readonly string[];
+  /** Older profiles: base city and the localities they cover as free text ("Banjara Hills, Jubilee Hills"). */
+  readonly city?: string;
+  readonly areas?: string;
   /** Optional, e.g. "Scooter · TS 09 AB 1234". */
   readonly vehicle: string;
   /** Required on the first submission (taken or uploaded); ignored afterwards: the photo cannot be replaced by the technician. */
   readonly photo?: string;
 }
 
-export interface TechProfile extends TechProfileInput {
+export interface TechProfile extends Omit<TechProfileInput, 'state' | 'district' | 'localities' | 'city' | 'areas'> {
+  readonly city: string;
+  readonly areas: string;
+  /** null / empty on profiles from before the directory: the app asks for them on the next edit. */
+  readonly state?: string | null;
+  readonly district?: string | null;
+  readonly localities?: readonly string[];
   readonly id: string;
   readonly phone: string;
   /** null until the profile is submitted. */
@@ -540,4 +553,39 @@ export interface EarningsWeek {
     /** Bank / UPI reference once paid. */
     readonly ref: string | null;
   };
+}
+
+/** A locality (post office area) in India Post's directory, with its PIN codes. */
+export interface Locality {
+  readonly name: string;
+  readonly pincodes: readonly string[];
+}
+
+/** Every locality that uses one PIN code. */
+export interface PincodePlaces {
+  readonly pincode: string;
+  readonly places: readonly { readonly state: string; readonly district: string; readonly locality: string }[];
+}
+
+/** The locality where the phone is, to fill a form in one tap. */
+export interface NearPlace {
+  readonly state: string;
+  readonly district: string;
+  readonly locality: string;
+  readonly pincode: string;
+  readonly distanceKm: number | null;
+}
+
+/** The festive greeting on the home screens (chosen by the server for the day), or none on ordinary days. */
+export interface Greeting {
+  readonly id: string;
+  /** lights, kites, moon, colours, leaves, flag or flowers (illustrations/FestiveArt); anything else: a plain festive look. */
+  readonly theme: string;
+  readonly title: Localized;
+  readonly body: Localized;
+  readonly categoryId: CategoryId | null;
+  readonly cta: Localized | null;
+  readonly techBody: Localized;
+  /** Last moment of the festival days (ms). */
+  readonly until: number;
 }
