@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet } from 'react-native';
 import type { Category } from '../domain/types';
 import { Art3D, serviceArt } from '../illustrations/Art3D';
@@ -7,7 +8,7 @@ import { Tap } from './Tap';
 import { Txt } from './Txt';
 
 /** Category tile: white card with the category's illustration and its name. */
-export function CategoryTile({ category, onPress, size = 'md' }: { readonly category: Category; readonly onPress: () => void; readonly size?: 'md' | 'lg' }) {
+function CategoryTileView({ category, onPress, size = 'md' }: { readonly category: Category; readonly onPress: () => void; readonly size?: 'md' | 'lg' }) {
   const { l } = useI18n();
   return (
     <Tap onPress={onPress} haptic style={[styles.tile, size === 'lg' && styles.tileLg]} accessibilityLabel={l(category.name)} testID={`cat-${category.id}`}>
@@ -28,3 +29,5 @@ export function CategoryBadge({ category, serviceId, size = 52 }: { readonly cat
   return <Art3D name={serviceArt(serviceId, category.art)} size={Math.round(size / 0.9)} style={{ margin: -size * 0.055 }} />;
 }
 
+/** Redraws only when the category itself changes (taps always go to the same category, so a new onPress does not count). */
+export const CategoryTile = memo(CategoryTileView, (a, b) => a.category === b.category && a.size === b.size);

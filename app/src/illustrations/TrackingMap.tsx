@@ -39,7 +39,7 @@ export function TrackingMap({ progress, width }: { readonly progress: number; re
 
   useEffect(() => {
     const [x, y] = pointAt(progress);
-    Animated.timing(pos, { toValue: { x, y }, duration: reduce ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: false }).start();
+    Animated.timing(pos, { toValue: { x, y }, duration: reduce ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
   }, [progress, pos, reduce]);
 
   useEffect(() => {
@@ -79,9 +79,11 @@ export function TrackingMap({ progress, width }: { readonly progress: number; re
       {/* home pin */}
       <View style={[styles.abs, { left: (300 - 23) * scale, top: (48 - 40) * scale }]}><Art3D name="house" size={46 * scale} /></View>
       {/* technician */}
-      <Animated.View style={[styles.abs, {
-        left: Animated.subtract(Animated.multiply(pos.x, scale), bike / 2),
-        top: Animated.subtract(Animated.multiply(pos.y, scale), bike * 0.85),
+      <Animated.View style={[styles.abs, styles.origin, {
+        transform: [
+          { translateX: Animated.subtract(Animated.multiply(pos.x, scale), bike / 2) },
+          { translateY: Animated.subtract(Animated.multiply(pos.y, scale), bike * 0.85) },
+        ],
       }]}>
         <Animated.View style={{ transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }] }}>
           <Anim3D name="travel" size={bike} stage={false} />
@@ -94,4 +96,5 @@ export function TrackingMap({ progress, width }: { readonly progress: number; re
 const styles = StyleSheet.create({
   wrap: { borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.surfaceMuted },
   abs: { position: 'absolute' },
+  origin: { left: 0, top: 0 },
 });

@@ -90,13 +90,16 @@ export default function BookingHub() {
     else if (status === 'UNFULFILLED' || status === 'MATCHING_DELAYED') feedback('warning');
   }, [status]);
 
-  const ticking = booking?.status === 'MATCHING';
+  // The search steps change at 1.5 s, 3.5 s and 5.5 s after the search starts (matchingStep): the screen redraws at
+  // those moments only, instead of every second (a whole-screen redraw each second makes scrolling stutter).
+  const searchingSince = booking?.status === 'MATCHING' ? (booking.history[booking.history.length - 1]?.at ?? booking.createdAt) : null;
   useEffect(() => {
-    if (!ticking) return;
-    // The search steps change every few seconds: once a second is plenty (and half the redraws).
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [ticking]);
+    if (searchingSince === null) return undefined;
+    const timers = [1500, 3500, 5500].map((ms) => searchingSince + ms - Date.now()).filter((ms) => ms > 0)
+      .map((ms) => setTimeout(() => setNow(Date.now()), ms + 20));
+    setNow(Date.now());
+    return () => timers.forEach(clearTimeout);
+  }, [searchingSince]);
 
   if (!booking) {
     return (

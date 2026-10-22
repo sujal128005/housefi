@@ -69,9 +69,7 @@ export default function JobScreen() {
   const [issue, setIssue] = useState<TechIssue | null>(null);
   const [note, setNote] = useState('');
   const [confirm, setConfirm] = useState<'COMPLETE' | 'CASH' | 'REPORT' | null>(null);
-  const [now, setNow] = useState(() => Date.now());
   const codeInput = useRef<TextInput>(null);
-  const reduce = useReducedMotion();
 
   useEffect(() => {
     setLoadError(null);
@@ -94,12 +92,6 @@ export default function JobScreen() {
     else if (job.status === 'QUOTE_SHARED' || job.status === 'EXTRA_WORK') feedback('notify');
   }, [sig, job]);
 
-  const travelling = job?.status === 'EN_ROUTE';
-  useEffect(() => {
-    if (!travelling) return;
-    const timer = setInterval(() => setNow(Date.now()), reduce ? 5000 : 1000);
-    return () => clearInterval(timer);
-  }, [travelling, reduce]);
 
   if (!job) {
     return (
@@ -113,8 +105,7 @@ export default function JobScreen() {
   const svc = serviceById(j.serviceId);
   const cat = categoryById(j.categoryId);
   const issues = svc ? svc.issues.filter((x) => j.problem.issueIds.includes(x.id)).map((x) => l(x.name)) : [];
-  const enRouteAt = [...j.history].reverse().find((h) => h.status === 'EN_ROUTE')?.at ?? now;
-  const travelProgress = Math.min(0.95, (now - enRouteAt) / 1000 / DEMO_TIMING.travelSec);
+  const enRouteAt = [...j.history].reverse().find((h) => h.status === 'EN_ROUTE')?.at ?? null;
   const cashPending = j.status === 'PAYMENT_DUE' && j.finalPayment?.method === 'CASH' && j.finalPayment.state === 'PENDING';
   const live = isActive(j.status);
 
@@ -200,7 +191,7 @@ export default function JobScreen() {
           <View style={styles.ride}><RideIn distance={width}><Anim3D name="travel" size={150} stage={false} testID="anim-travel" /></RideIn></View>
         ) : j.status === 'EN_ROUTE' ? (
           <View style={styles.stack}>
-            <View style={styles.map}><TrackingMap progress={travelProgress} width={width - GUTTER * 2} /></View>
+            <View style={styles.map}><TravelMap since={enRouteAt} width={width - GUTTER * 2} /></View>
             <Button label={t('tj.openDirections')} icon="navigate" variant="secondary" onPress={() => void directions()} testID="tj-directions" />
           </View>
         ) : stage.pulse ? (
@@ -495,3 +486,17 @@ const styles = StyleSheet.create({
   footerCol: { gap: space.sm },
 });
 
+/**
+ * The trip on the map, moving along once a second. Its own clock: a whole-screen redraw every second would make the
+ * job screen stutter while scrolling.
+ */
+function TravelMap({ since, width }: { readonly since: number | null; readonly width: number }) {
+  const reduce = useReducedMotion();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), reduce ? 5000 : 1000);
+    return () => clearInterval(timer);
+  }, [reduce]);
+  const progress = Math.min(0.95, (now - (since ?? now)) / 1000 / DEMO_TIMING.travelSec);
+  return <TrackingMap progress={progress} width={width} />;
+}
