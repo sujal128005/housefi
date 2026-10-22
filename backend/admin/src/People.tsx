@@ -49,7 +49,7 @@ export function People({ role, onOpenBooking, openId, onOpenPerson }: { readonly
                     <td>{(p.trades ?? []).map((t) => TRADE_LABEL[t] ?? t).join(', ')}</td>
                     <td>{p.jobsDone ?? 0}</td>
                     <td>{p.rating ? `★ ${p.rating.toFixed(1)}` : <span className="muted">–</span>} <span className="muted small">{p.ratingCount ? `(${p.ratingCount})` : ''}</span></td>
-                    <td>{p.aadhaarChecked ? <Pill tone="done">checked</Pill> : <Pill tone="plain">not yet</Pill>}</td>
+                    <td>{p.aadhaarProblems?.length ? <Pill tone="stop">{p.aadhaarProblems.map((x) => (x === 'NAME' ? 'name' : 'gender')).join(' + ')} differs</Pill> : p.aadhaarChecked ? <Pill tone="done">checked</Pill> : <Pill tone="plain">not yet</Pill>}</td>
                   </> : <td>{p.bookings}</td>}
                   <td className="muted">{ago(p.createdAt)}</td>
                 </tr>
@@ -104,7 +104,7 @@ export function PersonPanel({ id, onClose, onChanged, onOpenBooking }: { readonl
               ['Technician ID', p.techCode ?? '–'] as const,
               ['Trades', (p.trades ?? []).map((t) => TRADE_LABEL[t] ?? t).join(', ') || '–'] as const,
               ['Area', d.data.area ?? '–'] as const,
-              ['Aadhaar', p.aadhaarChecked ? 'Checked by their own scan ✓' : 'Not checked yet (only the technician can scan it in the app)'] as const,
+              ['Aadhaar', !p.aadhaarChecked ? 'Not checked yet (only the technician can scan it in the app)' : p.aadhaarProblems?.length ? `Checked, but the ${p.aadhaarProblems.map((x) => (x === 'NAME' ? 'name' : 'gender')).join(' and ')} on the Aadhaar differs from the profile: approval waits until it is corrected` : 'Checked by their own scan ✓'] as const,
               ['Jobs done', String(p.jobsDone ?? 0)] as const,
               ['Rating', p.rating ? `★ ${p.rating.toFixed(2)} from ${p.ratingCount} ratings` : '–'] as const,
               ['Online', p.online ? 'Yes' : 'No'] as const,

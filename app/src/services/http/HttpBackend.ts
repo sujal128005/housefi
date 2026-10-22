@@ -376,7 +376,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     verifyAadhaar: (handle, qr) =>
       call(handle, 'POST', apiPath`/tech/aadhaar`, (j) => {
         const o = obj(j, 'aadhaar');
-        return { last4: str(o, 'last4'), nameMatches: o.nameMatches === true, verifiedAt: num(o, 'verifiedAt') };
+        return { last4: str(o, 'last4'), nameMatches: o.nameMatches === true, genderMatches: o.genderMatches !== false, verifiedAt: num(o, 'verifiedAt') };
       }, { qr }),
     callCustomer: (handle, jobId) => call(handle, 'POST', apiPath`/tech/jobs/${jobId}/call`, decodeDial),
     sendLocation: (handle, position) => call(handle, 'POST', apiPath`/tech/location`, decodeNothing, position),

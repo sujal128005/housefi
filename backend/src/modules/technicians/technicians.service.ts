@@ -12,6 +12,7 @@ import { newTechCode, newVerifyToken, verifyTokenHash } from '../identity/identi
 import { UploadsService } from '../uploads/uploads.service';
 import { CATEGORY_ORDER, type TechProfileInput } from './technicians.schemas';
 import { reviewBy } from './review-window';
+import { genderMatches } from '../identity/gender-match';
 
 type Db = Prisma.TransactionClient | PrismaService;
 export type TechnicianRow = Technician & { skills: TechnicianSkill[] };
@@ -33,7 +34,7 @@ export interface TechProfileDto {
   /** null until the first submission. */
   readonly identity: TechIdentityDto | null;
   /** Aadhaar Secure QR check (last 4 digits only), or null when not done yet. */
-  readonly aadhaar: { readonly last4: string; readonly nameMatches: boolean; readonly verifiedAt: number } | null;
+  readonly aadhaar: { readonly last4: string; readonly nameMatches: boolean; readonly genderMatches: boolean; readonly verifiedAt: number } | null;
   /** When the technician is told the check will be done (ms); they see an approval only from then on. null before the first submission. */
   readonly reviewBy: number | null;
   readonly correctionNote: { readonly en: string; readonly te: string } | null;
@@ -95,7 +96,7 @@ export class TechniciansService {
       verification: row.verification,
       identity: await this.identityOf(row),
       aadhaar: row.aadhaarVerifiedAt && row.aadhaarLast4
-        ? { last4: row.aadhaarLast4, nameMatches: row.aadhaarNameMatch === true, verifiedAt: row.aadhaarVerifiedAt.getTime() }
+        ? { last4: row.aadhaarLast4, nameMatches: row.aadhaarNameMatch === true, genderMatches: row.aadhaarGenderMatch !== false, verifiedAt: row.aadhaarVerifiedAt.getTime() }
         : null,
       reviewBy: reviewBy(row.submittedAt.getTime(), user.isDemo),
       correctionNote: row.correctionNoteEn !== null ? { en: row.correctionNoteEn, te: row.correctionNoteTe ?? row.correctionNoteEn } : null,
@@ -155,10 +156,11 @@ export class TechniciansService {
         await this.prisma.$transaction(async (tx) => {
           await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
           if (await this.hasActiveJob(tx, userId)) throw new AppError('CONFLICT', {}, 'finish the current job first');
-          const before = await tx.technician.findUnique({ where: { userId }, select: { verification: true, techCode: true } });
+          const before = await tx.technician.findUnique({ where: { userId }, select: { verification: true, techCode: true, aadhaarGender: true, aadhaarVerifiedAt: true } });
           if (first && before?.techCode) throw new AppError('CONFLICT', {}, 'the profile was submitted meanwhile; reload it');
           const fields = {
             gender: input.gender,
+            ...(before?.aadhaarVerifiedAt ? { aadhaarGenderMatch: genderMatches(before.aadhaarGender, input.gender) } : {}),
             experienceYears: input.experienceYears,
             city: input.city,
             pincode: input.pincode,
@@ -273,7 +275,7 @@ export class TechniciansService {
       data: {
         online: false, vehicleEnc: new Uint8Array(0), areas: '', legalNameEnc: null, verifyTokenHash: null, verifyTokenEnc: null,
         correctionKind: null, correctionNote: null, correctionAt: null,
-        aadhaarLast4: null, aadhaarYearOfBirth: null, aadhaarGender: null, aadhaarNameMatch: null, aadhaarFingerprint: null, aadhaarVerifiedAt: null,
+        aadhaarLast4: null, aadhaarYearOfBirth: null, aadhaarGender: null, aadhaarNameMatch: null, aadhaarGenderMatch: null, aadhaarFingerprint: null, aadhaarVerifiedAt: null,
       },
     });
     // Where payouts went (bank account or UPI) goes too; payouts already made keep only their amounts.

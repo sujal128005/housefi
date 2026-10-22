@@ -40,6 +40,8 @@ export interface TechRow extends PersonRow {
   readonly ratingCount: number;
   readonly jobsDone: number;
   readonly aadhaarChecked: boolean;
+  /** What the Aadhaar check found that needs a person: the name or the gender differs from the profile. */
+  readonly aadhaarProblems: readonly ('NAME' | 'GENDER')[];
   readonly techCode: string | null;
 }
 
@@ -230,6 +232,7 @@ export class AdminPeopleService {
       ratingCount: t?.ratingCount ?? 0,
       jobsDone: t?.jobsDone ?? 0,
       aadhaarChecked: !!t?.aadhaarVerifiedAt,
+      aadhaarProblems: t?.aadhaarVerifiedAt ? [...(t.aadhaarNameMatch === false ? ['NAME' as const] : []), ...(t.aadhaarGenderMatch === false ? ['GENDER' as const] : [])] : [],
       techCode: t?.techCode ?? null,
     };
   }

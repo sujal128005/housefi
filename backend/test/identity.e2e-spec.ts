@@ -177,7 +177,7 @@ describe('technician identity (e2e)', () => {
         expect((await api2().post('/v1/tech/aadhaar').set(as(tech.token)).send({ qr: fake }).expect(422)).body.error.fields).toEqual({ qr: 'INVALID' });
 
         const ok = await api2().post('/v1/tech/aadhaar').set(as(tech.token)).send({ qr: aadhaarQr('Swathi Naidu') }).expect(200);
-        expect(ok.body).toEqual({ last4: '1234', nameMatches: true, verifiedAt: app2.clock.now() });
+        expect(ok.body).toEqual({ last4: '1234', nameMatches: true, genderMatches: true, verifiedAt: app2.clock.now() });
         const row = await app2.prisma.technician.findUniqueOrThrow({ where: { userId: tech.id } });
         expect(row.aadhaarLast4).toBe('1234');
         expect(JSON.stringify(row)).not.toContain('Khairatabad');
@@ -206,6 +206,44 @@ describe('technician identity (e2e)', () => {
         expect(me.reviewBy).toBeGreaterThanOrEqual(row.submittedAt.getTime() + 2 * 3_600_000);
         await app2.prisma.user.update({ where: { id: tech.id }, data: { isDemo: true } });
         expect((await request(app2.app.getHttpServer()).get('/v1/tech/me').set(as(tech.token)).expect(200)).body.reviewBy).toBe(row.submittedAt.getTime() + 10_000);
+      } finally {
+        await app2.close();
+      }
+    });
+
+    it('holds approval when the gender on the Aadhaar differs from the profile, until the technician corrects it', async () => {
+      const app2 = await buildTestApp({ env: { UIDAI_QR_CERT_PEM_B64: Buffer.from(uidai.publicKey).toString('base64'), AADHAAR_REQUIRED: 'true', AUTO_APPROVE_TECHNICIANS: 'true' } });
+      try {
+        const api2 = () => request(app2.app.getHttpServer());
+        // The profile says F (TECH_PROFILE); the Aadhaar says M.
+        const tech = await createTechnician(app2, '9876500025', { approve: false });
+        const res = await api2().post('/v1/tech/aadhaar').set(as(tech.token)).send({ qr: aadhaarQr('Swathi Naidu', '4321', '14-08-1994', 'M') }).expect(200);
+        expect(res.body).toMatchObject({ nameMatches: true, genderMatches: false });
+        expect((await app2.prisma.technician.findUniqueOrThrow({ where: { userId: tech.id } })).verification).toBe('PENDING');
+        expect((await api2().get('/v1/tech/me').set(as(tech.token)).expect(200)).body.aadhaar).toMatchObject({ genderMatches: false });
+        const verification = app2.app.get(TechVerificationService);
+        await expect(verification.approve(tech.id, ADMIN)).rejects.toMatchObject({ code: 'CONFLICT', message: expect.stringContaining('gender') });
+        expect((await verification.pending()).find((p) => p.id === tech.id)?.aadhaar).toContain('GENDER DIFFERS: Aadhaar M, profile F');
+        const audit = await app2.prisma.auditLog.findFirstOrThrow({ where: { entityId: tech.id, action: 'tech.aadhaar_verified' } });
+        expect(audit.after).toMatchObject({ genderMatches: false });
+
+        // The technician corrects the gender in Edit profile: it matches now, and approval goes through.
+        await api2().put('/v1/tech/profile').set(as(tech.token)).send({ ...TECH_PROFILE, gender: 'M' }).expect(200);
+        expect((await app2.prisma.technician.findUniqueOrThrow({ where: { userId: tech.id } })).aadhaarGenderMatch).toBe(true);
+        await verification.approve(tech.id, ADMIN);
+        expect((await api2().get('/v1/tech/me').set(as(tech.token)).expect(200)).body).toMatchObject({ verification: 'APPROVED', aadhaar: { genderMatches: true } });
+      } finally {
+        await app2.close();
+      }
+    });
+
+    it('never blocks on an Aadhaar that says T (the profile offers M and F only)', async () => {
+      const app2 = await buildTestApp({ env: { UIDAI_QR_CERT_PEM_B64: Buffer.from(uidai.publicKey).toString('base64'), AADHAAR_REQUIRED: 'true' } });
+      try {
+        const tech = await createTechnician(app2, '9876500026', { approve: false });
+        const res = await request(app2.app.getHttpServer()).post('/v1/tech/aadhaar').set(as(tech.token)).send({ qr: aadhaarQr('Swathi Naidu', '8765', '14-08-1994', 'T') }).expect(200);
+        expect(res.body.genderMatches).toBe(true);
+        await app2.app.get(TechVerificationService).approve(tech.id, ADMIN);
       } finally {
         await app2.close();
       }

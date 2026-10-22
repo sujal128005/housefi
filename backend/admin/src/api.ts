@@ -125,6 +125,8 @@ export interface PersonRow {
   readonly ratingCount?: number;
   readonly jobsDone?: number;
   readonly aadhaarChecked?: boolean;
+  /** What the Aadhaar check found that needs a person: the name or the gender differs from the profile. */
+  readonly aadhaarProblems?: readonly ('NAME' | 'GENDER')[];
   readonly techCode?: string | null;
 }
 

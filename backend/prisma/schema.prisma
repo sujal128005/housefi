@@ -595,6 +595,8 @@ model Technician {
   aadhaarYearOfBirth Int?                                   @map("aadhaar_year_of_birth") @db.SmallInt
   aadhaarGender      String?                                @map("aadhaar_gender") @db.Char(1)
   aadhaarNameMatch   Boolean?                               @map("aadhaar_name_match")
+  /// The gender on the Aadhaar equals the profile's (true also when the Aadhaar says T or nothing: the profile offers M / F only).
+  aadhaarGenderMatch Boolean?                               @map("aadhaar_gender_match")
   /// HMAC of name, birth date, gender and last 4 digits: one person, one technician account.
   aadhaarFingerprint Bytes?                                 @unique @map("aadhaar_fingerprint")
   aadhaarVerifiedAt  DateTime?                              @map("aadhaar_verified_at") @db.Timestamptz(6)

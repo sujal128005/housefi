@@ -52,6 +52,7 @@ const READY_FOR_AUTO = {
   photoUploadId: { not: null },
   aadhaarVerifiedAt: { not: null },
   aadhaarNameMatch: true,
+  aadhaarGenderMatch: true,
 } satisfies Prisma.TechnicianWhereInput;
 
 /**
@@ -92,7 +93,7 @@ export class TechVerificationService {
         submittedAt: t.submittedAt,
         reviewBy: new Date(reviewBy(t.submittedAt.getTime(), t.user.isDemo)),
         techCode: t.techCode,
-        aadhaar: t.aadhaarVerifiedAt ? `xxxx-${t.aadhaarLast4} (${t.aadhaarNameMatch ? 'name matches' : 'NAME DIFFERS'})` : 'not checked',
+        aadhaar: t.aadhaarVerifiedAt ? `xxxx-${t.aadhaarLast4} (${t.aadhaarNameMatch ? 'name matches' : 'NAME DIFFERS'}${t.aadhaarGenderMatch === false ? `, GENDER DIFFERS: Aadhaar ${t.aadhaarGender}, profile ${t.gender}` : ''})` : 'not checked',
         photo: t.photoUploadId ? t.photoStatus : 'none',
         correction: t.correctionKind ? `${t.correctionKind}: ${t.correctionNote ?? ''}` : null,
       })),
@@ -114,13 +115,14 @@ export class TechVerificationService {
 
   /**
    * Approves a pending profile; its registration photo is approved with it. With AADHAAR_REQUIRED (default), only
-   * after a genuine Aadhaar Secure QR was checked and the name on it matches the legal name.
+   * after a genuine Aadhaar Secure QR was checked and the name and gender on it match the profile.
    */
   async approve(technicianId: string, actor: VerificationActor): Promise<{ shownFrom: Date }> {
     if (this.config.AADHAAR_REQUIRED) {
-      const t = UUID.test(technicianId) ? await this.prisma.technician.findUnique({ where: { userId: technicianId }, select: { aadhaarVerifiedAt: true, aadhaarNameMatch: true } }) : null;
+      const t = UUID.test(technicianId) ? await this.prisma.technician.findUnique({ where: { userId: technicianId }, select: { aadhaarVerifiedAt: true, aadhaarNameMatch: true, aadhaarGenderMatch: true } }) : null;
       if (t && !t.aadhaarVerifiedAt) throw new AppError('CONFLICT', {}, 'Aadhaar not verified yet (the technician scans their Aadhaar QR in the app)');
       if (t && !t.aadhaarNameMatch) throw new AppError('CONFLICT', {}, 'the name on the Aadhaar differs from the legal name: correct the name first (identity name ...)');
+      if (t && t.aadhaarGenderMatch === false) throw new AppError('CONFLICT', {}, 'the gender on the Aadhaar differs from the profile: the technician corrects it in Edit profile');
     }
     const promised = await this.decide(technicianId, actor, 'tech.approve', { verification: 'APPROVED', verifiedAt: new Date(this.clock.now()), photoStatus: 'APPROVED' });
     // The technician sees it at the review time they were given (review-window.ts), or now if that has passed.

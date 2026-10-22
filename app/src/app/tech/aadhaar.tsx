@@ -210,6 +210,12 @@ export default function AadhaarScan() {
               <Icon name={result.nameMatches ? 'checkmark-circle' : 'alert-circle'} size={20} color={result.nameMatches ? 'success' : 'warning'} />
               <Txt variant="callout" style={styles.flex}>{result.nameMatches ? t('aadhaar.nameOk') : t('aadhaar.nameDiffers')}</Txt>
             </View>
+            {result.genderMatches === false ? (
+              <View style={styles.step} testID="aadhaar-gender-differs">
+                <Icon name="alert-circle" size={20} color="warning" />
+                <Txt variant="callout" style={styles.flex}>{t('aadhaar.genderDiffers')}</Txt>
+              </View>
+            ) : null}
           </Card>
         </View>
       ) : null}
