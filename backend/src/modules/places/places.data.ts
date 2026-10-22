@@ -1,7 +1,7 @@
 // India's states, districts and localities (post offices) with their PIN codes, from assets/places (built by
 // scripts/build-places.mjs from India Post's All India Pincode Directory). Read once, on first use.
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 
 export interface Place {
@@ -21,6 +21,18 @@ export interface Located {
 
 /** The file's shape: [state, [district, [locality, pins, lat, lng, main (1 / 0)][]][]][]. */
 type Raw = { readonly asOf: string; readonly states: readonly [string, readonly [string, readonly [string, readonly number[], number | null, number | null, number][]][]][] };
+
+/**
+ * backend/assets/places, looked for upwards from here: the compiled code sits at different depths in the server image
+ * (dist/), in tests (src/) and in the laptop demo (.demo-dist/src/).
+ */
+function findAsset(): string {
+  for (let dir = __dirname; ; dir = dirname(dir)) {
+    const file = join(dir, 'assets', 'places', 'india-pincodes.json.gz');
+    if (existsSync(file)) return file;
+    if (dirname(dir) === dir) throw new Error('assets/places/india-pincodes.json.gz not found');
+  }
+}
 
 /** Cells of 0.1° (about 11 km) for "nearest locality to this point". */
 const CELL = 0.1;
@@ -56,7 +68,7 @@ export class PlacesData {
     }
   }
 
-  static load(file = join(__dirname, '..', '..', '..', 'assets', 'places', 'india-pincodes.json.gz')): PlacesData {
+  static load(file = findAsset()): PlacesData {
     return new PlacesData(JSON.parse(gunzipSync(readFileSync(file)).toString('utf8')) as Raw);
   }
 
