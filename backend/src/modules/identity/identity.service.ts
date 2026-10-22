@@ -22,6 +22,7 @@ import { CATEGORY_ORDER } from '../technicians/technicians.schemas';
 import { AadhaarQrError, identityFingerprint, namesMatch, uidaiKeys, verifyAadhaarQr } from './aadhaar-qr';
 import { displayName, newVerifyToken, VERIFY_TOKEN, verifyTokenHash } from './identity-codes';
 import { TechVerificationService } from '../technicians/tech-verification.service';
+import { genderMatches } from './gender-match';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Booking statuses in which the customer sees the assigned technician's ID card. */
@@ -62,6 +63,8 @@ export interface TechVerifyResultDto {
 export interface AadhaarResultDto {
   readonly last4: string;
   readonly nameMatches: boolean;
+  /** False when the gender on the Aadhaar differs from the profile: approval waits until the profile is corrected. */
+  readonly genderMatches: boolean;
   readonly verifiedAt: number;
 }
 
@@ -211,6 +214,7 @@ export class IdentityService {
       throw new AppError('VALIDATION', { fields: { qr: 'INVALID' } }, 'technicians must be at least 18');
     }
     const nameMatches = namesMatch(details.name, await this.legalName(t));
+    const sameGender = genderMatches(details.gender, t.gender);
     const fingerprint = new Uint8Array(identityFingerprint(details, this.fingerprintKey()));
     const now = new Date(this.clock.now());
     try {
@@ -219,11 +223,11 @@ export class IdentityService {
           where: { userId: technicianId },
           data: {
             aadhaarLast4: details.last4, aadhaarYearOfBirth: details.yearOfBirth, aadhaarGender: details.gender,
-            aadhaarNameMatch: nameMatches, aadhaarFingerprint: fingerprint, aadhaarVerifiedAt: now,
+            aadhaarNameMatch: nameMatches, aadhaarGenderMatch: sameGender, aadhaarFingerprint: fingerprint, aadhaarVerifiedAt: now,
           },
         });
         await this.audit.record(
-          { actorType: actor.type, actorId: actor.id, action: 'tech.aadhaar_verified', entity: 'technician', entityId: technicianId, before: {}, after: { last4: details.last4, nameMatches, qrVersion: details.version } },
+          { actorType: actor.type, actorId: actor.id, action: 'tech.aadhaar_verified', entity: 'technician', entityId: technicianId, before: {}, after: { last4: details.last4, nameMatches, genderMatches: sameGender, qrVersion: details.version } },
           tx,
         );
       });
@@ -235,8 +239,8 @@ export class IdentityService {
       throw e;
     }
     // Every check passed: approved now (AutoApproveWorker would within a minute), shown at the promised time.
-    if (this.config.AUTO_APPROVE_TECHNICIANS && nameMatches) await this.verification.approveIfReady(t.userId);
-    return { last4: details.last4, nameMatches, verifiedAt: now.getTime() };
+    if (this.config.AUTO_APPROVE_TECHNICIANS && nameMatches && sameGender) await this.verification.approveIfReady(t.userId);
+    return { last4: details.last4, nameMatches, genderMatches: sameGender, verifiedAt: now.getTime() };
   }
 
   private uidaiKeys(): KeyObject[] | null {

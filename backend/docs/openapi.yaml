@@ -1833,10 +1833,11 @@ components:
         qr: { type: string, minLength: 50, maxLength: 8000, description: The text of the Aadhaar Secure QR code (a long decimal number) }
     AadhaarResult:
       type: object
-      required: [last4, nameMatches, verifiedAt]
+      required: [last4, nameMatches, genderMatches, verifiedAt]
       properties:
         last4: { type: string, pattern: '^[0-9]{4}$' }
         nameMatches: { type: boolean, description: 'false: the legal name differs from the Aadhaar name; approval waits for a review' }
+        genderMatches: { type: boolean, description: 'false: the gender on the Aadhaar differs from the profile; approval waits until the technician corrects it in the profile (an Aadhaar saying T never blocks)' }
         verifiedAt: { $ref: '#/components/schemas/EpochMs' }
     QueueEntry:
       type: object

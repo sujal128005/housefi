@@ -153,7 +153,7 @@ describe('technicians (e2e)', () => {
       const ok = await createTechnician(t, PHONE, { approve: false });
       const differs = await createTechnician(t, '9876500012', { approve: false });
       const noAadhaar = await createTechnician(t, '9876500013', { approve: false });
-      const checked = { aadhaarVerifiedAt: new Date(t.clock.now()), aadhaarLast4: '1234' };
+      const checked = { aadhaarVerifiedAt: new Date(t.clock.now()), aadhaarLast4: '1234', aadhaarGenderMatch: true };
       await t.prisma.technician.update({ where: { userId: ok.id }, data: { ...checked, aadhaarNameMatch: true } });
       await t.prisma.technician.update({ where: { userId: differs.id }, data: { ...checked, aadhaarNameMatch: false } });
       expect(await verification().autoApprove()).toBe(1);

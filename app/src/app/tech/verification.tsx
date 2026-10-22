@@ -64,6 +64,7 @@ export default function Verification() {
     { key: 'tverify.c.aadhaar', state: aadhaar ? 'done' : 'wait' },
     { key: 'tverify.c.age', state: aadhaar ? 'done' : 'wait' },
     { key: 'tverify.c.name', state: aadhaar ? (aadhaar.nameMatches ? 'done' : 'warn') : 'wait' },
+    { key: 'tverify.c.gender', state: aadhaar ? (aadhaar.genderMatches !== false ? 'done' : 'warn') : 'wait' },
     { key: 'tverify.c.photo', state: ready ? 'done' : 'wait' },
     { key: 'tverify.c.skills', state: ready ? 'done' : 'wait' },
   ];
@@ -142,8 +143,11 @@ export default function Verification() {
         </Card>
       ) : null}
       {aadhaar && !aadhaar.nameMatches && !ready ? <Banner tone="warning" icon="card" testID="tverify-aadhaar-done" text={t('aadhaar.nameDiffers')} /> : null}
+      {aadhaar && aadhaar.genderMatches === false && !ready ? (
+        <Banner tone="warning" icon="person" testID="tverify-gender" text={t('aadhaar.genderDiffers')} action={t('tprofile.edit')} onAction={() => router.push({ pathname: '/tech/setup', params: { edit: '1' } })} />
+      ) : null}
       {/* Verified automatically (no person in between) once the checks pass: the window cannot be shortened. */}
-      {stage === 'CHECKING' && (!aadhaar || aadhaar.nameMatches) ? <Banner tone="info" icon="time-outline" text={t('tverify.autoNote')} testID="tverify-auto-note" /> : null}
+      {stage === 'CHECKING' && (!aadhaar || (aadhaar.nameMatches && aadhaar.genderMatches !== false)) ? <Banner tone="info" icon="time-outline" text={t('tverify.autoNote')} testID="tverify-auto-note" /> : null}
     </Screen>
   );
 }

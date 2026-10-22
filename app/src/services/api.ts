@@ -348,7 +348,8 @@ export interface TechApi {
    * the last 4 digits and whether the name matches. VALIDATION for a QR that is not a signed Aadhaar Secure QR; CONFLICT
    * when that Aadhaar is already used by another account.
    */
-  verifyAadhaar(token: string, qr: string): Promise<{ readonly last4: string; readonly nameMatches: boolean; readonly verifiedAt: number }>;
+  /** genderMatches false: the gender on the Aadhaar differs from the profile; approval waits until it is corrected. */
+  verifyAadhaar(token: string, qr: string): Promise<{ readonly last4: string; readonly nameMatches: boolean; readonly genderMatches: boolean; readonly verifiedAt: number }>;
   /** A masked call to the customer of an assigned job (Housefi's number connects to them). */
   callCustomer(token: string, jobId: string): Promise<{ readonly dialNumber: string }>;
   /** The phone's position while online or on a job (about every minute); the customer sees it only while on the way. */
