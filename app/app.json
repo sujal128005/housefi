@@ -60,7 +60,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 150,
           "resizeMode": "contain",
-          "backgroundColor": "#FAF9F5"
+          "backgroundColor": "#F4F5FA"
         }
       ],
       [
@@ -102,7 +102,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "backgroundColor": "#FAF9F5",
+    "backgroundColor": "#F4F5FA",
     "owner": "sujal128005s-team",
     "extra": {
       "eas": {

@@ -147,7 +147,7 @@ export default function Pay() {
       header={<Header title={kind === 'VISIT' ? t('pay.titleVisit') : t('pay.titleFinal')} back={phase === 'CHOOSE' || phase === 'FAILED'} />}
       footer={
         phase === 'CHOOSE' ? <Button label={t('pay.cta', { amount: formatRupees(amount) })} icon="lock-closed" onPress={() => void pay()} disabled={!b} testID="pay-now" />
-          : phase === 'PAID' ? <Button label={kind === 'VISIT' ? t('pay.continueVisit') : t('pay.viewReceipt')} trailingIcon="arrow-forward" onPress={done} testID="pay-continue" />
+          : phase === 'PAID' ? <Button label={kind === 'VISIT' ? t('pay.continueVisit') : t('pay.viewReceipt')} trailingIcon="arrow-forward" variant="lime" onPress={done} testID="pay-continue" />
             : phase === 'PENDING' || phase === 'CASH' ? <Button label={t('pay.goToBooking')} variant="outline" onPress={goToBooking} testID="pay-go-booking" />
               : phase === 'FAILED' ? (
                 <>
