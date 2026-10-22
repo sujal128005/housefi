@@ -328,6 +328,20 @@ describe('live client: bookings, uploads, payments', () => {
   });
 });
 
+describe('live client: payout details', () => {
+  it('reads "not added yet" as null, and saves the details with PUT', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['GET /tech/payout-account'] = () => json(200, null);
+    expect(await t.backend.tech.payoutAccount(s.token)).toBeNull();
+    const saved = { rail: 'BANK', holderName: 'Swathi Naidu', hint: 'XXXXXXX2101 · SBIN0001234', updatedAt: 5 };
+    t.routes['PUT /tech/payout-account'] = () => json(200, saved);
+    const input = { rail: 'BANK', holderName: 'Swathi Naidu', accountNumber: '98765432101', ifsc: 'SBIN0001234' } as const;
+    expect(await t.backend.tech.setPayoutAccount(s.token, input)).toEqual(saved);
+    expect(t.calls.at(-1)).toMatchObject({ method: 'PUT', url: '/tech/payout-account', body: input });
+  });
+});
+
 describe('live updates and checkout hand-off', () => {
   it('parses Server-Sent Events across chunks, ignoring heartbeats', () => {
     const text = ': ping\n\nevent: booking\ndata: {"id":"1"}\n\nevent: booking\ndata: {"id"';

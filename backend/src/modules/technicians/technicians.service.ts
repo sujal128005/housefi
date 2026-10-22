@@ -276,6 +276,8 @@ export class TechniciansService {
         aadhaarLast4: null, aadhaarYearOfBirth: null, aadhaarGender: null, aadhaarNameMatch: null, aadhaarFingerprint: null, aadhaarVerifiedAt: null,
       },
     });
+    // Where payouts went (bank account or UPI) goes too; payouts already made keep only their amounts.
+    await tx.technicianPayoutAccount.deleteMany({ where: { technicianId: userId } });
     await this.withdrawOffers(tx, userId);
     await this.clearLocation(tx, userId);
   }

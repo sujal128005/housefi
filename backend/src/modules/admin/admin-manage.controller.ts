@@ -9,6 +9,7 @@ import { AddressesService, type AddressDto } from '../addresses/addresses.servic
 import { NewBooking } from '../bookings/bookings.schemas';
 import { CatalogService } from '../catalog/catalog.service';
 import type { PayoutRow } from '../earnings/earnings.service';
+import { type BankFilesDto, PayoutAccountsService } from '../earnings/payout-accounts.service';
 import type { SignedInAdmin } from './admin-auth.service';
 import { type AdminActor, type AdminBookingDetail, type AdminBookingRow, AdminBookingsService } from './admin-bookings.service';
 import { AdminPeopleService, type PersonDetail, type PersonRow, type TechAction } from './admin-people.service';
@@ -39,6 +40,7 @@ export class AdminManageController {
     private readonly people: AdminPeopleService,
     private readonly addresses: AddressesService,
     private readonly catalog: CatalogService,
+    private readonly payoutAccounts: PayoutAccountsService,
   ) {}
 
   // ---------- bookings ----------
@@ -158,6 +160,14 @@ export class AdminManageController {
   @HttpCode(200)
   prepare(@CurrentAdmin() admin: SignedInAdmin, @Req() req: FastifyRequest): Promise<PayoutRow[]> {
     return this.people.preparePayouts(actor(admin, req));
+  }
+
+  /** The bulk-transfer files for the bank, for every payout waiting to be paid (payout kit). Audited. */
+  @Post('payouts/bank-files')
+  @HttpCode(200)
+  bankFiles(@CurrentAdmin() admin: SignedInAdmin, @Req() req: FastifyRequest): Promise<BankFilesDto> {
+    const by = actor(admin, req);
+    return this.payoutAccounts.bankFiles({ id: by.id, via: `hq:${by.ip}` });
   }
 
   @Post('payouts/:id/paid')

@@ -97,6 +97,8 @@ PostgreSQL 16, build, `npm audit`). Dependabot proposes minor/patch updates only
 - Settings: every environment variable is defined and checked in `src/config/env.ts`; listed with comments in
   `.env.example`; production values only in `.env.production` on the server.
 - Database: `prisma/schema.prisma` + `prisma/migrations/`; seed catalogue `src/cli/seed.ts`.
+- Payouts: `src/modules/earnings/` (ledger, weekly payouts, technicians' payout details); bank files by the payout kit
+  `src/modules/earnings/payout-kit/` (built with IBM Bob, see `docs/IBM-BOB.md`).
 - Super admin portal **Housefi HQ**: API in `src/modules/admin/` (sign-in, bookings/people/ops services, `guide/` =
   Sarathi, the guide: look tools + proposals approved by the admin, never acting itself), website in `admin/`
   (React + Vite, served by `deploy/admin.nginx.conf` on the secret `ADMIN_HOST`). Live support chat:

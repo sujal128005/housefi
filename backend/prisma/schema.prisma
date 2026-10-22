@@ -609,20 +609,46 @@ model Technician {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user        User              @relation("TechnicianUser", fields: [userId], references: [id])
-  photoUpload Upload?           @relation("TechnicianPhoto", fields: [photoUploadId], references: [id], onDelete: SetNull)
-  coordinator User?             @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
-  skills      TechnicianSkill[]
-  bookings    Booking[]         @relation("BookingTechnician")
-  preferredIn Booking[]         @relation("BookingPreferredTechnician")
-  offers      JobOffer[]
-  ledger      EarningsLedger[]
-  payouts     Payout[]
-  ratings     Rating[]
+  user          User                     @relation("TechnicianUser", fields: [userId], references: [id])
+  photoUpload   Upload?                  @relation("TechnicianPhoto", fields: [photoUploadId], references: [id], onDelete: SetNull)
+  coordinator   User?                    @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
+  skills        TechnicianSkill[]
+  bookings      Booking[]                @relation("BookingTechnician")
+  preferredIn   Booking[]                @relation("BookingPreferredTechnician")
+  offers        JobOffer[]
+  ledger        EarningsLedger[]
+  payouts       Payout[]
+  ratings       Rating[]
+  payoutAccount TechnicianPayoutAccount?
 
   @@index([pincode, online, verification])
   @@index([verification, submittedAt])
   @@map("technicians")
+}
+
+enum PayoutRail {
+  BANK
+  UPI
+
+  @@map("payout_rail")
+}
+
+/// Where a technician's weekly payout goes (entered in the app: Profile -> Payout details). The account number, UPI ID
+/// and holder name are encrypted; `hint` is the masked form shown in HQ and the app (e.g. XXXXXX1234 · SBIN0001234).
+/// Deleted with the account.
+model TechnicianPayoutAccount {
+  technicianId     String     @id @map("technician_id") @db.Uuid
+  rail             PayoutRail
+  holderNameEnc    Bytes      @map("holder_name_enc")
+  accountNumberEnc Bytes?     @map("account_number_enc")
+  ifsc             String?    @db.Char(11)
+  upiIdEnc         Bytes?     @map("upi_id_enc")
+  hint             String
+  updatedAt        DateTime   @map("updated_at") @db.Timestamptz(6)
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+
+  @@map("technician_payout_accounts")
 }
 
 model TechnicianSkill {

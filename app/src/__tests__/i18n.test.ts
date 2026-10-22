@@ -15,7 +15,7 @@ describe('strings', () => {
 
   it('Telugu strings are actually Telugu (not copied English)', () => {
     // Only strings that are all brand names, codes or symbols may stay in Latin script.
-    const allowed = ['pay.m.UPI', 'pay.ms.CARD', 'safety.sos'];
+    const allowed = ['pay.m.UPI', 'pay.ms.CARD', 'safety.sos', 'payout.upi'];
     const latinOnly = Object.entries(te).filter(([k, v]) => !/[ఀ-౿]/.test(v) && !allowed.includes(k));
     expect(latinOnly.map(([k]) => k)).toEqual([]);
   });
