@@ -114,7 +114,7 @@ export default function TechHome() {
 
   return (
     <View style={styles.root} testID="tech-home">
-      <Wash name={p.online ? 'mint' : 'sky'} fade style={styles.wash} />
+      <Wash name="festive" fade style={styles.wash} />
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + space.md }]} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
           <TechPhoto photo={p.identity?.photo} gender={p.gender} size={48} />
@@ -131,14 +131,14 @@ export default function TechHome() {
 
         <View style={[styles.online, p.online ? styles.onlineOn : styles.onlineOff]} testID="tech-online-card">
           <View style={styles.onlineDot}>
-            {p.online ? <Pulse size={44} color={colors.success} /> : null}
-            <View style={[styles.dot, { backgroundColor: p.online ? colors.success : colors.inkSubtle }]} />
+            {p.online ? <Pulse size={44} color={colors.onLimeTint} /> : null}
+            <View style={[styles.dot, { backgroundColor: p.online ? colors.onLimeTint : colors.inkSubtle }]} />
           </View>
           <View style={styles.flex}>
-            <Txt variant="title3" color={p.online ? 'onNavy' : 'ink'}>{p.online ? t('thome.online') : t('thome.offline')}</Txt>
-            <Txt variant="footnote" color={p.online ? 'onNavy' : 'inkMuted'} style={p.online ? styles.dim : undefined}>{p.online ? t('thome.onlineSub') : t('thome.offlineSub')}</Txt>
+            <Txt variant="title3" color={p.online ? 'onLime' : 'ink'}>{p.online ? t('thome.online') : t('thome.offline')}</Txt>
+            <Txt variant="footnote" color={p.online ? 'onLime' : 'inkMuted'} style={p.online ? styles.dim : undefined}>{p.online ? t('thome.onlineSub') : t('thome.offlineSub')}</Txt>
           </View>
-          <Switch value={p.online} onValueChange={(v) => void setOnline(v)} disabled={busy} trackColor={{ true: '#5FD39A', false: colors.lineStrong }} thumbColor={colors.surface}
+          <Switch value={p.online} onValueChange={(v) => void setOnline(v)} disabled={busy} trackColor={{ true: colors.onLimeTint, false: colors.lineStrong }} thumbColor={colors.surface}
             accessibilityLabel={t('thome.availability')} testID="tech-online-switch" />
         </View>
         <ErrorBanner error={error && isApiError(error, 'CONFLICT') ? null : error} />
@@ -169,8 +169,8 @@ export default function TechHome() {
               <Txt variant="title2" color="onNavy">{t(nextActionKey(active))}</Txt>
               <Txt variant="callout" color="onNavy" style={styles.dim}>{(serviceById(active.serviceId) ? l(serviceById(active.serviceId)!.name) : '')} · {active.customerName} · {active.address.street}</Txt>
               <View style={styles.nextCta}>
-                <Txt variant="label" color="navy">{t('thome.open')}</Txt>
-                <Icon name="arrow-forward" size={18} color="navy" />
+                <Txt variant="label" color="onLime">{t('thome.open')}</Txt>
+                <Icon name="arrow-forward" size={18} color="onLime" />
               </View>
             </Tap>
           </Appear>
@@ -225,20 +225,20 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.85 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow.card },
-  bell: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow.card },
-  badge: { position: 'absolute', top: 4, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
+  bell: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.8)', alignItems: 'center', justifyContent: 'center', ...shadow.card },
+  badge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
   online: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderRadius: radius.xxl, ...shadow.card },
-  onlineOn: { backgroundColor: '#11845A' },
-  onlineOff: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
+  onlineOn: { backgroundColor: colors.lime },
+  onlineOff: { backgroundColor: colors.surface },
   onlineDot: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 3, borderColor: colors.surface },
   money: { flexDirection: 'row', gap: space.md },
-  moneyCard: { flex: 1, gap: 2, padding: space.lg, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, ...shadow.card },
+  moneyCard: { flex: 1, gap: 2, padding: space.lg, borderRadius: radius.xl, backgroundColor: colors.surface, ...shadow.card },
   moneyToday: { backgroundColor: colors.navy, borderColor: colors.navy },
-  next: { gap: space.sm, padding: space.xl, borderRadius: radius.xxl, backgroundColor: colors.blue, ...shadow.raised },
+  next: { gap: space.sm, padding: space.xl, borderRadius: radius.xxl, backgroundColor: colors.navy, ...shadow.raised },
   nextHead: { flexDirection: 'row', justifyContent: 'space-between' },
-  nextCta: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', backgroundColor: colors.yellow, minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, marginTop: space.xs },
-  waiting: { alignItems: 'center', gap: space.sm, padding: space.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
+  nextCta: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', backgroundColor: colors.lime, minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, marginTop: space.xs },
+  waiting: { alignItems: 'center', gap: space.sm, padding: space.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, ...shadow.card },
   radar: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center' },
   practice: { flexDirection: 'row', alignItems: 'center', gap: space.xs, minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.demo, marginTop: space.xs },
   block: { gap: space.md },

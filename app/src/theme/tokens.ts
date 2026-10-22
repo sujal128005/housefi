@@ -1,17 +1,19 @@
 // Housefi design tokens, taken from the finalized logo (assets/brand): cobalt blue for primary actions and brand
-// moments, cyan as the secondary accent, warm amber / orange for selective highlights (like the logo's arc), clean
-// ivory and white surfaces, and deep navy text. Gradients are used selectively (headers, primary buttons, icon tiles),
-// never on every surface. Token names are semantic and stable; `navy` is the primary brand colour (cobalt).
+// moments, cyan as the secondary accent, warm amber / orange for selective highlights (like the logo's arc), and a
+// fresh lime for rewards, success and "done" (the look of fintech apps such as super.money: cool light-grey canvas,
+// white cards with soft shadows, compact confident type, flat icons in tinted squares, 3D art for big moments only).
+// Gradients are used selectively (headers, primary buttons, hero cards). Token names are semantic and stable; `navy`
+// is the primary brand colour (cobalt).
 
 export const colors = {
-  canvas: '#FAF9F5',
+  canvas: '#F4F5FA',
   surface: '#FFFFFF',
-  surfaceMuted: '#F2F1EB',
-  ink: '#0B1B3F',
-  inkMuted: '#4E5A77',
-  inkSubtle: '#8790A8',
-  line: '#E7E5DE',
-  lineStrong: '#D2D0C7',
+  surfaceMuted: '#ECEEF5',
+  ink: '#111633',
+  inkMuted: '#565D78',
+  inkSubtle: '#9198AE',
+  line: '#E5E7F0',
+  lineStrong: '#D1D5E2',
 
   navy: '#0A3CF5',
   navyPressed: '#062DC4',
@@ -27,6 +29,13 @@ export const colors = {
   onBlueTint: '#0A35C4',
   cyan: '#00B2EE',
   cyanTint: '#E0F6FE',
+
+  /** Rewards, success and "done": the lime of the scan corners and the Done button. */
+  lime: '#B4F06C',
+  limePressed: '#9CDD4E',
+  onLime: '#163300',
+  limeTint: '#EEFBDD',
+  onLimeTint: '#2E6A00',
 
   amber: '#FFB21C',
   amberPressed: '#F09E00',
@@ -61,6 +70,8 @@ export const washes = {
   mint: ['#E2F7EF', '#F4FCF8'],
   sky: ['#DFF5FE', '#F5FBFF'],
   sunrise: ['#FFF1DF', '#EAF2FF'],
+  /** The home header: lavender into a soft pink, fading to the canvas. */
+  festive: ['#E3E6FF', '#F6E6FA'],
   navy: ['#1E7BFF', '#0730D9'],
 } as const;
 
@@ -71,7 +82,7 @@ export type WashName = keyof typeof washes;
 
 export const space = { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, x3: 32, x4: 40, x5: 56 } as const;
 /** `icon`: the soft square chip behind functional icons in rows and lists (40 pt). */
-export const radius = { icon: 12, sm: 10, md: 14, lg: 18, xl: 22, xxl: 28, pill: 999 } as const;
+export const radius = { icon: 12, sm: 10, md: 14, lg: 16, xl: 20, xxl: 26, pill: 999 } as const;
 
 /** Side padding of every screen. */
 export const GUTTER = 20;
@@ -90,21 +101,21 @@ export interface TextSpec {
 }
 
 export const text: Readonly<Record<TextVariant, TextSpec>> = {
-  hero: { size: 36, line: 40, weight: 'extrabold', tracking: -0.6 },
-  title1: { size: 29, line: 34, weight: 'bold', tracking: -0.4 },
-  title2: { size: 23, line: 28, weight: 'bold', tracking: -0.2 },
-  title3: { size: 19, line: 24, weight: 'bold' },
-  body: { size: 17, line: 24, weight: 'regular' },
-  bodyStrong: { size: 17, line: 24, weight: 'semibold' },
-  callout: { size: 16, line: 22, weight: 'medium' },
-  label: { size: 15, line: 20, weight: 'semibold' },
-  footnote: { size: 14, line: 19, weight: 'regular' },
-  caption: { size: 12.5, line: 16, weight: 'semibold', tracking: 0.2 },
-  price: { size: 34, line: 38, weight: 'extrabold', tracking: -0.5 },
+  hero: { size: 34, line: 38, weight: 'extrabold', tracking: -0.7 },
+  title1: { size: 28, line: 33, weight: 'extrabold', tracking: -0.5 },
+  title2: { size: 22, line: 27, weight: 'bold', tracking: -0.3 },
+  title3: { size: 18, line: 23, weight: 'bold', tracking: -0.1 },
+  body: { size: 16, line: 23, weight: 'regular' },
+  bodyStrong: { size: 16, line: 23, weight: 'semibold' },
+  callout: { size: 15, line: 21, weight: 'medium' },
+  label: { size: 14, line: 19, weight: 'semibold' },
+  footnote: { size: 13, line: 18, weight: 'regular' },
+  caption: { size: 12, line: 16, weight: 'semibold', tracking: 0.2 },
+  price: { size: 32, line: 36, weight: 'extrabold', tracking: -0.6 },
 };
 
 export const shadow = {
-  card: { shadowColor: colors.shadow, shadowOpacity: 0.06, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
+  card: { shadowColor: colors.shadow, shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
   raised: { shadowColor: colors.shadow, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
   button: { shadowColor: colors.navy, shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
   glow: { shadowColor: colors.navy, shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 10 },

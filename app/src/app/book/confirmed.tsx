@@ -51,7 +51,7 @@ export default function Confirmed() {
       header={<Header back={false} />}
       footer={
         <>
-          <Button label={t('confirmed.track')} trailingIcon="arrow-forward" onPress={() => router.replace(`/booking/${id}`)} testID="confirmed-track" />
+          <Button label={t('confirmed.track')} trailingIcon="arrow-forward" variant="lime" onPress={() => router.replace(`/booking/${id}`)} testID="confirmed-track" />
           <Button label={t('confirmed.home')} variant="ghost" size="md" onPress={() => router.back()} testID="confirmed-home" />
         </>
       }

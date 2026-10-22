@@ -25,6 +25,8 @@ export default function TabsLayout() {
       screenLayout={({ children }) => <ScreenErrorBoundary>{children}</ScreenErrorBoundary>}
       screenOptions={({ route }) => ({
         headerShown: false,
+        // A short cross-fade between tabs, as in super.money.
+        animation: 'fade',
         tabBarActiveTintColor: colors.navy,
         tabBarInactiveTintColor: colors.inkSubtle,
         tabBarStyle: styles.bar,

@@ -25,6 +25,25 @@ export async function pickPhoto(source: 'camera' | 'gallery'): Promise<PickResul
   }
 }
 
+/**
+ * A photo kept at full quality for reading a code from it (the Aadhaar Secure QR is very dense: resizing or compressing
+ * the photo, as for uploads, can make it unreadable). Never uploaded.
+ */
+export async function pickCodePhoto(source: 'camera' | 'gallery'): Promise<PickResult> {
+  try {
+    if (Platform.OS === 'web') return { ok: false, reason: 'UNAVAILABLE' };
+    if (source === 'camera') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) return { ok: false, reason: 'DENIED' };
+    }
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, exif: false };
+    const r = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+    return r.canceled || !r.assets[0] ? { ok: false, reason: 'CANCELLED' } : { ok: true, uri: r.assets[0].uri };
+  } catch {
+    return { ok: false, reason: 'UNAVAILABLE' };
+  }
+}
+
 /** Longest side of an uploaded problem photo. */
 const PHOTO_MAX_PX = 1600;
 

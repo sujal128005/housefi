@@ -232,7 +232,7 @@ export function Divider({ style }: { readonly style?: StyleProp<ViewStyle> }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: colors.line, ...shadow.card },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: 'rgba(17,22,51,0.04)', ...shadow.card },
   cardSelected: { borderColor: colors.blue, borderWidth: 2, backgroundColor: '#FBFCFF' },
   section: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   sectionAction: { minHeight: 40, justifyContent: 'center', paddingHorizontal: space.xs },
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   radioOn: { borderColor: colors.blue },
   radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.blue },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 60, paddingVertical: space.sm },
-  rowIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  rowIcon: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: radius.pill, alignSelf: 'flex-start' },
   banner: { flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.md, borderRadius: radius.md },
   bannerAction: { minHeight: 36, justifyContent: 'center', paddingHorizontal: space.xs },

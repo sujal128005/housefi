@@ -1,4 +1,4 @@
-// Customer home: a cobalt header (greeting, location, search, and "Snap the problem" with the AI), the live booking,
+// Customer home: a soft header (greeting, location, a cobalt "Snap the problem" card with the AI, search), the live booking,
 // the service categories and the AI-ranked top 6 problems in the customer's locality. The bell opens the inbox.
 // Adapts from small phones to tablets (columns and widths from ui/responsive).
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +15,7 @@ import type { AppNotification } from '../../services/api';
 import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
-import { BRAND_GRADIENT, colors, radius, shadow, space } from '../../theme/tokens';
+import { BRAND_GRADIENT, colors, radius, shadow, space, washes } from '../../theme/tokens';
 import { ErrorView, Icon, SectionTitle, Sheet, Skeleton, Tap, Txt } from '../../ui';
 import { BookingCard } from '../../ui/BookingCard';
 import { CategoryTile } from '../../ui/CategoryTile';
@@ -87,48 +87,58 @@ export default function Home() {
     <View style={styles.root} testID="home">
       <Animated.ScrollView contentContainerStyle={{ paddingBottom: space.x4 }} showsVerticalScrollIndicator={false} scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}>
-        {/* brand header */}
-        <LinearGradient colors={BRAND_GRADIENT} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        {/* header: a soft lavender-pink wash with the cobalt hero card (the look of super.money's scan card) */}
+        <LinearGradient colors={[...washes.festive, colors.canvas]} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
           style={[styles.hero, { paddingTop: insets.top + space.md }]}>
-          <View style={[styles.blob, styles.blobA]} />
-          <View style={[styles.blob, styles.blobB]} />
           <View style={[styles.column, pad, styles.heroInner]}>
             <View style={styles.topRow}>
               <View style={styles.avatar}><Txt variant="title3" color="navy">{(first[0] ?? 'H').toUpperCase()}</Txt></View>
               <View style={styles.flex}>
-                <Txt variant="footnote" color="onNavyMuted">{t(greetingKey(new Date().getHours()))},</Txt>
-                <Txt variant="title2" color="onNavy" numberOfLines={1} testID="home-name">{first}</Txt>
+                <Txt variant="footnote" color="inkMuted">{t(greetingKey(new Date().getHours()))},</Txt>
+                <Txt variant="title2" numberOfLines={1} testID="home-name">{first}</Txt>
               </View>
-              {isDemo ? <View style={styles.demoChip} accessibilityLabel="Demo mode"><Icon name="flask" size={12} color="onNavy" /><Txt variant="caption" color="onNavy">{t('common.demo')}</Txt></View> : null}
-              <Tap onPress={openBell} style={styles.glassBtn} accessibilityLabel={unread > 0 ? `${t('home.notifications')}, ${unread}` : t('home.notifications')} testID="home-bell">
-                <Icon name="notifications-outline" size={22} color="onNavy" />
+              {isDemo ? <View style={styles.demoChip} accessibilityLabel="Demo mode"><Icon name="flask" size={12} color="demo" /><Txt variant="caption" color="demo">{t('common.demo')}</Txt></View> : null}
+              <Tap onPress={openBell} style={styles.iconBtn} accessibilityLabel={unread > 0 ? `${t('home.notifications')}, ${unread}` : t('home.notifications')} testID="home-bell">
+                <Icon name="notifications-outline" size={22} color="ink" />
                 {unread > 0 ? <View style={styles.badge} testID="home-bell-badge"><Txt variant="caption" color="onNavy">{unread > 9 ? '9+' : String(unread)}</Txt></View> : null}
               </Tap>
             </View>
 
             <Tap onPress={() => router.push('/addresses')} style={styles.location} accessibilityLabel={home ? `${home.street}, ${home.city}` : t('home.addAddress')} testID="home-location">
-              <Icon name="location" size={16} color="amber" />
-              <Txt variant="label" color="onNavy" numberOfLines={1} style={styles.shrink}>{home ? `${home.street}, ${home.city}` : t('home.addAddress')}</Txt>
-              <Icon name="chevron-down" size={16} color="onNavyMuted" />
+              <Icon name="location" size={16} color="navy" />
+              <Txt variant="label" numberOfLines={1} style={styles.shrink}>{home ? `${home.street}, ${home.city}` : t('home.addAddress')}</Txt>
+              <Icon name="chevron-down" size={16} color="inkMuted" />
             </Tap>
+
+            <LinearGradient colors={BRAND_GRADIENT} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.snap}>
+              <View style={[styles.blob, styles.blobA]} />
+              <Tap onPress={() => router.push('/book/snap')} accessibilityLabel={t('home.snap.title')} scale={0.98} haptic style={styles.snapTop}>
+                <View style={styles.viewfinder}>
+                  {(['tl', 'tr', 'bl', 'br'] as const).map((c) => <View key={c} style={[styles.corner, styles[c]]} />)}
+                  <Art3D name="camera" size={layout.compact ? 58 : 68} float />
+                </View>
+                <View style={styles.snapText}>
+                  <View style={styles.aiChip}><Icon name="sparkles" size={12} color="onLime" /><Txt variant="caption" color="onLime">{t('home.snap.badge')}</Txt></View>
+                  <Txt variant="title3" color="onNavy">{t('home.snap.title')}</Txt>
+                  <Txt variant="footnote" color="onNavyMuted">{t('home.snap.body')}</Txt>
+                </View>
+              </Tap>
+              <View style={styles.glassRow}>
+                <Tap onPress={() => router.push('/book/snap')} style={styles.glassBtn} haptic testID="home-snap" accessibilityLabel={t('home.snap.cta')}>
+                  <Icon name="camera-outline" size={18} color="onNavy" />
+                  <Txt variant="label" color="onNavy" numberOfLines={1}>{t('home.snap.cta')}</Txt>
+                </Tap>
+                <Tap onPress={() => router.push('/search')} style={styles.glassBtn} haptic testID="home-hero-search" accessibilityLabel={t('home.snap.speak')}>
+                  <Icon name="mic-outline" size={18} color="onNavy" />
+                  <Txt variant="label" color="onNavy" numberOfLines={1}>{t('home.snap.speak')}</Txt>
+                </Tap>
+              </View>
+            </LinearGradient>
 
             <Tap onPress={() => router.push('/search')} style={styles.search} accessibilityRole="search" accessibilityLabel={t('home.search')} testID="home-search" scale={0.99}>
               <Icon name="search" size={20} color="inkMuted" />
               <Txt variant="callout" color="inkSubtle" style={styles.flex}>{t('home.search')}</Txt>
               <View style={styles.searchMic}><Icon name="mic" size={18} color="navy" /></View>
-            </Tap>
-
-            <Tap onPress={() => router.push('/book/snap')} testID="home-snap" accessibilityLabel={t('home.snap.title')} scale={0.98} haptic style={styles.snap}>
-              <View style={styles.snapText}>
-                <View style={styles.aiChip}><Icon name="sparkles" size={12} color="onAmber" /><Txt variant="caption" color="onAmber">{t('home.snap.badge')}</Txt></View>
-                <Txt variant="title2" color="onNavy">{t('home.snap.title')}</Txt>
-                <Txt variant="footnote" color="onNavyMuted">{t('home.snap.body')}</Txt>
-                <View style={styles.snapCta}>
-                  <Icon name="camera" size={18} color="onAmber" />
-                  <Txt variant="label" color="onAmber">{t('home.snap.cta')}</Txt>
-                </View>
-              </View>
-              <Art3D name="camera" size={layout.compact ? 84 : 104} float />
             </Tap>
           </View>
         </LinearGradient>
@@ -210,24 +220,31 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   shrink: { flexShrink: 1 },
   column: { width: '100%', maxWidth: MAX_CONTENT, alignSelf: 'center' },
-  hero: { borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden', paddingBottom: space.xl },
+  hero: { paddingBottom: space.md },
   heroInner: { gap: space.md },
   blob: { position: 'absolute', borderRadius: 999, backgroundColor: '#22D3FF' },
-  blobA: { width: 260, height: 260, top: -110, right: -80, opacity: 0.3 },
-  blobB: { width: 200, height: 200, bottom: -90, left: -70, opacity: 0.18 },
+  blobA: { width: 220, height: 220, top: -120, right: -70, opacity: 0.28 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.amber, alignItems: 'center', justifyContent: 'center' },
-  demoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassLine },
-  glassBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassLine, alignItems: 'center', justifyContent: 'center' },
-  badge: { position: 'absolute', top: 2, right: 2, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0A3CF5' },
-  location: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: space.md, borderRadius: radius.pill, backgroundColor: colors.glass, maxWidth: '100%' },
-  search: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 54, paddingLeft: space.lg, paddingRight: space.sm, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadow.card },
-  searchMic: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
-  snap: { flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.lg, borderRadius: radius.xxl, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassLine },
+  avatar: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadow.card },
+  demoChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.demoTint },
+  iconBtn: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center', ...shadow.card },
+  badge: { position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
+  location: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', minHeight: 36, paddingHorizontal: space.md, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.7)', maxWidth: '100%' },
+  snap: { borderRadius: radius.xxl, padding: space.lg, gap: space.lg, overflow: 'hidden', ...shadow.raised },
+  snapTop: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
+  viewfinder: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
+  corner: { position: 'absolute', width: 24, height: 24, borderColor: colors.lime },
+  tl: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 12 },
+  tr: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 12 },
+  bl: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 12 },
+  br: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 12 },
   snapText: { flex: 1, gap: space.xs },
-  aiChip: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: radius.pill, backgroundColor: colors.amber },
-  snapCta: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', backgroundColor: colors.amber, minHeight: 44, paddingHorizontal: space.lg, borderRadius: radius.pill, marginTop: space.sm },
-  body: { gap: space.xl, paddingTop: space.xl },
+  aiChip: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: radius.pill, backgroundColor: colors.lime },
+  glassRow: { flexDirection: 'row', gap: space.sm },
+  glassBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xs, minHeight: 46, paddingHorizontal: space.sm, borderRadius: radius.md, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassLine },
+  search: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 52, paddingLeft: space.lg, paddingRight: space.sm, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.blueTint, ...shadow.card },
+  searchMic: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
+  body: { gap: space.xl, paddingTop: space.md },
   block: { gap: space.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -space.xs, rowGap: space.md },
   cell: { paddingHorizontal: space.xs },

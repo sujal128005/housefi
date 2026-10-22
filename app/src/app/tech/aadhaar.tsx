@@ -4,7 +4,9 @@
 // During registration it is the required step after the details (no way back, no skipping), and it leads to
 // "checking your details". Scanning uses the phone's own smart scanner where there is one (Google code scanner on
 // Android, VisionKit on iPhone): it finds the code anywhere in view, zooms in and captures by itself. Otherwise the
-// in-app camera keeps focusing on its own. A photo of the code (e-Aadhaar screenshot) works too.
+// in-app camera (tall, focusing on its own, with a light and 1x / 2x / 3x zoom for codes far away or in the dark;
+// after a few seconds without a code it offers tips and a photo instead). A photo works too, read at full quality:
+// a picture of the card, or an e-Aadhaar screenshot.
 import { CameraView, scanFromURLAsync, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -14,15 +16,20 @@ import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
 import { isApiError } from '../../services/api';
-import { pickPhoto } from '../../services/device';
+import { pickCodePhoto } from '../../services/device';
 import { feedback } from '../../services/feedback';
 import { useBackend } from '../../services/ServicesProvider';
 import { useAppState, useTechSession } from '../../state/AppState';
 import { colors, radius, space } from '../../theme/tokens';
-import { Banner, Button, Card, ErrorBanner, Header, Icon, Screen, Txt } from '../../ui';
+import { Banner, Button, Card, ErrorBanner, Header, Icon, Screen, Tap, Txt } from '../../ui';
 import { Celebrate } from '../../ui/motion';
 
 type Phase = 'INTRO' | 'SCANNING' | 'CHECKING' | 'DONE';
+
+/** In-app camera zoom steps (expo-camera's 0..1 scale): 1x, about 2x and about 3x. */
+const ZOOMS = [0, 0.25, 0.45] as const;
+/** Tips and the photo option appear when no Aadhaar code was read for this long. */
+const SLOW_MS = 7000;
 
 /** The Secure QR holds a long decimal number; anything else (a payment QR, a URL) is not an Aadhaar code. */
 const looksLikeSecureQr = (data: string) => /^\d{200,}$/.test(data.trim());
@@ -38,6 +45,15 @@ export default function AadhaarScan() {
   const [hint, setHint] = useState<string | null>(null);
   const [result, setResult] = useState(session.profile.aadhaar ?? null);
   const handled = useRef(false);
+  const [zoom, setZoom] = useState(0);
+  const [torch, setTorch] = useState(false);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (phase !== 'SCANNING') return undefined;
+    setSlow(false);
+    const timer = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => clearTimeout(timer);
+  }, [phase]);
   // The registration step (profile submitted, Aadhaar not yet scanned), as opposed to opening it from the checking page.
   const [required] = useState(() => techStage(session.profile, Date.now()) === 'AADHAAR');
   const next = () => (required ? resetTo('/tech/verification') : router.back());
@@ -70,19 +86,24 @@ export default function AadhaarScan() {
     setPhase('SCANNING');
   };
 
-  /** A photo of the code (a screenshot of the e-Aadhaar, or a picture of the card). */
-  const fromPhoto = async () => {
+  /** A photo of the code (a screenshot of the e-Aadhaar, or a picture of the card), read at full quality. */
+  const fromPhoto = async (source: 'camera' | 'gallery' = 'gallery') => {
     setError(null);
     setHint(null);
-    const r = await pickPhoto('gallery');
+    setTorch(false);
+    const r = await pickCodePhoto(source);
     if (!r.ok) return;
     try {
       const found = await scanFromURLAsync(r.uri, ['qr']);
       const code = found.find((f) => looksLikeSecureQr(f.data)) ?? found[0];
       handled.current = false;
       if (code) await onScanned(code.data);
-      else setHint(t('aadhaar.noCodeInPhoto'));
+      else {
+        setPhase('INTRO');
+        setHint(t('aadhaar.noCodeInPhoto'));
+      }
     } catch {
+      setPhase('INTRO');
       setHint(t('aadhaar.noCodeInPhoto'));
     }
   };
@@ -117,11 +138,11 @@ export default function AadhaarScan() {
       wash={phase === 'DONE' ? 'mint' : 'sky'}
       header={<Header title={t('aadhaar.title')} back={!required} />}
       footer={phase === 'DONE' ? (
-        <Button label={required ? t('common.continue') : t('common.done')} icon={required ? undefined : 'checkmark'} trailingIcon={required ? 'arrow-forward' : undefined} onPress={next} testID="aadhaar-done" />
+        <Button label={required ? t('common.continue') : t('common.done')} icon={required ? undefined : 'checkmark'} trailingIcon={required ? 'arrow-forward' : undefined} variant="lime" onPress={next} testID="aadhaar-done" />
       ) : phase === 'INTRO' ? (
         <>
           <Button label={t('aadhaar.scan')} icon="qr-code" onPress={() => void startScan()} disabled={Platform.OS === 'web'} testID="aadhaar-scan" />
-          <Button label={t('aadhaar.fromPhoto')} icon="image" variant="ghost" size="md" onPress={() => void fromPhoto()} disabled={Platform.OS === 'web'} testID="aadhaar-photo" />
+          <Button label={t('aadhaar.fromPhoto')} icon="image" variant="ghost" size="md" onPress={() => void fromPhoto('gallery')} disabled={Platform.OS === 'web'} testID="aadhaar-photo" />
         </>
       ) : undefined}
     >
@@ -150,11 +171,22 @@ export default function AadhaarScan() {
         <>
           <Txt variant="title2" heading align="center">{t('aadhaar.pointCamera')}</Txt>
           <View style={styles.cameraFrame}>
-            <CameraView style={StyleSheet.absoluteFill} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }} autofocus="off" onBarcodeScanned={(r) => void onScanned(r.data)} />
-            <View style={styles.reticle} pointerEvents="none" />
+            {/* autofocus "off" is continuous focus (expo-camera); the whole frame is searched, not just the corners */}
+            <CameraView style={StyleSheet.absoluteFill} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }} autofocus="off"
+              zoom={zoom} enableTorch={torch} onBarcodeScanned={(r) => void onScanned(r.data)} />
+            {(['tl', 'tr', 'bl', 'br'] as const).map((c) => <View key={c} style={[styles.corner, styles[c]]} pointerEvents="none" />)}
+            <View style={styles.camControls}>
+              <Tap onPress={() => setTorch((v) => !v)} style={[styles.camBtn, torch && styles.camBtnOn]} accessibilityLabel={t('aadhaar.light')} accessibilityState={{ selected: torch }} testID="aadhaar-torch">
+                <Icon name={torch ? 'flashlight' : 'flashlight-outline'} size={20} color={torch ? 'onLime' : 'onNavy'} />
+              </Tap>
+              <Tap onPress={() => setZoom((z) => ZOOMS[(ZOOMS.indexOf(z as (typeof ZOOMS)[number]) + 1) % ZOOMS.length] ?? 0)} style={styles.camBtn} accessibilityLabel={t('aadhaar.zoom')} testID="aadhaar-zoom">
+                <Txt variant="label" color="onNavy">{`${ZOOMS.indexOf(zoom as (typeof ZOOMS)[number]) + 1}x`}</Txt>
+              </Tap>
+            </View>
           </View>
-          {hint ? <Banner tone="warning" text={hint} testID="aadhaar-hint" /> : <Txt variant="footnote" color="inkMuted" align="center">{t('aadhaar.scanHint')}</Txt>}
-          <Button label={t('common.cancel')} variant="outline" onPress={() => setPhase('INTRO')} testID="aadhaar-cancel" />
+          {hint ? <Banner tone="warning" text={hint} testID="aadhaar-hint" /> : slow ? <Banner tone="info" icon="bulb-outline" text={t('aadhaar.slowHint')} testID="aadhaar-slow" /> : <Txt variant="footnote" color="inkMuted" align="center">{t('aadhaar.scanHint')}</Txt>}
+          {slow ? <Button label={t('aadhaar.takePhoto')} icon="camera" variant="secondary" onPress={() => void fromPhoto('camera')} testID="aadhaar-take-photo" /> : null}
+          <Button label={t('common.cancel')} variant="outline" onPress={() => { setTorch(false); setPhase('INTRO'); }} testID="aadhaar-cancel" />
         </>
       ) : null}
 
@@ -192,7 +224,14 @@ const styles = StyleSheet.create({
   steps: { gap: space.md },
   step: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   num: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' },
-  cameraFrame: { aspectRatio: 1, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: '#000' },
-  reticle: { position: 'absolute', top: '12%', left: '12%', right: '12%', bottom: '12%', borderWidth: 3, borderColor: '#FFFFFF', borderRadius: radius.md },
+  cameraFrame: { aspectRatio: 3 / 4, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: '#000' },
+  corner: { position: 'absolute', width: 40, height: 40, borderColor: colors.lime },
+  tl: { top: '10%', left: '8%', borderTopWidth: 5, borderLeftWidth: 5, borderTopLeftRadius: 16 },
+  tr: { top: '10%', right: '8%', borderTopWidth: 5, borderRightWidth: 5, borderTopRightRadius: 16 },
+  bl: { bottom: '18%', left: '8%', borderBottomWidth: 5, borderLeftWidth: 5, borderBottomLeftRadius: 16 },
+  br: { bottom: '18%', right: '8%', borderBottomWidth: 5, borderRightWidth: 5, borderBottomRightRadius: 16 },
+  camControls: { position: 'absolute', bottom: space.lg, alignSelf: 'center', flexDirection: 'row', gap: space.md },
+  camBtn: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' },
+  camBtnOn: { backgroundColor: colors.lime, borderColor: colors.lime },
   result: { gap: space.md, alignSelf: 'stretch' },
 });

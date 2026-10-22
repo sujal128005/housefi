@@ -7,9 +7,12 @@ import { createPressGuard } from './pressGuard';
 import { Tap } from './Tap';
 import { Txt, type TextColor } from './Txt';
 
-export type ButtonVariant = 'primary' | 'accent' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
+export type ButtonVariant = 'primary' | 'accent' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success' | 'lime';
 
-/** Primary is the cobalt brand gradient with a soft glow; accent is amber (for the one key action on a cobalt surface). */
+/**
+ * Primary is the cobalt brand gradient with a soft glow; accent is amber (for the one key action on a cobalt surface);
+ * lime closes happy moments ("Done" after a success, rewards).
+ */
 const GRADIENT: Partial<Record<ButtonVariant, readonly [string, string]>> = {
   primary: ['#2A7BFF', '#0A3CF5'],
   success: ['#22B868', '#11924F'],
@@ -23,6 +26,7 @@ const LOOK: Record<ButtonVariant, { bg: string; fg: TextColor; border?: string }
   ghost: { bg: 'transparent', fg: 'blue' },
   danger: { bg: colors.dangerTint, fg: 'onDangerTint' },
   success: { bg: colors.success, fg: 'onNavy' },
+  lime: { bg: colors.lime, fg: 'onLime' },
 };
 
 export interface ButtonProps {
@@ -62,6 +66,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', icon,
         { minHeight: height, backgroundColor: look.bg, borderColor: look.border ?? 'transparent', paddingHorizontal: size === 'sm' ? space.md : space.xl },
         (variant === 'primary' || variant === 'accent') && !inactive && shadow.button,
         variant === 'accent' && !inactive && styles.accentShadow,
+        variant === 'lime' && !inactive && styles.limeShadow,
         inactive && styles.inactive,
         style,
       ]}
@@ -91,6 +96,7 @@ const styles = StyleSheet.create({
   base: { borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   fill: { borderRadius: radius.lg },
   accentShadow: { shadowColor: '#C98A00' },
+  limeShadow: { shadowColor: '#5FA81E', shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
   label: { flexShrink: 1 },
   inactive: { opacity: 0.45 },
