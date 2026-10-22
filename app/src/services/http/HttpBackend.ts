@@ -6,7 +6,7 @@ import {
   type CouponResult, type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
-  Address, Booking, Category, Customer, Earnings, Job, JobOffer, Part, Photo, ProblemDescription, Service, Slot, TechProfile, VoiceNote,
+  Address, Booking, Category, Customer, Earnings, Job, JobOffer, Part, PayoutAccount, Photo, ProblemDescription, Service, Slot, TechProfile, VoiceNote,
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
@@ -103,6 +103,7 @@ const decodeCategory = (json: unknown): Category => record<Category>(json, 'cate
 const decodeSlot = (json: unknown): Slot => record<Slot>(json, 'slot', ['id', 'date', 'startHour', 'state']);
 const decodeNotification = (json: unknown): AppNotification => record<AppNotification>(json, 'notification', ['id', 'kind', 'at', 'read']);
 const decodeEarnings = (json: unknown): Earnings => record<Earnings>(json, 'earnings', ['today', 'total', 'entries']);
+const decodePayoutAccount = (json: unknown): PayoutAccount => record<PayoutAccount>(json, 'payout account', ['rail', 'holderName', 'hint', 'updatedAt']);
 const decodeNothing = (): void => undefined;
 const decodeConversation = (json: unknown): SupportConversation => record<SupportConversation>(json, 'conversation', ['id', 'state', 'topic', 'messages']);
 const decodeDial = (json: unknown) => ({ dialNumber: str(obj(json, 'call'), 'dialNumber') });
@@ -370,6 +371,8 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     confirmCash: techAction('confirm-cash'),
     report: (handle, id, issue, note, location) => call(handle, 'POST', apiPath`/tech/jobs/${id}/reports`, decodeJob, { issue, note, ...(location ? { location } : {}) }),
     earnings: (handle) => call(handle, 'GET', apiPath`/tech/earnings`, decodeEarnings),
+    payoutAccount: (handle) => call(handle, 'GET', apiPath`/tech/payout-account`, (j) => (j === null ? null : decodePayoutAccount(j))),
+    setPayoutAccount: (handle, input) => call(handle, 'PUT', apiPath`/tech/payout-account`, decodePayoutAccount, input),
     verifyAadhaar: (handle, qr) =>
       call(handle, 'POST', apiPath`/tech/aadhaar`, (j) => {
         const o = obj(j, 'aadhaar');

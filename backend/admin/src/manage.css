@@ -104,3 +104,15 @@ label.check input { margin-top: 3px; width: 16px; height: 16px; }
 .toast { background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 12px; box-shadow: 0 12px 30px rgba(11, 20, 48, 0.3); font-weight: 600; animation: rise 0.2s ease-out; }
 .toast.error { background: #b42326; }
 @keyframes rise { from { transform: translateY(10px); opacity: 0; } }
+
+/* Payouts: the week's bank files (payout kit) */
+.bank-files { margin-bottom: 18px; display: grid; gap: 12px; }
+.bank-files-head { display: flex; align-items: center; justify-content: space-between; }
+.bank-files-head h3 { margin: 0; }
+.bank-file { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); }
+.bank-file .mono { flex: 1; min-width: 240px; }
+.notice { padding: 10px 14px; border-radius: var(--radius); }
+.notice ul { margin: 6px 0 0; padding-left: 18px; }
+.notice.warn { background: var(--warn-tint); }
+.notice.stop { background: var(--danger-tint); }
+.credit { display: inline-block; margin-left: 6px; color: var(--brand); font-weight: 600; }

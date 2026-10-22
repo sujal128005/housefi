@@ -2,8 +2,8 @@
 // verification status, Housefi Technician ID), My Housefi ID card and identity correction requests; language, sounds
 // & vibration, help, demo settings, switch to the customer app, sign out.
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { categoryById } from '../../../data/catalog';
@@ -11,6 +11,7 @@ import { Art3D } from '../../../illustrations/Art3D';
 import { formatPhone } from '../../../i18n/format';
 import { useI18n } from '../../../i18n/I18n';
 import { resetTo } from '../../../navigation';
+import type { PayoutAccount } from '../../../domain/types';
 import { isApiError } from '../../../services/api';
 import { useBackend, useIsDemo } from '../../../services/ServicesProvider';
 import { feedback } from '../../../services/feedback';
@@ -33,6 +34,15 @@ export default function TechProfile() {
   const isDemo = useIsDemo();
   const toast = useToast();
   const [confirm, setConfirm] = useState(false);
+  /** undefined while loading (or when it could not be read), null when not added yet. */
+  const [payout, setPayout] = useState<PayoutAccount | null | undefined>(undefined);
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    void backend.tech.payoutAccount(session.token).then((a) => alive && setPayout(a)).catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [backend, session.token]));
   const [deleting, setDeleting] = useState<'ASK' | 'BUSY' | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const removeAccount = async () => {
@@ -146,6 +156,8 @@ export default function TechProfile() {
             <Divider />
           </>
         ) : null}
+        <ListRow icon="wallet-outline" title={t('tprofile.payout')} subtitle={payout === null ? t('tprofile.payoutMissing') : payout ? payout.hint : t('tprofile.payoutSub')} onPress={() => router.push('/tech/payout')} testID="tprofile-payout" />
+        <Divider />
         <ListRow icon="create-outline" title={t('tprofile.edit')} subtitle={t('tprofile.editSub')} onPress={() => router.push({ pathname: '/tech/setup', params: { edit: '1' } })} testID="tprofile-edit" />
         <Divider />
         <ListRow icon="language-outline" title={t('account.language')} subtitle={locale === 'te' ? 'తెలుగు' : 'English'} testID="tprofile-language"

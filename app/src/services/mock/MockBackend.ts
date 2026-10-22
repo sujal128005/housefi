@@ -17,9 +17,10 @@ import {
 import { displayName, isValidPhoto, newTechCode, newVerifyToken, VERIFY_TOKEN_RE, type RandomBytes } from '../../domain/identity';
 import type {
   Address, AddressInput, AssignedTechnician, Booking, BookingStatus, CancelReason, CategoryId, Customer, Earnings, Job, JobOffer, Payment,
-  PaymentMethod, Quote, QuoteLine, Session, StatusEvent, TechIdCard, TechIssue, TechProfile, TechProfileInput, Technician, TechVerifyResult,
+  PaymentMethod, PayoutAccount, Quote, QuoteLine, Session, StatusEvent, TechIdCard, TechIssue, TechProfile, TechProfileInput, Technician, TechVerifyResult,
   VisitTime,
 } from '../../domain/types';
+import { payoutHint, payoutProblems, tidyPayout } from '../../domain/payout';
 import { quoteVisible } from '../../domain/types';
 import {
   ApiError, type AppNotification, type Backend, type ChatReply, type DemoOutcome, type DemoSettings, type KeyValueStore, type NewBooking,
@@ -211,6 +212,9 @@ export function createMockBackend(opts: MockOptions): Backend {
     if (!c) throw new ApiError('UNAUTHENTICATED');
     return c;
   }
+
+  /** Payout details per technician id (kept in memory only: the server encrypts them). */
+  const payoutAccounts = new Map<string, PayoutAccount>();
 
   function techFor(s: DemoState, token: string): StoredTech {
     const tid = s.techSessions[token];
@@ -1527,6 +1531,20 @@ export function createMockBackend(opts: MockOptions): Backend {
 
       async sendLocation() {
         return undefined;
+      },
+
+      async payoutAccount(token): Promise<PayoutAccount | null> {
+        const tech = techFor(await request('READ'), token);
+        return payoutAccounts.get(tech.id) ?? null;
+      },
+
+      async setPayoutAccount(token, input): Promise<PayoutAccount> {
+        const tech = techFor(await request('WRITE'), token);
+        const p = tidyPayout(input);
+        if (payoutProblems(p, p.accountNumber ?? '').length) throw new ApiError('VALIDATION');
+        const saved: PayoutAccount = { rail: p.rail, holderName: p.holderName, hint: payoutHint(p), updatedAt: now() };
+        payoutAccounts.set(tech.id, saved);
+        return saved;
       },
 
       async earnings(token): Promise<Earnings> {

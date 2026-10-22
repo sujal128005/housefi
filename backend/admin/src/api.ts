@@ -138,6 +138,15 @@ export interface PersonDetail {
   readonly earnings: { readonly today: number; readonly total: number; readonly pending: number } | null;
 }
 
+/** The week's bulk-transfer files for the bank (payout kit, built with IBM Bob). */
+export interface BankFiles {
+  readonly weekEnding: string | null;
+  readonly files: readonly { readonly filename: string; readonly rail: 'BANK' | 'UPI'; readonly count: number; readonly amount: number; readonly content: string }[];
+  readonly skipped: readonly { readonly payoutId: string; readonly technicianName: string; readonly problems: readonly string[] }[];
+  readonly warnings: readonly string[];
+  readonly summary: string;
+}
+
 export interface PayoutRow {
   readonly id: string;
   readonly technicianId: string;
@@ -416,6 +425,7 @@ export const api = {
   preparePayouts: () => call<PayoutRow[]>('POST', '/payouts/prepare'),
   payoutPaid: (id: string, reference: string) => call<PayoutRow>('POST', `/payouts/${id}/paid`, { reference }),
   payoutFailed: (id: string) => call<PayoutRow>('POST', `/payouts/${id}/failed`),
+  bankFiles: () => call<BankFiles>('POST', '/payouts/bank-files'),
   alerts: () => call<Alerts>('GET', '/alerts'),
   tickets: (group: 'sos' | 'reports' | 'queries', state: 'OPEN' | 'RESOLVED') => call<Ticket[]>('GET', `/tickets/${group}?state=${state}`),
   ticket: (id: string) => call<Ticket>('GET', `/tickets/${id}`),

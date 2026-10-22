@@ -503,6 +503,24 @@ export interface Earnings {
   readonly weeks?: readonly EarningsWeek[];
 }
 
+/** Where the technician's weekly payout goes. The server keeps the number / UPI ID encrypted and only shows it masked. */
+export interface PayoutAccount {
+  readonly rail: 'BANK' | 'UPI';
+  readonly holderName: string;
+  /** Masked: "XXXXXX1234 · SBIN0001234" or "r*****@okicici". */
+  readonly hint: string;
+  readonly updatedAt: number;
+}
+
+export interface PayoutAccountInput {
+  readonly rail: 'BANK' | 'UPI';
+  /** As on the bank account. */
+  readonly holderName: string;
+  readonly accountNumber?: string;
+  readonly ifsc?: string;
+  readonly upiId?: string;
+}
+
 /** One week (Monday to Sunday) of earnings, and what happened to its payout. Paid on the Monday after it. */
 export interface EarningsWeek {
   /** Monday, "2026-10-12". */

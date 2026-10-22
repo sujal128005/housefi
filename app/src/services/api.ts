@@ -2,7 +2,7 @@
 // (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
 // build of the app uses it.
 import type {
-  Address, AddressInput, Booking, CancelReason, Category, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part,
+  Address, AddressInput, Booking, CancelReason, Category, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
 
@@ -339,6 +339,10 @@ export interface TechApi {
   /** CUSTOMER_UNAVAILABLE and CANNOT_COMPLETE close the visit; the others alert support (UNSAFE with where the phone was). */
   report(token: string, id: string, issue: TechIssue, note: string, location?: Position | null): Promise<Job>;
   earnings(token: string): Promise<Earnings>;
+  /** Where the weekly payout goes; null until added. */
+  payoutAccount(token: string): Promise<PayoutAccount | null>;
+  /** Adds or changes the payout details. VALIDATION names the wrong fields (holderName, accountNumber, ifsc, upiId). */
+  setPayoutAccount(token: string, input: PayoutAccountInput): Promise<PayoutAccount>;
   /**
    * Verifies the technician's Aadhaar offline from the Secure QR code on the card (the text the camera read). Stores only
    * the last 4 digits and whether the name matches. VALIDATION for a QR that is not a signed Aadhaar Secure QR; CONFLICT

@@ -960,6 +960,28 @@ paths:
       tags: [technician]
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Earnings' } } } }
+  /tech/payout-account:
+    get:
+      tags: [technician]
+      summary: Where the weekly payout goes (null until added); the account number or UPI ID only masked
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { oneOf: [{ $ref: '#/components/schemas/PayoutAccount' }, { type: 'null' }] } } }
+    put:
+      tags: [technician]
+      summary: Add or change the payout details (bank account + IFSC, or a UPI ID); stored encrypted
+      description: >-
+        Checked by the payout kit: holder name 2-60 letters, spaces or dots as on the bank account; account number 9-18
+        digits; IFSC 4 letters, 0, 6 letters or digits (upper-cased); UPI ID name@handle. Details changed in the last
+        48 hours are flagged to Housefi HQ before the next payout.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PayoutAccountInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PayoutAccount' } } } }
+        '404': { description: No technician profile yet, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorBody' } } } }
+        '422': { $ref: '#/components/responses/Error' }
 
   # ---------------- coordinator (API only in v1; for technicians without smartphones) ----------------
   /coordinator/jobs:
@@ -1623,6 +1645,23 @@ components:
               qty: { type: integer, minimum: 1, maximum: 99 }
               unitPrice: { type: integer, minimum: 1, maximum: 100000 }
               partId: { type: string, description: A part from the price list (materials only) }
+    PayoutAccountInput:
+      type: object
+      required: [rail, holderName]
+      properties:
+        rail: { type: string, enum: [BANK, UPI] }
+        holderName: { type: string, maxLength: 100, description: As on the bank account }
+        accountNumber: { type: string, maxLength: 40, description: BANK only }
+        ifsc: { type: string, maxLength: 20, description: BANK only }
+        upiId: { type: string, maxLength: 300, description: UPI only }
+    PayoutAccount:
+      type: object
+      required: [rail, holderName, hint, updatedAt]
+      properties:
+        rail: { type: string, enum: [BANK, UPI] }
+        holderName: { type: string }
+        hint: { type: string, description: 'Masked, e.g. XXXXXX1234 · SBIN0001234 or r*****@okicici', example: XXXXXXX2101 · SBIN0001234 }
+        updatedAt: { type: integer, format: int64, description: Epoch milliseconds }
     Earnings:
       type: object
       required: [today, jobsToday, total, pendingPayout, nextPayoutOn, entries, weeks]
