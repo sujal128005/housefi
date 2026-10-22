@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { categoryById, serviceById } from '../data/catalog';
 import { progressIndex, PROGRESS_STEPS } from '../domain/rules';
@@ -10,7 +11,7 @@ import { visitTimeText } from './present';
 import { Card, StatusPill } from './Surfaces';
 import { Txt } from './Txt';
 
-export function BookingCard({ booking, onPress, showProgress }: { readonly booking: Booking; readonly onPress: () => void; readonly showProgress?: boolean }) {
+function BookingCardView({ booking, onPress, showProgress }: { readonly booking: Booking; readonly onPress: () => void; readonly showProgress?: boolean }) {
   const { t, l, locale } = useI18n();
   const svc = serviceById(booking.serviceId);
   const cat = categoryById(booking.categoryId);
@@ -44,3 +45,6 @@ const styles = StyleSheet.create({
   seg: { flex: 1, height: 5, borderRadius: radius.pill, backgroundColor: colors.line },
   segOn: { backgroundColor: colors.blue },
 });
+
+/** Redraws only when the booking itself changes (taps always go to the same booking, so a new onPress does not count). */
+export const BookingCard = memo(BookingCardView, (a, b) => a.booking === b.booking && a.showProgress === b.showProgress);

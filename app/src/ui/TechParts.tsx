@@ -1,3 +1,4 @@
+import { memo } from 'react';
 // Building blocks of the technician app: the job stage stepper, job cards, directions, and money rows.
 import { Linking, Platform, StyleSheet, View } from 'react-native';
 import { categoryById, serviceById } from '../data/catalog';
@@ -64,7 +65,7 @@ export async function openDirections(a: Address): Promise<boolean> {
 }
 
 /** A job in a list: service, customer area, time, status and what it earns. */
-export function JobCard({ job, onPress }: { readonly job: Job; readonly onPress: () => void }) {
+function JobCardView({ job, onPress }: { readonly job: Job; readonly onPress: () => void }) {
   const { t, l, locale } = useI18n();
   const svc = serviceById(job.serviceId);
   const cat = categoryById(job.categoryId);
@@ -124,3 +125,6 @@ const styles = StyleSheet.create({
   info: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
   infoIcon: { width: 40, height: 40, borderRadius: radius.icon, backgroundColor: colors.blueTint, alignItems: 'center', justifyContent: 'center' },
 });
+
+/** Redraws only when the job itself changes (taps always go to the same job, so a new onPress does not count). */
+export const JobCard = memo(JobCardView, (a, b) => a.job === b.job);
