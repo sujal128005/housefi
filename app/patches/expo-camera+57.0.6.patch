@@ -1,0 +1,26 @@
+diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
+index 21382f8..ddf7295 100644
+--- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
++++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
+@@ -169,6 +169,8 @@ class CameraViewModule : Module() {
+ 
+       try {
+         val options = GmsBarcodeScannerOptions.Builder().apply {
++          // Housefi: zoom in by itself on small or far codes (the dense Aadhaar Secure QR).
++          enableAutoZoom()
+           if (settings.barcodeTypes.isNotEmpty()) {
+             setBarcodeFormats(
+               settings.barcodeTypes.first().mapToBarcode(),
+diff --git a/node_modules/expo-camera/ios/CameraViewModule.swift b/node_modules/expo-camera/ios/CameraViewModule.swift
+index e199463..50c774c 100644
+--- a/node_modules/expo-camera/ios/CameraViewModule.swift
++++ b/node_modules/expo-camera/ios/CameraViewModule.swift
+@@ -396,6 +396,8 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+     let symbologies = options?.toSymbology() ?? []
+     let controller = DataScannerViewController(
+       recognizedDataTypes: [.barcode(symbologies: symbologies)],
++      // Housefi: full-resolution recognition reads dense codes (the Aadhaar Secure QR) much better than .balanced.
++      qualityLevel: .accurate,
+       isPinchToZoomEnabled: options?.isPinchToZoomEnabled ?? true,
+       isGuidanceEnabled: options?.isGuidanceEnabled ?? true,
+       isHighlightingEnabled: options?.isHighlightingEnabled ?? false
