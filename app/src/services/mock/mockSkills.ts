@@ -243,9 +243,10 @@ export function createMockSkills(deps: {
 
     async removeCertificate(token, certificateId) {
       const s = state((await deps.who(token)).id);
-      const before = s.certificates.length;
+      const cert = s.certificates.find((c) => c.id === certificateId);
+      if (!cert) throw new ApiError('NOT_FOUND');
+      if (cert.status === 'APPROVED') throw new ApiError('CONFLICT');
       s.certificates = s.certificates.filter((c) => c.id !== certificateId);
-      if (s.certificates.length === before) throw new ApiError('NOT_FOUND');
       return overview(token);
     },
 

@@ -1316,6 +1316,7 @@ export const te: Record<StringKey, string> = {
   'skills.certTitle': "సర్టిఫికెట్లు",
   'skills.certHint': "ITI, స్కిల్ ఇండియా లేదా ఇతర. ఫోటో లేదా PDF, గరిష్ఠంగా {max}. ఆమోదించినవి మీ ప్రొఫైల్, IDలో కనిపిస్తాయి.",
   'skills.certAdd': "సర్టిఫికెట్ జోడించండి",
+  'skills.certLocked': "Housefi ఆమోదించింది: ఇది మీ ప్రొఫైల్, IDలో ఉంటుంది.",
   'skills.certSample': "నమూనా సర్టిఫికెట్ జోడించండి (డెమో)",
   'skills.cert.ITI': "ITI",
   'skills.cert.SKILL_INDIA': "స్కిల్ ఇండియా",

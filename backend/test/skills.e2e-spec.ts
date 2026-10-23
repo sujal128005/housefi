@@ -241,6 +241,8 @@ describe('skill check (e2e)', () => {
       await api().post('/v1/tech/skills/certificates').set(as(tech.token)).send({ kind: 'SKILL_INDIA', sample: true }).expect(422); // demo only
 
       await review().decideCertificate(ids[0]!, 'APPROVE', '', HQ);
+      // Approved by Housefi: it stays (it is on the profile and the ID card).
+      await api().delete(`/v1/tech/skills/certificates/${ids[0]}`).set(as(tech.token)).expect(409);
       await review().decideCertificate(ids[1]!, 'REJECT', 'Blurred photo', HQ);
       expect((await skills()).certificates.map((c: { status: string; reviewNote: string | null }) => [c.status, c.reviewNote])).toEqual([['APPROVED', null], ['REJECTED', 'Blurred photo'], ['PENDING', null]]);
       expect((await me()).skillCheck.certifications).toEqual([{ kind: 'ITI', title: 'Cert 0' }]);

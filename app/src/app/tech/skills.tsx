@@ -236,9 +236,14 @@ export default function SkillCheckScreen() {
                   <Pill tone={c.status === 'APPROVED' ? 'success' : c.status === 'REJECTED' ? 'danger' : 'info'} label={t(`skills.certStatus.${c.status}` as StringKey)} />
                   {c.reviewNote ? <Txt variant="footnote" color="inkMuted">{c.reviewNote}</Txt> : null}
                 </View>
-                <Tap onPress={() => void run(`remove-${c.id}`, () => backend.tech.removeCertificate(session.token, c.id))} accessibilityLabel={t('common.remove')} testID={`skills-cert-remove-${c.id}`}>
-                  <Icon name="trash-outline" size={20} color="inkMuted" />
-                </Tap>
+                {/* Approved by Housefi: it stays on the profile and ID card (it cannot be removed). */}
+                {c.status === 'APPROVED' ? (
+                  <View accessible accessibilityLabel={t('skills.certLocked')} testID={`skills-cert-locked-${c.id}`}><Icon name="lock-closed" size={18} color="inkMuted" /></View>
+                ) : (
+                  <Tap onPress={() => void run(`remove-${c.id}`, () => backend.tech.removeCertificate(session.token, c.id))} accessibilityLabel={t('common.remove')} testID={`skills-cert-remove-${c.id}`}>
+                    <Icon name="trash-outline" size={20} color="inkMuted" />
+                  </Tap>
+                )}
               </Card>
             ))}
             {live < check.rules.maxCertificates ? (

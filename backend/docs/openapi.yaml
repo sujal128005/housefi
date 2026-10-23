@@ -980,10 +980,12 @@ paths:
   /tech/skills/certificates/{certificateId}:
     delete:
       tags: [technician, skills]
+      summary: Remove a certificate still waiting or refused (409 for one Housefi approved)
       parameters: [{ name: certificateId, in: path, required: true, schema: { type: string } }]
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillCheck' } } } }
         '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /tech/skills/submit:
     post:
       tags: [technician, skills]

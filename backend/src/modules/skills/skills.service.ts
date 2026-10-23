@@ -356,10 +356,14 @@ export class SkillsService {
     return this.overview(userId);
   }
 
+  /** A certificate still waiting or refused can be removed; one Housefi approved stays (it is on the profile and ID). */
   async removeCertificate(userId: string, id: string): Promise<SkillCheckDto> {
     await this.technician(userId);
-    const gone = UUID.test(id) ? await this.prisma.skillCertificate.deleteMany({ where: { id, technicianId: userId } }) : { count: 0 };
-    if (!gone.count) throw new AppError('NOT_FOUND');
+    const cert = UUID.test(id) ? await this.prisma.skillCertificate.findFirst({ where: { id, technicianId: userId }, select: { status: true } }) : null;
+    if (!cert) throw new AppError('NOT_FOUND');
+    if (cert.status === 'APPROVED') throw new AppError('CONFLICT', {}, 'an approved certificate cannot be removed');
+    const gone = await this.prisma.skillCertificate.deleteMany({ where: { id, technicianId: userId, status: { not: 'APPROVED' } } });
+    if (!gone.count) throw new AppError('CONFLICT', {}, 'an approved certificate cannot be removed');
     await this.audit.record({ actorType: 'TECHNICIAN', actorId: userId, action: 'tech.certificate_removed', entity: 'skill_certificate', entityId: id });
     return this.overview(userId);
   }

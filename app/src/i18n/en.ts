@@ -1316,6 +1316,7 @@ export const en = {
   'skills.certTitle': "Certificates",
   'skills.certHint': "ITI, Skill India or other. A photo or PDF, up to {max}. Approved ones show on your profile and ID.",
   'skills.certAdd': "Add certificate",
+  'skills.certLocked': "Approved by Housefi: it stays on your profile and ID.",
   'skills.certSample': "Add a sample certificate (demo)",
   'skills.cert.ITI': "ITI",
   'skills.cert.SKILL_INDIA': "Skill India",
