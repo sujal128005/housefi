@@ -1,7 +1,7 @@
 // Small checks for JSON from the live backend: each decoder returns a typed value or throws, and the transport turns
 // a throw into BAD_RESPONSE. Decoders exist for the responses where a wrong shape could mislead people (identity and
 // verification); the rest are added with the HTTP client once the backend team confirms each endpoint.
-import type { CategoryId, Gender, TechIdCard, TechVerifyResult, Verification } from '../../domain/types';
+import type { CategoryId, Certification, Gender, MyPassport, SkillLevel, SkillPassport, TechIdCard, TechVerifyResult, TradeProof, Verification } from '../../domain/types';
 
 export class DecodeError extends Error {}
 
@@ -60,5 +60,39 @@ export function decodeTechVerifyResult(json: unknown): TechVerifyResult {
     techCode: str(o, 'techCode'), displayName: str(o, 'displayName'), photo: strOrNull(o, 'photo'), gender: oneOf(o, 'gender', GENDER),
     verification: oneOf(o, 'verification', VERIFICATION), simulated: bool(o, 'simulated'), active: bool(o, 'active'),
     checkedAt: num(o, 'checkedAt'), fictional: bool(o, 'fictional'),
+    passport: o.passport === null || o.passport === undefined ? null : decodeSkillPassport(o.passport),
   };
+}
+
+const LEVEL: readonly SkillLevel[] = ['UNSKILLED', 'SEMI_SKILLED', 'SKILLED', 'HIGHLY_SKILLED'];
+const PROOF: readonly TradeProof[] = ['EXAM', 'VIDEO', 'HQ', 'EARLIER'];
+const CERT_KIND = ['ITI', 'SKILL_INDIA', 'OTHER', 'HOUSEFI_COURSE'] as const;
+
+function list(o: Record<string, unknown>, k: string): Record<string, unknown>[] {
+  const v = o[k];
+  if (!Array.isArray(v)) throw new DecodeError(`${k}: expected a list`);
+  return v.map((x) => obj(x, k));
+}
+function numOrNull(o: Record<string, unknown>, k: string): number | null {
+  return o[k] === null ? null : num(o, k);
+}
+
+/** The Skill Passport (on the public verification answer and GET /tech/passport). */
+export function decodeSkillPassport(json: unknown): SkillPassport {
+  const o = obj(json, 'passport');
+  return {
+    memberSince: num(o, 'memberSince'), experienceYears: num(o, 'experienceYears'), city: str(o, 'city'),
+    level: o.level === null ? null : oneOf(o, 'level', LEVEL), jobsDone: num(o, 'jobsDone'), rating: numOrNull(o, 'rating'), ratingCount: num(o, 'ratingCount'),
+    trades: list(o, 'trades').map((t) => ({
+      categoryId: str(t, 'categoryId') as CategoryId, provenBy: oneOf(t, 'provenBy', PROOF), examPoints: numOrNull(t, 'examPoints'), examMaxPoints: numOrNull(t, 'examMaxPoints'), at: num(t, 'at'),
+    })),
+    courses: list(o, 'courses').map((c) => ({ title: str(c, 'title'), at: num(c, 'at') })),
+    certificates: list(o, 'certificates').map((c): Certification => ({ kind: oneOf(c, 'kind', CERT_KIND), title: str(c, 'title') })),
+  };
+}
+
+/** GET/PUT /tech/passport. */
+export function decodeMyPassport(json: unknown): MyPassport {
+  const o = obj(json, 'my passport');
+  return { public: bool(o, 'public'), link: str(o, 'link'), passport: decodeSkillPassport(o.passport) };
 }

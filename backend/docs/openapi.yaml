@@ -863,6 +863,29 @@ paths:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AadhaarResult' } } } }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /tech/passport:
+    get:
+      tags: [technician, identity]
+      summary: The technician's own Skill Passport, whether it shows on the public QR page, and that page's link (no-store)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/MyPassport' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      tags: [technician, identity]
+      summary: Show or hide the Skill Passport on the public QR page (off by default)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [public]
+              properties:
+                public: { type: boolean }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/MyPassport' } } } }
+        '404': { $ref: '#/components/responses/Error' }
   /tech/identity-corrections:
     post:
       tags: [technician, identity]
@@ -1789,6 +1812,48 @@ components:
         active: { type: boolean, description: Allowed to work for Housefi right now }
         checkedAt: { type: integer, description: Epoch ms }
         fictional: { type: boolean }
+        passport:
+          description: The Skill Passport, only when the technician switched it on and is active
+          oneOf: [{ $ref: '#/components/schemas/SkillPassport' }, { type: 'null' }]
+    SkillPassport:
+      type: object
+      description: The technician's career as they chose to show it. No phone number, no address.
+      required: [memberSince, experienceYears, city, level, jobsDone, rating, ratingCount, trades, courses, certificates]
+      properties:
+        memberSince: { $ref: '#/components/schemas/EpochMs' }
+        experienceYears: { type: integer }
+        city: { type: string }
+        level: { oneOf: [{ $ref: '#/components/schemas/SkillLevel' }, { type: 'null' }] }
+        jobsDone: { type: integer }
+        rating: { type: [number, 'null'] }
+        ratingCount: { type: integer }
+        trades:
+          type: array
+          items:
+            type: object
+            required: [categoryId, provenBy, examPoints, examMaxPoints, at]
+            properties:
+              categoryId: { $ref: '#/components/schemas/CategoryId' }
+              provenBy: { type: string, enum: [EXAM, VIDEO, HQ, EARLIER] }
+              examPoints: { type: [integer, 'null'], description: Best passed exam score (EXAM only) }
+              examMaxPoints: { type: [integer, 'null'] }
+              at: { $ref: '#/components/schemas/EpochMs' }
+        courses:
+          type: array
+          items:
+            type: object
+            required: [title, at]
+            properties:
+              title: { type: string }
+              at: { $ref: '#/components/schemas/EpochMs' }
+        certificates: { type: array, items: { $ref: '#/components/schemas/Certification' }, description: Checked by Housefi (not courses) }
+    MyPassport:
+      type: object
+      required: [public, link, passport]
+      properties:
+        public: { type: boolean, description: Shown on the public QR page }
+        link: { type: string, description: The public QR page }
+        passport: { $ref: '#/components/schemas/SkillPassport' }
     QuoteLine:
       type: object
       required: [kind, name, qty, unitPrice]

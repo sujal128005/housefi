@@ -342,6 +342,26 @@ describe('live client: payout details', () => {
   });
 });
 
+describe('live client: Skill Passport', () => {
+  const PASSPORT = {
+    memberSince: 1, experienceYears: 5, city: 'Hyderabad', level: 'SKILLED', jobsDone: 42, rating: 4.8, ratingCount: 30,
+    trades: [{ categoryId: 'PLUMBING', provenBy: 'EXAM', examPoints: 40, examMaxPoints: 50, at: 2 }],
+    courses: [{ title: 'Fixing leaking taps', at: 3 }], certificates: [{ kind: 'ITI', title: 'ITI Plumber 2019' }],
+  };
+
+  it('reads the passport, switches it on with PUT, and refuses a wrong shape', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['GET /tech/passport'] = () => json(200, { public: false, link: 'https://housefi.tech/t/#abc', passport: PASSPORT });
+    expect(await t.backend.tech.passport(s.token)).toEqual({ public: false, link: 'https://housefi.tech/t/#abc', passport: PASSPORT });
+    t.routes['PUT /tech/passport'] = () => json(200, { public: true, link: 'https://housefi.tech/t/#abc', passport: PASSPORT });
+    expect((await t.backend.tech.setPassportPublic(s.token, true)).public).toBe(true);
+    expect(t.calls.at(-1)).toMatchObject({ method: 'PUT', url: '/tech/passport', body: { public: true } });
+    t.routes['GET /tech/passport'] = () => json(200, { public: false, link: 'x', passport: { ...PASSPORT, trades: [{ ...PASSPORT.trades[0], provenBy: 'GUESS' }] } });
+    await expect(t.backend.tech.passport(s.token)).rejects.toMatchObject({ code: 'BAD_RESPONSE' });
+  });
+});
+
 describe('live client: skill check', () => {
   const CHECK = { level: 'SKILLED', required: true, submittedAt: null, canSubmit: false, demo: false, trades: [], video: null, certificates: [], rules: {} };
   const EXAM = { id: 'ex1', categoryId: 'PLUMBING', level: 'SKILLED', state: 'IN_PROGRESS', serverNow: 1, startedAt: 1, endsAt: 2, sections: [], currentSection: 0, questions: [], answers: {}, leftApp: 0, maxLeftApp: 3, result: null };

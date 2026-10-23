@@ -172,6 +172,11 @@ at most 100 MB: Cloudflare's limit) and publishes. Basic and safety free; advanc
 (`course_payments`, same Razorpay checkout and webhook as bookings). Completion = every lesson watched at normal speed +
 quiz 3/5 → a `HOUSEFI_COURSE` certification on the profile and ID. Changing course texts needs a backend deploy only.
 
+**Skill Passport** (technician app → Profile → My Skill Passport): the technician's record, proven trades (and how:
+exam score, video, HQ), Housefi courses and checked certificates. Off by default (`technicians.passport_public`); when
+switched on it appears on the public QR page (`GET /verify/technicians/{token}` → `passport`, shown by the website's
+`/t/` page). API: `GET`/`PUT /tech/passport` in `src/modules/identity/`. Never phone numbers or addresses.
+
 **Telephony** (masked calls, keypad job offers): `TelephonyProvider` in `src/modules/telephony/telephony-provider.ts`
 (Exotel and a fake). `TELEPHONY_PROVIDER=off` until Exotel is set up (calls fall back to "call me back").
 

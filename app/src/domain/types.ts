@@ -373,6 +373,33 @@ export interface TechVerifyResult {
   readonly active: boolean;
   readonly checkedAt: number;
   readonly fictional: boolean;
+  /** The Skill Passport, only when the technician switched it on and is active. */
+  readonly passport?: SkillPassport | null;
+}
+
+/** How a trade was proven: the skill exam, a work video Housefi approved, Housefi itself, or before the skill check. */
+export type TradeProof = 'EXAM' | 'VIDEO' | 'HQ' | 'EARLIER';
+
+/** A technician's career as they chose to show it (no phone number, no address). */
+export interface SkillPassport {
+  readonly memberSince: number;
+  readonly experienceYears: number;
+  readonly city: string;
+  readonly level: SkillLevel | null;
+  readonly jobsDone: number;
+  readonly rating: number | null;
+  readonly ratingCount: number;
+  readonly trades: readonly { readonly categoryId: CategoryId; readonly provenBy: TradeProof; readonly examPoints: number | null; readonly examMaxPoints: number | null; readonly at: number }[];
+  readonly courses: readonly { readonly title: string; readonly at: number }[];
+  /** Certificates Housefi checked (not courses). */
+  readonly certificates: readonly Certification[];
+}
+
+/** The technician's own passport, whether it shows on the public QR page, and that page's link. */
+export interface MyPassport {
+  readonly public: boolean;
+  readonly link: string;
+  readonly passport: SkillPassport;
 }
 
 export interface TechProfileInput {

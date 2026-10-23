@@ -10,7 +10,7 @@ import type {
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
-import { DecodeError, decodeTechIdCard, decodeTechVerifyResult, num, obj, str } from './decode';
+import { DecodeError, decodeMyPassport, decodeTechIdCard, decodeTechVerifyResult, num, obj, str } from './decode';
 import { openLiveStream } from './liveStream';
 import { apiPath, createTransport, type ApiPath, type HttpMethod } from './transport';
 import { createUploader, isLocalFile, type PhotoStage, type UploadKind, type UploadTicket } from './uploads';
@@ -371,6 +371,8 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
       return call(handle, 'PUT', apiPath`/tech/profile`, decodeProfile, { ...rest, ...(photoUploadId ? { photoUploadId } : {}) });
     },
     idCard: (handle) => call(handle, 'GET', apiPath`/tech/id-card`, decodeTechIdCard),
+    passport: (handle) => call(handle, 'GET', apiPath`/tech/passport`, decodeMyPassport),
+    setPassportPublic: (handle, on) => call(handle, 'PUT', apiPath`/tech/passport`, decodeMyPassport, { public: on }),
     requestIdentityCorrection: (handle, kind, note) => call(handle, 'POST', apiPath`/tech/identity-corrections`, decodeProfile, { kind, note }),
     setOnline: (handle, online) => call(handle, 'POST', apiPath`/tech/availability`, decodeProfile, { online }),
     skills: (handle) => call(handle, 'GET', apiPath`/tech/skills`, decodeSkillCheck),

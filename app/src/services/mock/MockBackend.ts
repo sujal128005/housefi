@@ -17,7 +17,7 @@ import {
 import { displayName, isValidPhoto, newTechCode, newVerifyToken, VERIFY_TOKEN_RE, type RandomBytes } from '../../domain/identity';
 import type {
   Address, AddressInput, AssignedTechnician, Booking, BookingStatus, CancelReason, CategoryId, Customer, Earnings, Job, JobOffer, Payment,
-  PaymentMethod, PayoutAccount, Quote, QuoteLine, Session, StatusEvent, TechIdCard, TechIssue, TechProfile, TechProfileInput, Technician, TechVerifyResult,
+  PaymentMethod, PayoutAccount, Quote, QuoteLine, Session, StatusEvent, SkillPassport, MyPassport, TechIdCard, TechIssue, TechProfile, TechProfileInput, Technician, TechVerifyResult,
   VisitTime,
 } from '../../domain/types';
 import { payoutHint, payoutProblems, tidyPayout } from '../../domain/payout';
@@ -59,6 +59,8 @@ interface StoredTech extends TechProfile {
   readonly submittedAt: number | null;
   /** Token behind the ID card's QR code (the verification page link); issued with the Technician ID. */
   readonly verifyToken: string | null;
+  /** Skill Passport shown on the QR page (off until the technician switches it on). */
+  readonly passportPublic?: boolean;
 }
 
 /**
@@ -356,6 +358,20 @@ export function createMockBackend(opts: MockOptions): Backend {
       photoStatus: idn.photoStatus, gender: tech.gender, skills: tech.skills, verification: tech.verification ?? 'PENDING', simulated: idn.simulated,
       verifyUrl: DEMO_VERIFY_BASE + tech.verifyToken, verifyIsDemo: true, fictional: false,
     };
+  }
+
+  /** The test double's passport: the technician's trades (as proven before the skill check), jobs and rating. */
+  function passportForTech(tech: StoredTech): SkillPassport {
+    return {
+      memberSince: tech.submittedAt ?? now(), experienceYears: tech.experienceYears, city: tech.city, level: null, jobsDone: tech.jobsDone,
+      rating: tech.rating, ratingCount: tech.rating === null ? 0 : tech.jobsDone, courses: [], certificates: [],
+      trades: tech.skills.map((categoryId) => ({ categoryId, provenBy: 'EARLIER' as const, examPoints: null, examMaxPoints: null, at: tech.submittedAt ?? now() })),
+    };
+  }
+
+  function myPassport(tech: StoredTech): MyPassport {
+    if (!tech.identity || !tech.verifyToken) throw new ApiError('NOT_FOUND');
+    return { public: tech.passportPublic === true, link: DEMO_VERIFY_BASE + tech.verifyToken, passport: passportForTech(tech) };
   }
 
   function cardForFictional(t: Technician): TechIdCard {
@@ -1384,6 +1400,17 @@ export function createMockBackend(opts: MockOptions): Backend {
         return card;
       },
 
+      async passport(token) {
+        return myPassport(techFor(await request('READ'), token));
+      },
+
+      async setPassportPublic(token, on) {
+        const s = await request('WRITE');
+        const next = putTech({ ...techFor(s, token), passportPublic: on });
+        await save();
+        return myPassport(next);
+      },
+
       async requestIdentityCorrection(token, kind, note) {
         const s = await request('WRITE');
         const tech = techFor(s, token);
@@ -1683,6 +1710,7 @@ export function createMockBackend(opts: MockOptions): Backend {
             techCode: tech.identity.techCode, displayName: displayName(tech.identity.legalName),
             photo: tech.identity.photoStatus === 'APPROVED' ? tech.identity.photo : null, gender: tech.gender, verification,
             simulated: tech.identity.simulated, active: verification === 'APPROVED', checkedAt: now(), fictional: false,
+            passport: verification === 'APPROVED' && tech.passportPublic ? passportForTech(tech) : null,
           } satisfies TechVerifyResult;
         }
         const t = fictionalById(techId);
