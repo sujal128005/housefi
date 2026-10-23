@@ -136,7 +136,7 @@ describe('AI on Cloudflare Workers AI (e2e)', () => {
       expect(sure.alternatives).not.toContain('plumb-tap');
 
       const call = cf.sent[0]!;
-      expect(call.url).toBe(`${CLOUDFLARE_AI_URL}/${ACCOUNT}/ai/run/@cf/meta/llama-4-scout-17b-16e-instruct`);
+      expect(call.url).toBe(`${CLOUDFLARE_AI_URL}/${ACCOUNT}/ai/run/@cf/mistralai/mistral-small-3.1-24b-instruct`);
       const [image, catalog] = call.body.messages[1].content;
       expect(image.type).toBe('image_url');
       // The photo sent is the stored one, its location already removed.

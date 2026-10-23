@@ -215,7 +215,8 @@ export const envSchema = z
     CLOUDFLARE_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'must be the 32-character account id').optional(),
     CLOUDFLARE_AI_TOKEN: z.string().optional(),
     CLOUDFLARE_AI_CHAT_MODEL: z.string().default('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),
-    CLOUDFLARE_AI_VISION_MODEL: z.string().default('@cf/meta/llama-4-scout-17b-16e-instruct'),
+    // Mistral Small 3.1 answers a photo in about a second; Llama 4 Scout took 30 s and missed AI_TIMEOUT_MS (October 2026).
+    CLOUDFLARE_AI_VISION_MODEL: z.string().default('@cf/mistralai/mistral-small-3.1-24b-instruct'),
     /** Per model call; past it the rules answer instead. */
     AI_TIMEOUT_MS: int(15000, 2000, 60000),
     /** Voice notes to text: "none" (the app keeps the audio) or "sarvam" (Sarvam AI, Telugu and English). */
