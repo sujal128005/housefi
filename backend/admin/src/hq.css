@@ -347,3 +347,9 @@ nav { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transpar
 .checks label.check { align-items: center; }
 td.ok { color: #0A6A3A; font-weight: 600; }
 td.bad { color: #A3262B; font-weight: 600; }
+
+/* Courses */
+.upload-bar { position: relative; height: 28px; border-radius: 8px; background: var(--line, #EEF1F8); overflow: hidden; }
+.upload-bar > div { position: absolute; inset: 0 auto 0 0; background: #B4F06C; transition: width 0.2s; }
+.upload-bar > span { position: relative; display: block; line-height: 28px; padding: 0 10px; font-size: 13px; font-weight: 600; }
+label.btn { cursor: pointer; }

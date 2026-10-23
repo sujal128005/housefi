@@ -64,7 +64,8 @@ export interface TechSkillSummaryDto {
 
 /** openapi.yaml Certification. */
 export interface CertificationDto {
-  readonly kind: 'ITI' | 'SKILL_INDIA' | 'OTHER';
+  /** HOUSEFI_COURSE: a Housefi course completed in the app. */
+  readonly kind: 'ITI' | 'SKILL_INDIA' | 'OTHER' | 'HOUSEFI_COURSE';
   readonly title: string;
 }
 
@@ -335,6 +336,10 @@ export class TechniciansService {
     await tx.skillVideo.deleteMany({ where: { technicianId: userId } });
     await tx.skillCertificate.deleteMany({ where: { technicianId: userId } });
     await tx.skillExamAttempt.deleteMany({ where: { technicianId: userId } });
+    // Courses: what was watched and answered (a course payment stays, with amounts only, as for bookings).
+    await tx.courseEnrollment.deleteMany({ where: { technicianId: userId } });
+    await tx.lessonProgress.deleteMany({ where: { technicianId: userId } });
+    await tx.courseQuizAttempt.deleteMany({ where: { technicianId: userId } });
     await this.withdrawOffers(tx, userId);
     await this.clearLocation(tx, userId);
   }

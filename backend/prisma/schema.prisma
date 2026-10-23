@@ -621,20 +621,24 @@ model Technician {
   createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user          User                     @relation("TechnicianUser", fields: [userId], references: [id])
-  photoUpload   Upload?                  @relation("TechnicianPhoto", fields: [photoUploadId], references: [id], onDelete: SetNull)
-  coordinator   User?                    @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
-  skills        TechnicianSkill[]
-  bookings      Booking[]                @relation("BookingTechnician")
-  preferredIn   Booking[]                @relation("BookingPreferredTechnician")
-  offers        JobOffer[]
-  ledger        EarningsLedger[]
-  payouts       Payout[]
-  ratings       Rating[]
-  payoutAccount TechnicianPayoutAccount?
-  skillExams    SkillExamAttempt[]
-  skillVideos   SkillVideo[]
-  certificates  SkillCertificate[]
+  user              User                     @relation("TechnicianUser", fields: [userId], references: [id])
+  photoUpload       Upload?                  @relation("TechnicianPhoto", fields: [photoUploadId], references: [id], onDelete: SetNull)
+  coordinator       User?                    @relation("TechnicianCoordinator", fields: [coordinatorId], references: [id])
+  skills            TechnicianSkill[]
+  bookings          Booking[]                @relation("BookingTechnician")
+  preferredIn       Booking[]                @relation("BookingPreferredTechnician")
+  offers            JobOffer[]
+  ledger            EarningsLedger[]
+  payouts           Payout[]
+  ratings           Rating[]
+  payoutAccount     TechnicianPayoutAccount?
+  skillExams        SkillExamAttempt[]
+  skillVideos       SkillVideo[]
+  certificates      SkillCertificate[]
+  courseEnrollments CourseEnrollment[]
+  lessonProgress    LessonProgress[]
+  courseQuizzes     CourseQuizAttempt[]
+  coursePayments    CoursePayment[]
 
   @@index([pincode, online, verification])
   @@index([verification, submittedAt])
@@ -690,6 +694,8 @@ enum CertificateKind {
   ITI
   SKILL_INDIA
   OTHER
+  /// Earned in the app: a Housefi course completed (every lesson watched, quiz passed). Approved from the start.
+  HOUSEFI_COURSE
 
   @@map("certificate_kind")
 }
@@ -770,6 +776,126 @@ model SkillCertificate {
   @@index([technicianId, createdAt(sort: Desc)])
   @@index([status, createdAt])
   @@map("skill_certificates")
+}
+
+// ---------- courses (video lessons for technicians; the course texts and quizzes are in the code) ----------
+
+/// How a technician got into a course.
+enum CourseAccess {
+  /// Basic and safety courses: free for everyone.
+  FREE
+  /// An advanced course, free with a rating of 3.8 or more.
+  RATING
+  /// An advanced course bought for 99 rupees.
+  PAID
+
+  @@map("course_access")
+}
+
+enum CoursePaymentState {
+  /// The Razorpay order exists; the technician is paying.
+  CREATED
+  PAID
+  FAILED
+
+  @@map("course_payment_state")
+}
+
+/// HQ's video for one lesson (stored in the private bucket, played from a short-lived signed link).
+model CourseLessonVideo {
+  courseId     String   @map("course_id")
+  lessonId     String   @map("lesson_id")
+  videoKey     String   @map("video_key")
+  contentType  String   @map("content_type")
+  bytes        Int
+  durationSec  Int      @map("duration_sec")
+  uploadedById String?  @map("uploaded_by_id") @db.Uuid
+  uploadedAt   DateTime @map("uploaded_at") @db.Timestamptz(6)
+
+  @@id([courseId, lessonId])
+  @@map("course_lesson_videos")
+}
+
+/// Whether HQ has opened a course to technicians (only possible once every lesson has its video).
+model CoursePublication {
+  courseId    String   @id @map("course_id")
+  published   Boolean  @default(false)
+  changedById String?  @map("changed_by_id") @db.Uuid
+  changedAt   DateTime @map("changed_at") @db.Timestamptz(6)
+
+  @@map("course_publications")
+}
+
+model CourseEnrollment {
+  technicianId  String       @map("technician_id") @db.Uuid
+  courseId      String       @map("course_id")
+  access        CourseAccess
+  startedAt     DateTime     @map("started_at") @db.Timestamptz(6)
+  /// Every lesson watched and the quiz passed.
+  completedAt   DateTime?    @map("completed_at") @db.Timestamptz(6)
+  /// The certification it earned (skill_certificates, kind HOUSEFI_COURSE).
+  certificateId String?      @unique @map("certificate_id") @db.Uuid
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+
+  @@id([technicianId, courseId])
+  @@index([courseId])
+  @@map("course_enrollments")
+}
+
+/// How far a technician has watched one lesson. The server allows the position to move only as fast as real time
+/// (no skipping to the end), and a lesson counts as watched near its end.
+model LessonProgress {
+  technicianId String    @map("technician_id") @db.Uuid
+  courseId     String    @map("course_id")
+  lessonId     String    @map("lesson_id")
+  watchedSec   Int       @default(0) @map("watched_sec")
+  lastReportAt DateTime  @map("last_report_at") @db.Timestamptz(6)
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+
+  @@id([technicianId, courseId, lessonId])
+  @@map("lesson_progress")
+}
+
+model CourseQuizAttempt {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  technicianId String   @map("technician_id") @db.Uuid
+  courseId     String   @map("course_id")
+  /// Question number → option id as shown on that attempt.
+  answers      Json
+  correct      Int
+  passed       Boolean
+  submittedAt  DateTime @map("submitted_at") @db.Timestamptz(6)
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+
+  @@index([technicianId, courseId, submittedAt(sort: Desc)])
+  @@map("course_quiz_attempts")
+}
+
+/// A 99-rupee purchase of an advanced course (Razorpay, or simulated for the team's demo accounts).
+model CoursePayment {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  technicianId      String             @map("technician_id") @db.Uuid
+  courseId          String             @map("course_id")
+  amountPaise       BigInt             @map("amount_paise")
+  state             CoursePaymentState @default(CREATED)
+  /// 'RAZORPAY' | 'SIMULATED'
+  provider          String
+  providerOrderId   String             @unique @map("provider_order_id")
+  providerPaymentId String?            @unique @map("provider_payment_id")
+  method            PaymentMethod?
+  createdAt         DateTime           @map("created_at") @db.Timestamptz(6)
+  settledAt         DateTime?          @map("settled_at") @db.Timestamptz(6)
+  lastCheckedAt     DateTime?          @map("last_checked_at") @db.Timestamptz(6)
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+
+  @@index([technicianId, courseId])
+  @@index([state, createdAt])
+  @@map("course_payments")
 }
 
 enum PayoutRail {

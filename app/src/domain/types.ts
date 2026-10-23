@@ -429,10 +429,12 @@ export interface TechProfile extends Omit<TechProfileInput, 'state' | 'district'
 
 export type SkillLevel = 'UNSKILLED' | 'SEMI_SKILLED' | 'SKILLED' | 'HIGHLY_SKILLED';
 export type CertificateKind = 'ITI' | 'SKILL_INDIA' | 'OTHER';
+/** A certification: one the technician sent, or a Housefi course completed in the app. */
+export type CertificationKind = CertificateKind | 'HOUSEFI_COURSE';
 export type SkillReview = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface Certification {
-  readonly kind: CertificateKind;
+  readonly kind: CertificationKind;
   readonly title: string;
 }
 
@@ -556,6 +558,62 @@ export interface SkillExam {
   readonly leftApp: number;
   readonly maxLeftApp: number;
   readonly result: ExamResult | null;
+}
+
+// ---------- courses ----------
+
+export type CourseLevel = 'BASIC' | 'SAFETY' | 'ADVANCED';
+
+export interface CourseCard {
+  readonly id: string;
+  /** null: for every trade. */
+  readonly categoryId: CategoryId | null;
+  readonly level: CourseLevel;
+  readonly title: Localized;
+  readonly summary: Localized;
+  readonly lessons: number;
+  readonly durationSec: number;
+  /** Whole rupees (0 for basic and safety). */
+  readonly price: number;
+  /** For this technician: FREE, RATING (advanced, free with 3.8★), PAY (advanced, 99 rupees). */
+  readonly access: 'FREE' | 'RATING' | 'PAY';
+  readonly enrolled: boolean;
+  readonly completedLessons: number;
+  readonly completed: boolean;
+}
+
+export interface CoursesOverview {
+  readonly courses: readonly CourseCard[];
+  readonly rating: number | null;
+  readonly freeFromRating: number;
+  readonly price: number;
+}
+
+export interface Course extends CourseCard {
+  readonly lessonList: readonly { readonly id: string; readonly title: Localized; readonly durationSec: number; readonly watchedSec: number; readonly completed: boolean }[];
+  readonly quiz: { readonly questions: number; readonly passCorrect: number; readonly unlocked: boolean; readonly attempts: number; readonly lastCorrect: number | null };
+  readonly certificate: { readonly title: string; readonly at: number } | null;
+}
+
+export interface Lesson {
+  readonly id: string;
+  readonly title: Localized;
+  /** Signed link to the video. */
+  readonly url: string;
+  readonly durationSec: number;
+  readonly watchedSec: number;
+  readonly completed: boolean;
+}
+
+export interface CourseQuiz {
+  readonly questions: readonly { readonly n: number; readonly q: Localized; readonly options: readonly { readonly id: string; readonly en: string; readonly te: string }[] }[];
+}
+
+export interface CourseQuizResult {
+  readonly correct: number;
+  readonly total: number;
+  readonly passed: boolean;
+  readonly course: Course;
 }
 
 export type SkillVideoInput = { readonly source: 'LIVE' | 'UPLOAD'; readonly uri: string } | { readonly source: 'SAMPLE' };

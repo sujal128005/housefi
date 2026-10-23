@@ -102,7 +102,8 @@
             "extraProguardRules": "# WorkManager (pulled in by react-native-maps) creates its Room database by reflection at start-up; R8, on by default\n# since Expo SDK 58, removed those constructors and release builds closed at launch.\n-keep class * extends androidx.room.RoomDatabase { <init>(); }\n-keep class androidx.work.impl.WorkDatabase_Impl { *; }"
           }
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": false

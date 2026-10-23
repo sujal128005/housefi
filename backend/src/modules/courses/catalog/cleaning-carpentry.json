@@ -1,0 +1,140 @@
+[
+  {
+    "id": "cl-basic", "categoryId": "CLEANING", "level": "BASIC",
+    "title": { "en": "Cleaning basics", "te": "క్లీనింగ్ ప్రాథమికాలు" },
+    "summary": { "en": "The right order, the right products and a clean finish in every room.", "te": "సరైన క్రమం, సరైన ఉత్పత్తులు, ప్రతి గదిలో శుభ్రమైన ముగింపు." },
+    "lessons": [
+      { "id": "order", "title": { "en": "Top to bottom, dry to wet", "te": "పై నుండి కిందకు, పొడి నుండి తడికి" } },
+      { "id": "bathroom", "title": { "en": "Bathrooms and tiles", "te": "బాత్రూమ్‌లు, టైల్స్" } },
+      { "id": "kitchen", "title": { "en": "Kitchens and chimneys", "te": "కిచెన్‌లు, చిమ్నీలు" } },
+      { "id": "floors", "title": { "en": "Floors and stone", "te": "నేలలు, రాయి" } }
+    ],
+    "quiz": [
+      { "q": { "en": "In which order do you clean a room?", "te": "గదిని ఏ క్రమంలో శుభ్రం చేయాలి?" },
+        "options": [ { "en": "Top to bottom", "te": "పై నుండి కిందకు" }, { "en": "Floor first", "te": "ముందు నేల" }, { "en": "Any order", "te": "ఏ క్రమమైనా" }, { "en": "Only the floor", "te": "నేల మాత్రమే" } ], "answer": 0 },
+      { "q": { "en": "Which tool cleans the lines between tiles?", "te": "టైల్స్ మధ్య గీతలను ఏ పనిముట్టు శుభ్రం చేస్తుంది?" },
+        "options": [ { "en": "Grout brush", "te": "గ్రౌట్ బ్రష్" }, { "en": "Broom", "te": "చీపురు" }, { "en": "Squeegee", "te": "స్క్వీజీ" }, { "en": "Bucket", "te": "బకెట్" } ], "answer": 0 },
+      { "q": { "en": "Chimney filters full of oil are cleaned with:", "te": "నూనెతో నిండిన చిమ్నీ ఫిల్టర్లను శుభ్రం చేసేది:" },
+        "options": [ { "en": "Hot water and a degreaser", "te": "వేడి నీళ్లు, డీగ్రీజర్" }, { "en": "A dry cloth", "te": "పొడి గుడ్డ" }, { "en": "A flame", "te": "మంట" }, { "en": "Paint", "te": "పెయింట్" } ], "answer": 0 },
+      { "q": { "en": "A marble floor is cleaned with:", "te": "మార్బుల్ నేలను శుభ్రం చేసేది:" },
+        "options": [ { "en": "A neutral floor cleaner", "te": "న్యూట్రల్ ఫ్లోర్ క్లీనర్" }, { "en": "Acid", "te": "యాసిడ్" }, { "en": "Lemon juice", "te": "నిమ్మ రసం" }, { "en": "Vinegar", "te": "వెనిగర్" } ], "answer": 0 },
+      { "q": { "en": "Cloths for the kitchen and the toilet should be:", "te": "కిచెన్, టాయిలెట్ గుడ్డలు ఎలా ఉండాలి?" },
+        "options": [ { "en": "Separate, colour-coded", "te": "వేర్వేరు, రంగుల వారీగా" }, { "en": "The same cloth", "te": "ఒకే గుడ్డ" }, { "en": "Kitchen first, then toilet", "te": "ముందు కిచెన్, తర్వాత టాయిలెట్" }, { "en": "No cloths", "te": "గుడ్డలు వద్దు" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "cl-safety", "categoryId": "CLEANING", "level": "SAFETY",
+    "title": { "en": "Chemical safety in cleaning", "te": "క్లీనింగ్‌లో రసాయన భద్రత" },
+    "summary": { "en": "Mixing, protective gear, hazard labels and ventilation.", "te": "కలపడం, రక్షణ సామగ్రి, ప్రమాద లేబుల్‌లు, గాలి ఆడటం." },
+    "lessons": [
+      { "id": "mixing", "title": { "en": "Never mix bleach with acid or ammonia", "te": "బ్లీచ్‌ను యాసిడ్ లేదా అమ్మోనియాతో ఎప్పుడూ కలపవద్దు" } },
+      { "id": "gear", "title": { "en": "Gloves, masks and goggles", "te": "గ్లౌజులు, మాస్క్‌లు, గాగుల్స్" } },
+      { "id": "labels", "title": { "en": "Reading hazard labels", "te": "ప్రమాద లేబుల్‌లు చదవడం" } },
+      { "id": "storage", "title": { "en": "Ventilation and storage", "te": "గాలి ఆడటం, నిల్వ" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Bleach mixed with acid toilet cleaner makes:", "te": "బ్లీచ్‌ను యాసిడ్ టాయిలెట్ క్లీనర్‌తో కలిపితే వచ్చేది:" },
+        "options": [ { "en": "Poisonous gas", "te": "విష వాయువు" }, { "en": "A stronger cleaner", "te": "బలమైన క్లీనర్" }, { "en": "Perfume", "te": "సువాసన" }, { "en": "Water", "te": "నీళ్లు" } ], "answer": 0 },
+      { "q": { "en": "A label shows liquid eating a hand and metal. It means:", "te": "లేబుల్‌లో ద్రవం చేతిని, లోహాన్ని తినేస్తున్నట్లు ఉంది. అర్థం:" },
+        "options": [ { "en": "Corrosive", "te": "కరోసివ్" }, { "en": "Safe to drink", "te": "తాగడానికి సురక్షితం" }, { "en": "Keep cold", "te": "చల్లగా ఉంచాలి" }, { "en": "Food grade", "te": "ఆహార నాణ్యత" } ], "answer": 0 },
+      { "q": { "en": "Using strong cleaners in a small bathroom, you:", "te": "చిన్న బాత్రూమ్‌లో బలమైన క్లీనర్లు వాడేటప్పుడు ఏం చేయాలి?" },
+        "options": [ { "en": "Open the window and switch on the exhaust fan", "te": "కిటికీ తెరిచి, ఎగ్జాస్ట్ ఫ్యాన్ ఆన్ చేయాలి" }, { "en": "Close the door", "te": "తలుపు మూయాలి" }, { "en": "Hold your breath", "te": "శ్వాస ఆపాలి" }, { "en": "Add more cleaner", "te": "ఇంకా క్లీనర్ వేయాలి" } ], "answer": 0 },
+      { "q": { "en": "Which protects your eyes from splashes?", "te": "చిందుల నుండి కళ్లను ఏది కాపాడుతుంది?" },
+        "options": [ { "en": "Safety goggles", "te": "సేఫ్టీ గాగుల్స్" }, { "en": "A cap", "te": "టోపీ" }, { "en": "Gloves", "te": "గ్లౌజులు" }, { "en": "A mask", "te": "మాస్క్" } ], "answer": 0 },
+      { "q": { "en": "Chemicals are kept:", "te": "రసాయనాలను ఎలా ఉంచాలి?" },
+        "options": [ { "en": "In their own labelled bottles, away from food and children", "te": "వాటి లేబుల్ ఉన్న సీసాల్లో, ఆహారానికి, పిల్లలకు దూరంగా" }, { "en": "In water bottles", "te": "నీళ్ల సీసాల్లో" }, { "en": "Mixed together", "te": "కలిపి" }, { "en": "Open, in the sun", "te": "తెరిచి, ఎండలో" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "cl-advanced", "categoryId": "CLEANING", "level": "ADVANCED",
+    "title": { "en": "Advanced cleaning: deep and specialist jobs", "te": "అడ్వాన్స్‌డ్ క్లీనింగ్: డీప్, ప్రత్యేక పనులు" },
+    "summary": { "en": "Water tanks, sofas and carpets, mould and steam cleaning.", "te": "నీటి ట్యాంక్‌లు, సోఫాలు, కార్పెట్‌లు, బూజు, స్టీమ్ క్లీనింగ్." },
+    "lessons": [
+      { "id": "tank", "title": { "en": "Water tank cleaning", "te": "నీటి ట్యాంక్ శుభ్రం చేయడం" } },
+      { "id": "fabric", "title": { "en": "Sofa and carpet care codes", "te": "సోఫా, కార్పెట్ కేర్ కోడ్‌లు" } },
+      { "id": "mould", "title": { "en": "Mould: clean it and stop it coming back", "te": "బూజు: శుభ్రం చేసి మళ్లీ రాకుండా ఆపడం" } },
+      { "id": "steam", "title": { "en": "Steam and machine cleaning", "te": "స్టీమ్, మెషిన్ క్లీనింగ్" } }
+    ],
+    "quiz": [
+      { "q": { "en": "The right order for cleaning a water tank:", "te": "నీటి ట్యాంక్ శుభ్రం చేయడానికి సరైన క్రమం:" },
+        "options": [ { "en": "Close inlet, empty, remove sludge, scrub, disinfect, rinse, refill", "te": "ఇన్‌లెట్ మూసి, ఖాళీ చేసి, బురద తీసి, రుద్ది, డిస్ఇన్ఫెక్ట్ చేసి, కడిగి, నింపాలి" }, { "en": "Add bleach to the full tank", "te": "నిండు ట్యాంక్‌లో బ్లీచ్ వేయాలి" }, { "en": "Scrub with water inside", "te": "నీళ్లు ఉండగానే రుద్దాలి" }, { "en": "Wipe the lid only", "te": "మూత మాత్రమే తుడవాలి" } ], "answer": 0 },
+      { "q": { "en": "A sofa label says \"S\". It means:", "te": "సోఫా లేబుల్‌పై \"S\" ఉంది. అర్థం:" },
+        "options": [ { "en": "Solvent cleaner only, no water", "te": "సాల్వెంట్ క్లీనర్ మాత్రమే, నీళ్లు వద్దు" }, { "en": "Lots of water", "te": "చాలా నీళ్లు" }, { "en": "Bleach", "te": "బ్లీచ్" }, { "en": "Full-power steam", "te": "ఫుల్ పవర్ స్టీమ్" } ], "answer": 0 },
+      { "q": { "en": "Mould keeps coming back. The real fix:", "te": "బూజు మళ్లీ మళ్లీ వస్తుంది. అసలు పరిష్కారం:" },
+        "options": [ { "en": "Clean it and fix the moisture source", "te": "శుభ్రం చేసి, తేమకు కారణాన్ని సరిచేయాలి" }, { "en": "Paint over it", "te": "దాని మీద పెయింట్ వేయాలి" }, { "en": "Dry cloth only", "te": "పొడి గుడ్డ మాత్రమే" }, { "en": "Close the exhaust fan", "te": "ఎగ్జాస్ట్ ఫ్యాన్ మూయాలి" } ], "answer": 0 },
+      { "q": { "en": "Why wait before wiping a disinfectant?", "te": "డిస్ఇన్ఫెక్టెంట్ తుడిచే ముందు ఎందుకు ఆగాలి?" },
+        "options": [ { "en": "It needs contact time to kill germs", "te": "క్రిములను చంపడానికి కాంటాక్ట్ టైమ్ కావాలి" }, { "en": "To make the floor slippery", "te": "నేల జారేలా" }, { "en": "To save water", "te": "నీళ్లు ఆదా చేయడానికి" }, { "en": "No reason", "te": "కారణం లేదు" } ], "answer": 0 },
+      { "q": { "en": "Which sanitises grout without chemicals?", "te": "రసాయనాలు లేకుండా గ్రౌట్‌ను ఏది శానిటైజ్ చేస్తుంది?" },
+        "options": [ { "en": "Steam cleaner", "te": "స్టీమ్ క్లీనర్" }, { "en": "Broom", "te": "చీపురు" }, { "en": "Squeegee", "te": "స్క్వీజీ" }, { "en": "Dry vacuum", "te": "డ్రై వాక్యూమ్" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "cp-basic", "categoryId": "CARPENTRY", "level": "BASIC",
+    "title": { "en": "Carpentry basics", "te": "కార్పెంట్రీ ప్రాథమికాలు" },
+    "summary": { "en": "Measuring, cutting, fixing and the doors and hinges of every home.", "te": "కొలవడం, కట్ చేయడం, బిగించడం, ప్రతి ఇంటి తలుపులు, హింజ్‌లు." },
+    "lessons": [
+      { "id": "measure", "title": { "en": "Measuring and marking", "te": "కొలవడం, గుర్తు పెట్టడం" } },
+      { "id": "cut", "title": { "en": "Cutting and planing", "te": "కట్ చేయడం, రందా వేయడం" } },
+      { "id": "fixing", "title": { "en": "Screws, wall plugs and hinges", "te": "స్క్రూలు, వాల్ ప్లగ్‌లు, హింజ్‌లు" } },
+      { "id": "doors", "title": { "en": "Doors that stick", "te": "బిగుసుకుపోయే తలుపులు" } }
+    ],
+    "quiz": [
+      { "q": { "en": "The golden rule before cutting:", "te": "కట్ చేసే ముందు ముఖ్య నియమం:" },
+        "options": [ { "en": "Measure twice, cut once", "te": "రెండుసార్లు కొలవాలి, ఒకసారి కట్ చేయాలి" }, { "en": "Cut first", "te": "ముందు కట్ చేయాలి" }, { "en": "Guess the size", "te": "సైజు ఊహించాలి" }, { "en": "Always cut shorter", "te": "ఎప్పుడూ చిన్నగా కట్ చేయాలి" } ], "answer": 0 },
+      { "q": { "en": "A screw must hold in a brick wall. First put in:", "te": "ఇటుక గోడలో స్క్రూ పట్టుకోవాలి. ముందు పెట్టాల్సింది:" },
+        "options": [ { "en": "A wall plug", "te": "వాల్ ప్లగ్" }, { "en": "A nail", "te": "మేకు" }, { "en": "Glue", "te": "జిగురు" }, { "en": "Tape", "te": "టేప్" } ], "answer": 0 },
+      { "q": { "en": "A screw spins in its hole. You:", "te": "స్క్రూ రంధ్రంలో తిరుగుతోంది. ఏం చేయాలి?" },
+        "options": [ { "en": "Fill the hole and screw again", "te": "రంధ్రం నింపి మళ్లీ స్క్రూ బిగించాలి" }, { "en": "Hit it with a hammer", "te": "సుత్తితో కొట్టాలి" }, { "en": "Leave it loose", "te": "వదులుగా వదిలేయాలి" }, { "en": "Paint over it", "te": "పెయింట్ వేయాలి" } ], "answer": 0 },
+      { "q": { "en": "A door rubs at the top. Try first:", "te": "తలుపు పైన రాసుకుంటోంది. మొదట ప్రయత్నించాల్సింది:" },
+        "options": [ { "en": "Tighten the hinge screws", "te": "హింజ్ స్క్రూలు బిగించాలి" }, { "en": "Cut 5 cm off", "te": "5 సెం.మీ. కట్ చేయాలి" }, { "en": "Oil the floor", "te": "నేలకు నూనె రాయాలి" }, { "en": "Change the handle", "te": "హ్యాండిల్ మార్చాలి" } ], "answer": 0 },
+      { "q": { "en": "While glue dries on a joint:", "te": "జాయింట్ మీద జిగురు ఆరుతున్నప్పుడు:" },
+        "options": [ { "en": "Clamp it", "te": "క్లాంప్ చేయాలి" }, { "en": "Move it often", "te": "తరచూ కదపాలి" }, { "en": "Pour water on it", "te": "నీళ్లు పోయాలి" }, { "en": "Use it at once", "te": "వెంటనే వాడాలి" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "cp-safety", "categoryId": "CARPENTRY", "level": "SAFETY",
+    "title": { "en": "Carpentry safety", "te": "కార్పెంట్రీ భద్రత" },
+    "summary": { "en": "Sharp tools, power tools, dust, eyes and ladders.", "te": "పదునైన పనిముట్లు, పవర్ టూల్స్, దుమ్ము, కళ్లు, నిచ్చెనలు." },
+    "lessons": [
+      { "id": "sharp", "title": { "en": "Sharp tools and blade guards", "te": "పదునైన పనిముట్లు, బ్లేడ్ గార్డ్‌లు" } },
+      { "id": "power", "title": { "en": "Power tools: drills and saws", "te": "పవర్ టూల్స్: డ్రిల్‌లు, రంపాలు" } },
+      { "id": "dust", "title": { "en": "Dust and eye protection", "te": "దుమ్ము, కంటి రక్షణ" } },
+      { "id": "ladder", "title": { "en": "Working on ladders", "te": "నిచ్చెనల మీద పని" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Chisels and saws are carried:", "te": "ఉలులు, రంపాలను ఎలా తీసుకెళ్లాలి?" },
+        "options": [ { "en": "In a tool bag with blade covers", "te": "బ్లేడ్ కవర్లతో టూల్ బ్యాగ్‌లో" }, { "en": "Loose in a pocket", "te": "జేబులో వదులుగా" }, { "en": "Edge facing out", "te": "అంచు బయటకు" }, { "en": "In a newspaper", "te": "పేపర్‌లో" } ], "answer": 0 },
+      { "q": { "en": "Before changing a drill bit:", "te": "డ్రిల్ బిట్ మార్చే ముందు:" },
+        "options": [ { "en": "Unplug the drill", "te": "డ్రిల్ ప్లగ్ తీయాలి" }, { "en": "Keep it running", "te": "నడుస్తుండగానే" }, { "en": "Hold the trigger", "te": "ట్రిగ్గర్ పట్టుకోవాలి" }, { "en": "Nothing", "te": "ఏమీ వద్దు" } ], "answer": 0 },
+      { "q": { "en": "Cutting or sanding wood, protect your eyes with:", "te": "చెక్క కట్ చేస్తూ లేదా రుద్దుతూ కళ్లను కాపాడుకునేది:" },
+        "options": [ { "en": "Safety goggles", "te": "సేఫ్టీ గాగుల్స్" }, { "en": "Sunglasses only", "te": "సన్‌గ్లాసెస్ మాత్రమే" }, { "en": "Closing one eye", "te": "ఒక కన్ను మూయడం" }, { "en": "Nothing", "te": "ఏమీ వద్దు" } ], "answer": 0 },
+      { "q": { "en": "Before drilling a wall:", "te": "గోడకు డ్రిల్ చేసే ముందు:" },
+        "options": [ { "en": "Check for hidden wires and pipes", "te": "లోపల వైర్లు, పైప్‌లు ఉన్నాయో చూడాలి" }, { "en": "Drill anywhere", "te": "ఎక్కడైనా డ్రిల్ చేయాలి" }, { "en": "Wet the wall", "te": "గోడను తడపాలి" }, { "en": "Switch on all lights", "te": "అన్ని లైట్లు ఆన్ చేయాలి" } ], "answer": 0 },
+      { "q": { "en": "On a ladder, you:", "te": "నిచ్చెన మీద ఏం చేయాలి?" },
+        "options": [ { "en": "Keep three points of contact and do not overreach", "te": "మూడు చోట్ల పట్టు ఉంచి, మరీ దూరం చాపకూడదు" }, { "en": "Stand on the top step", "te": "పై మెట్టు మీద నిలబడాలి" }, { "en": "Lean far to one side", "te": "ఒక వైపుకు బాగా వంగాలి" }, { "en": "Carry heavy wood in both hands", "te": "రెండు చేతుల్లో బరువైన చెక్క పట్టుకోవాలి" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "cp-advanced", "categoryId": "CARPENTRY", "level": "ADVANCED",
+    "title": { "en": "Advanced carpentry: joints and modular furniture", "te": "అడ్వాన్స్‌డ్ కార్పెంట్రీ: జాయింట్‌లు, మాడ్యులర్ ఫర్నిచర్" },
+    "summary": { "en": "Strong joints, kitchens and wardrobes, sliding doors and wood care.", "te": "బలమైన జాయింట్‌లు, కిచెన్‌లు, వార్డ్‌రోబ్‌లు, స్లైడింగ్ తలుపులు, చెక్క సంరక్షణ." },
+    "lessons": [
+      { "id": "joints", "title": { "en": "Strong joints: dovetail, mortise, dowel", "te": "బలమైన జాయింట్‌లు: డవ్‌టెయిల్, మార్టిస్, డోవెల్" } },
+      { "id": "install", "title": { "en": "Kitchen and wardrobe installation", "te": "కిచెన్, వార్డ్‌రోబ్ ఇన్‌స్టలేషన్" } },
+      { "id": "hardware", "title": { "en": "Sliding doors and soft-close hardware", "te": "స్లైడింగ్ తలుపులు, సాఫ్ట్-క్లోజ్ హార్డ్‌వేర్" } },
+      { "id": "wood", "title": { "en": "Wood moisture and termites", "te": "చెక్క తేమ, చెదలు" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Which board suits a cabinet under the sink?", "te": "సింక్ కింద క్యాబినెట్‌కు ఏ బోర్డ్ సరిపోతుంది?" },
+        "options": [ { "en": "BWP or marine plywood", "te": "BWP లేదా మెరైన్ ప్లైవుడ్" }, { "en": "Plain MDF", "te": "సాధారణ MDF" }, { "en": "Cardboard", "te": "కార్డ్‌బోర్డ్" }, { "en": "Any cheap board", "te": "ఏదైనా చౌక బోర్డ్" } ], "answer": 0 },
+      { "q": { "en": "Fitting a row of wall cabinets, first:", "te": "గోడకు వరుసగా క్యాబినెట్లు బిగించేటప్పుడు మొదట:" },
+        "options": [ { "en": "Mark a level line on the wall", "te": "గోడ మీద సమతల గీత గీయాలి" }, { "en": "Follow the ceiling by eye", "te": "సీలింగ్‌ను కంటితో అనుసరించాలి" }, { "en": "Fix the first one anywhere", "te": "మొదటిదాన్ని ఎక్కడైనా బిగించాలి" }, { "en": "Follow the floor tiles", "te": "నేల టైల్స్‌ను అనుసరించాలి" } ], "answer": 0 },
+      { "q": { "en": "Indoor furniture wood should have moisture of about:", "te": "ఇంటి ఫర్నిచర్ చెక్కలో తేమ సుమారు:" },
+        "options": [ { "en": "8–12%", "te": "8–12%" }, { "en": "30–40%", "te": "30–40%" }, { "en": "0%", "te": "0%" }, { "en": "It does not matter", "te": "పట్టింపు లేదు" } ], "answer": 0 },
+      { "q": { "en": "Which bit makes the 35 mm cup hole for a concealed hinge?", "te": "కన్సీల్డ్ హింజ్ కోసం 35 మి.మీ. కప్ రంధ్రం ఏ బిట్ చేస్తుంది?" },
+        "options": [ { "en": "Forstner bit", "te": "ఫోర్స్ట్‌నర్ బిట్" }, { "en": "Normal twist bit", "te": "సాధారణ ట్విస్ట్ బిట్" }, { "en": "Chisel", "te": "ఉలి" }, { "en": "Saw", "te": "రంపం" } ], "answer": 0 },
+      { "q": { "en": "New furniture in a home with termites needs:", "te": "చెదలు ఉన్న ఇంట్లో కొత్త ఫర్నిచర్‌కు కావాల్సింది:" },
+        "options": [ { "en": "Anti-termite treatment of wood and wall", "te": "చెక్కకు, గోడకు యాంటీ-టెర్మైట్ ట్రీట్‌మెంట్" }, { "en": "Paint on the front only", "te": "ముందు భాగానికి పెయింట్ మాత్రమే" }, { "en": "Nothing", "te": "ఏమీ అక్కర్లేదు" }, { "en": "Wet wood", "te": "తడి చెక్క" } ], "answer": 0 }
+    ]
+  }
+]

@@ -18,6 +18,6 @@ function createRazorpay(config: Env): RazorpayClient | null {
   imports: [BookingCoreModule, DispatchModule],
   controllers: [PaymentsController, WebhooksController],
   providers: [PaymentsService, PaymentsWorker, { provide: RAZORPAY_CLIENT, inject: [APP_CONFIG], useFactory: createRazorpay }],
-  exports: [PaymentsService],
+  exports: [PaymentsService, RAZORPAY_CLIENT],
 })
 export class PaymentsModule {}

@@ -11,6 +11,7 @@ import { ChatModule } from '../chat/chat.module';
 import { DispatchModule } from '../dispatch/dispatch.module';
 import { EarningsModule } from '../earnings/earnings.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { CoursesModule } from '../courses/courses.module';
 import { SkillsModule } from '../skills/skills.module';
 import { SupportModule } from '../support/support.module';
 import { TechniciansModule } from '../technicians/technicians.module';
@@ -25,6 +26,7 @@ import { AdminGuard, AdminHostGuard } from './admin.guard';
 import { AdminManageController } from './admin-manage.controller';
 import { AdminOpsController } from './admin-ops.controller';
 import { AdminOpsService } from './admin-ops.service';
+import { AdminCoursesController } from './admin-courses.controller';
 import { AdminSkillsController } from './admin-skills.controller';
 import { AdminOverviewService } from './admin-overview.service';
 import { AdminPeopleService } from './admin-people.service';
@@ -35,8 +37,8 @@ import { GuideService } from './guide/guide.service';
 
 /** The super admin portal's API: its own sign-in, and the same services the apps use for every change. */
 @Module({
-  imports: [AuthModule, AddressesModule, BookingCoreModule, BookingsModule, CatalogModule, ChatModule, DispatchModule, EarningsModule, PaymentsModule, SkillsModule, SupportModule, TechniciansModule, UsersModule, InvoicesModule],
-  controllers: [AdminController, AdminManageController, AdminOpsController, AdminGrowthController, AdminSkillsController],
+  imports: [AuthModule, AddressesModule, BookingCoreModule, BookingsModule, CatalogModule, ChatModule, DispatchModule, EarningsModule, PaymentsModule, CoursesModule, SkillsModule, SupportModule, TechniciansModule, UsersModule, InvoicesModule],
+  controllers: [AdminController, AdminManageController, AdminOpsController, AdminGrowthController, AdminSkillsController, AdminCoursesController],
   providers: [
     AdminAuthService,
     AdminRecoveryService,

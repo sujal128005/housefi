@@ -1,4 +1,4 @@
-// Technician tabs: Home (today and the next action), Jobs, Earnings, Profile. Only for verified technicians.
+// Technician tabs: Home (today and the next action), Jobs, Earnings, Learn (video courses), Profile. Only for verified technicians.
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { StyleSheet } from 'react-native';
@@ -17,6 +17,7 @@ const ICONS: Record<string, readonly [IconName, IconName]> = {
   home: ['home', 'home-outline'],
   jobs: ['briefcase', 'briefcase-outline'],
   earnings: ['wallet', 'wallet-outline'],
+  learn: ['school', 'school-outline'],
   profile: ['person-circle', 'person-circle-outline'],
 };
 
@@ -51,6 +52,7 @@ export default function TechTabsLayout() {
       <Tabs.Screen name="home" options={{ title: t('tab.home'), tabBarButtonTestID: 'ttab-home' }} />
       <Tabs.Screen name="jobs" options={{ title: t('ttab.jobs'), tabBarButtonTestID: 'ttab-jobs' }} />
       <Tabs.Screen name="earnings" options={{ title: t('ttab.earnings'), tabBarButtonTestID: 'ttab-earnings' }} />
+      <Tabs.Screen name="learn" options={{ title: t('ttab.learn'), tabBarButtonTestID: 'ttab-learn' }} />
       <Tabs.Screen name="profile" options={{ title: t('ttab.profile'), tabBarButtonTestID: 'ttab-profile' }} />
     </Tabs>
   );

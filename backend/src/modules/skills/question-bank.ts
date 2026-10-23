@@ -143,7 +143,7 @@ function sectionIndex(i: number): number {
   return SECTIONS.length - 1;
 }
 
-function shuffle<T>(items: readonly T[], random: () => number): T[] {
+export function shuffle<T>(items: readonly T[], random: () => number): T[] {
   const out = [...items];
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
@@ -153,7 +153,7 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
 }
 
 /** A repeatable random sequence from a text (so a reopened paper keeps its option order). */
-function seeded(text: string): () => number {
+export function seeded(text: string): () => number {
   let state = createHash('sha256').update(text).digest().readUInt32LE(0) || 1;
   return () => {
     state ^= state << 13;

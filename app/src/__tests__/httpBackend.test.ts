@@ -393,6 +393,46 @@ describe('live client: skill check', () => {
   });
 });
 
+describe('live client: courses', () => {
+  const COURSE = { id: 'pl-advanced', categoryId: 'PLUMBING', level: 'ADVANCED', title: { en: 'A', te: 'అ' }, summary: { en: 'A', te: 'అ' }, lessons: 4, durationSec: 240, price: 99, access: 'PAY', enrolled: false, completedLessons: 0, completed: false, lessonList: [], quiz: { questions: 5, passCorrect: 3, unlocked: false, attempts: 0, lastCorrect: null }, certificate: null };
+
+  it('buys an advanced course through the checkout, and lets the server confirm it', async () => {
+    const checkout = { kind: 'paid' as const, orderId: 'order_c1', paymentId: 'pay_c1', signature: 'sig' };
+    const t = setup({ checkout: async () => checkout });
+    const s = await signIn(t.backend);
+    t.routes['POST /tech/courses/pl-advanced/payments'] = () => json(200, { paymentId: 'cp1', provider: 'RAZORPAY', orderId: 'order_c1', keyId: 'rzp_test_k', amount: 99 });
+    t.routes['POST /tech/courses/pl-advanced/payments/cp1/verify'] = () => json(200, { ...COURSE, enrolled: true });
+    const course = await t.backend.tech.buyCourse(s.token, 'pl-advanced');
+    expect(course.enrolled).toBe(true);
+    expect(t.checkouts[0]).toMatchObject({ orderId: 'order_c1', amount: 99, description: 'Housefi course' });
+    expect(t.calls.at(-1)?.body).toEqual({ razorpayOrderId: 'order_c1', razorpayPaymentId: 'pay_c1', razorpaySignature: 'sig' });
+  });
+
+  it('reads the course again when the checkout is closed, and skips it for demo accounts', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['POST /tech/courses/pl-advanced/payments'] = () => json(200, { paymentId: 'cp1', provider: 'RAZORPAY', orderId: 'order_c1', keyId: 'k', amount: 99 });
+    t.routes['GET /tech/courses/pl-advanced'] = () => json(200, COURSE);
+    expect((await t.backend.tech.buyCourse(s.token, 'pl-advanced')).enrolled).toBe(false);
+    t.routes['POST /tech/courses/pl-advanced/payments'] = () => json(200, { paymentId: 'cp2', provider: 'SIMULATED', orderId: 'sim_course_cp2', keyId: '', amount: 99 });
+    t.routes['POST /tech/courses/pl-advanced/payments/cp2/verify'] = () => json(200, { ...COURSE, enrolled: true });
+    const checkouts = t.checkouts.length;
+    expect((await t.backend.tech.buyCourse(s.token, 'pl-advanced')).enrolled).toBe(true);
+    expect(t.checkouts).toHaveLength(checkouts);
+  });
+
+  it('reports lesson progress in whole seconds and sends quiz answers', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['POST /tech/courses/pl-basic/lessons/tools/progress'] = () => json(200, { watchedSec: 40, completed: false });
+    t.routes['POST /tech/courses/pl-basic/quiz'] = () => json(200, { correct: 5, total: 5, passed: true, course: { ...COURSE, id: 'pl-basic', completed: true } });
+    expect(await t.backend.tech.lessonProgress(s.token, 'pl-basic', 'tools', 41.7)).toEqual({ watchedSec: 40, completed: false });
+    expect(t.calls.at(-1)?.body).toEqual({ positionSec: 41 });
+    expect((await t.backend.tech.submitCourseQuiz(s.token, 'pl-basic', { '0': 'a' })).passed).toBe(true);
+    expect(t.calls.at(-1)?.body).toEqual({ answers: { '0': 'a' } });
+  });
+});
+
 describe('live client: places and the festive greeting', () => {
   it('asks the directory with the names encoded, and reads the answers', async () => {
     const t = setup();
