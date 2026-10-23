@@ -46,10 +46,23 @@ export default function ChatScreen() {
     if (!token || !id) return undefined;
     let alive = true;
     // Who is on the other side: the technician's card for the customer, the job (name, address) for the technician.
-    if (asTech) void backend.tech.job(token, id).then((j) => alive && setJob(j)).catch(() => undefined);
-    else void backend.bookings.get(token, id).then((b) => alive && setTech(b.technician)).catch(() => undefined);
+    // Asked again with each refresh until it arrives, so a failed first try does not leave the header blank.
+    let known = false;
+    const who = () => {
+      if (known) return;
+      if (asTech) void backend.tech.job(token, id).then((j) => { known = true; if (alive) setJob(j); }).catch(() => undefined);
+      else {
+        void backend.bookings.get(token, id).then((b) => {
+          // No technician yet (still being matched): ask again later.
+          known = !!b.technician;
+          if (alive) setTech(b.technician);
+        }).catch(() => undefined);
+      }
+    };
+    who();
     const stop = startPolling(() => api.get(token, id).then((c) => {
       if (!alive) return;
+      who();
       setChat(keepIfSame<Chat | null>(c));
       setError(null);
     }, (e: unknown) => {
