@@ -228,7 +228,7 @@ export default function JobScreen() {
               setCodeProblem(null);
               if (d.length === 4) void verify(d);
             }} />
-          <Txt variant="caption" color="inkMuted" align="center">{t('tj.codeHint', { n: j.otpAttemptsLeft || START_CODE_ATTEMPTS })}</Txt>
+          <Txt variant="caption" color="inkMuted" align="center">{t('tj.codeHint', { n: j.otpAttemptsLeft ?? START_CODE_ATTEMPTS })}</Txt>
           {codeProblem ? <Banner tone="danger" text={codeProblem} testID="tj-code-problem" /> : null}
           {backend.demo ? (
             <Tap onPress={() => void peekCode()} style={styles.demoLink} accessibilityLabel={t('tj.demoCode')} testID="tj-demo-code">

@@ -9,6 +9,7 @@ import { backOrStart, resetTo } from '../../navigation';
 import { useBackend } from '../../services/ServicesProvider';
 import { useAppState } from '../../state/AppState';
 import { Button, ErrorBanner, Field, Header, Screen, Txt } from '../../ui';
+import { useSingleFlight } from '../../ui/useSingleFlight';
 
 export default function NameStep() {
   const { t } = useI18n();
@@ -21,8 +22,9 @@ export default function NameStep() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const valid = isValidName(name);
+  const once = useSingleFlight();
 
-  const save = async () => {
+  const save = () => once(async () => {
     setTouched(true);
     if (!valid || !session) return;
     setBusy(true);
@@ -37,7 +39,7 @@ export default function NameStep() {
     } finally {
       setBusy(false);
     }
-  };
+  });
 
   return (
     <Screen
@@ -45,7 +47,7 @@ export default function NameStep() {
       wash="peach"
       // Editing goes back to the account; during registration back leads to the customer / technician choice.
       header={<Header onBack={editing ? undefined : backOrStart} />}
-      footer={<Button label={editing ? t('common.save') : t('common.continue')} onPress={save} loading={busy} disabled={name.trim().length === 0} testID="name-save" />}
+      footer={<Button label={editing ? t('common.save') : t('common.continue')} onPress={() => void save()} loading={busy} disabled={name.trim().length === 0} testID="name-save" />}
     >
       <View style={styles.art}><Art3D name="wave" size={120} float shadow /></View>
       <Txt variant="title1" heading>{t('auth.profile.title')}</Txt>
@@ -61,7 +63,7 @@ export default function NameStep() {
         textContentType="name"
         maxLength={60}
         returnKeyType="done"
-        onSubmitEditing={save}
+        onSubmitEditing={() => void save()}
         error={touched && !valid ? t('auth.profile.invalid') : null}
       />
       <ErrorBanner error={error} />

@@ -13,6 +13,7 @@ import { useDraft } from '../../state/BookingDraft';
 import { colors, space } from '../../theme/tokens';
 import { Banner, Button, Chip, ConfirmSheet, ErrorBanner, Field, Header, Screen, Skeleton, Txt, useToast } from '../../ui';
 import { LABEL_ICON } from '../../ui/AddressCard';
+import { useSingleFlight } from '../../ui/useSingleFlight';
 
 const EMPTY: AddressInput = { label: 'HOME', house: '', street: '', landmark: '', city: '', pincode: '' };
 const LABELS: readonly AddressLabel[] = ['HOME', 'WORK', 'OTHER'];
@@ -62,6 +63,8 @@ export default function AddressEdit() {
     });
   }, [id, backend, session.token]);
 
+  // The PIN field's Done and the Save button: one save at a time, so a double Done never saves two copies.
+  const once = useSingleFlight();
   const errors: AddressErrors = submitted ? validateAddress(form) : {};
   const set = (patch: Partial<AddressInput>) => setForm((f) => ({ ...f, ...patch }));
   const msg = (e: AddressErrors[keyof AddressErrors]) => (e === 'REQUIRED' ? t('address.required') : e === 'INVALID' ? t('address.pincodeInvalid') : null);
@@ -76,7 +79,7 @@ export default function AddressEdit() {
     toast.show(t('address.located'), 'location');
   };
 
-  const save = async () => {
+  const save = () => once(async () => {
     setSubmitted(true);
     if (Object.keys(validateAddress(form)).length > 0) return;
     setBusy(true);
@@ -90,7 +93,7 @@ export default function AddressEdit() {
     } finally {
       setBusy(false);
     }
-  };
+  });
 
   const remove = async () => {
     if (!id) return;
@@ -142,7 +145,7 @@ export default function AddressEdit() {
             </View>
             <View style={styles.flex}>
               <Field ref={pincode} testID="addr-pincode" label={t('address.pincode')} value={form.pincode} onChangeText={(v) => set({ pincode: v.replace(/\D/g, '').slice(0, 6) })}
-                keyboardType="number-pad" maxLength={6} error={msg(errors.pincode)} placeholder="500034" returnKeyType="done" onSubmitEditing={save} />
+                keyboardType="number-pad" maxLength={6} error={msg(errors.pincode)} placeholder="500034" returnKeyType="done" onSubmitEditing={() => void save()} />
             </View>
           </View>
           <ErrorBanner error={error} />

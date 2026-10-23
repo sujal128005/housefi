@@ -21,6 +21,7 @@ import { Banner, Card } from './Surfaces';
 import { Tap } from './Tap';
 import { Txt } from './Txt';
 import { Field } from './Field';
+import { useSingleFlight } from './useSingleFlight';
 
 /** "Have a coupon?" on the bill while it can still change (no payment started). */
 export function CouponBox({ booking, onChanged }: { readonly booking: Booking; readonly onChanged: (b: Booking) => void }) {
@@ -30,12 +31,14 @@ export function CouponBox({ booking, onChanged }: { readonly booking: Booking; r
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // The Done key and the Apply button: one check at a time.
+  const once = useSingleFlight();
   const fp = booking.finalPayment;
   if (!fp || fp.state === 'PAID' || fp.state === 'PENDING' || fp.state === 'REFUNDED') return null;
   const applied = (fp.discount ?? 0) > 0 && fp.couponCode;
 
-  const apply = async () => {
-    if (!code.trim() || busy) return;
+  const apply = () => once(async () => {
+    if (!code.trim()) return;
     setBusy(true);
     setProblem(null);
     try {
@@ -54,7 +57,7 @@ export function CouponBox({ booking, onChanged }: { readonly booking: Booking; r
     } finally {
       setBusy(false);
     }
-  };
+  });
   const remove = async () => {
     setBusy(true);
     try {

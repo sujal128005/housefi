@@ -18,13 +18,24 @@ export const LONG_CALLS: Readonly<Record<string, number>> = {
 };
 
 function wrap<T extends object>(target: T, ms: number, path = ''): T {
+  // The same wrapper on every read, for as long as the property holds the same value: screens keep parts like
+  // `backend.chat` in their hook dependencies, and a new copy on every read restarted them on every redraw (the chat
+  // with the technician never showed, and its requests ran in a loop).
+  const made = new Map<PropertyKey, { readonly source: unknown; readonly wrapped: unknown }>();
+  const once = (prop: PropertyKey, source: unknown, make: () => unknown): unknown => {
+    const hit = made.get(prop);
+    if (hit && hit.source === source) return hit.wrapped;
+    const wrapped = make();
+    made.set(prop, { source, wrapped });
+    return wrapped;
+  };
   return new Proxy(target, {
     get(obj, prop, receiver) {
       const value: unknown = Reflect.get(obj, prop, receiver);
       const name = path ? `${path}.${String(prop)}` : String(prop);
       if (typeof value === 'function') {
         const limitMs = LONG_CALLS[name] ?? ms;
-        return (...args: unknown[]) => {
+        return once(prop, value, () => (...args: unknown[]) => {
           const out: unknown = (value as (...a: unknown[]) => unknown).apply(obj, args);
           if (!(out instanceof Promise)) return out;
           let timer: ReturnType<typeof setTimeout> | undefined;
@@ -32,9 +43,9 @@ function wrap<T extends object>(target: T, ms: number, path = ''): T {
             timer = setTimeout(() => reject(new ApiError('TIMEOUT')), limitMs);
           });
           return Promise.race([out, limit]).finally(() => clearTimeout(timer));
-        };
+        });
       }
-      if (value && typeof value === 'object') return wrap(value as object, ms, name);
+      if (value && typeof value === 'object') return once(prop, value, () => wrap(value as object, ms, name));
       return value;
     },
   });

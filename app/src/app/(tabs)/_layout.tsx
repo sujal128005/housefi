@@ -2,6 +2,7 @@
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useI18n } from '../../i18n/I18n';
 import { useAppState } from '../../state/AppState';
 import { fontFamily } from '../../theme/fonts';
@@ -17,6 +18,7 @@ const ICONS: Record<string, readonly [IconName, IconName]> = {
 };
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   const { t, locale } = useI18n();
   const { session, prefs } = useAppState();
   if (!session || prefs.role !== 'CUSTOMER') return <Redirect href="/" />;
@@ -29,8 +31,10 @@ export default function TabsLayout() {
         animation: 'fade',
         tabBarActiveTintColor: colors.navy,
         tabBarInactiveTintColor: colors.inkSubtle,
-        tabBarStyle: styles.bar,
-        tabBarLabelStyle: { fontFamily: fontFamily('semibold', locale), fontSize: locale === 'te' ? 11 : 12 },
+        // Tall enough for the item's padding, the icon and the label (fixed line height) on every phone: without a bottom
+        // safe area (older iPhones, Android with buttons) the default height cut the labels in half.
+        tabBarStyle: [styles.bar, { height: 62 + insets.bottom, paddingBottom: insets.bottom > 0 ? insets.bottom : 4 }],
+        tabBarLabelStyle: { fontFamily: fontFamily('semibold', locale), fontSize: locale === 'te' ? 11 : 12, lineHeight: locale === 'te' ? 16 : 15 },
         tabBarIcon: ({ focused }) => {
           const pair = ICONS[route.name] ?? ICONS.home;
           return <Icon name={(focused ? pair?.[0] : pair?.[1]) ?? 'home'} size={24} color={focused ? 'navy' : 'inkSubtle'} />;
@@ -47,5 +51,5 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  bar: { backgroundColor: colors.surface, borderTopColor: colors.line, paddingTop: 4 },
+  bar: { backgroundColor: colors.surface, borderTopColor: colors.line, paddingTop: 2 },
 });

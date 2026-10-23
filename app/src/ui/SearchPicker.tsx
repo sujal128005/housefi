@@ -51,9 +51,9 @@ export function SearchPicker(props: Props) {
   const chosen: readonly string[] = props.multiple ? props.value : props.value ? [props.value] : [];
   const shown = useMemo(() => filterByText(props.options, text, (o) => o.value), [props.options, text]);
   const typed = text.trim().replace(/\s+/g, ' ');
-  const canAdd = !!props.onAdd && typed.length >= 2 && !props.options.some((o) => o.value.toLowerCase() === typed.toLowerCase());
   const disabled = !!props.disabledHint;
   const full = props.multiple ? chosen.length >= props.max : false;
+  const canAdd = !!props.onAdd && !full && typed.length >= 2 && !props.options.some((o) => o.value.toLowerCase() === typed.toLowerCase());
 
   const close = () => {
     setOpen(false);

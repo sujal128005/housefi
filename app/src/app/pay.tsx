@@ -50,6 +50,11 @@ export default function Pay() {
     setError(null);
   }
   const b = booking ?? q.data ?? null;
+  const payment = b ? (kind === 'VISIT' ? b.visitPayment : b.finalPayment) : null;
+  // Opened again for a bill that is already paid or still settling (an old link, a reload): show that, never "Pay".
+  const shown: Phase = phase === 'CHOOSE' && payment?.state === 'PAID' ? 'PAID'
+    : phase === 'CHOOSE' && payment?.state === 'PENDING' ? (payment.method === 'CASH' ? 'CASH' : 'PENDING')
+      : phase;
   const methods = kind === 'VISIT' ? PAY_METHODS.filter((m) => m.method !== 'CASH') : PAY_METHODS;
 
   const goToBooking = () => {
@@ -59,7 +64,7 @@ export default function Pay() {
 
   // While pending (bank) or waiting for the technician to confirm cash, keep checking until the payment is settled.
   useEffect(() => {
-    if (phase !== 'PENDING' && phase !== 'CASH') return;
+    if (shown !== 'PENDING' && shown !== 'CASH') return;
     const id = setInterval(() => {
       void backend.bookings.get(session.token, params.id).then((nb) => {
         setBooking(nb);
@@ -80,7 +85,7 @@ export default function Pay() {
     return () => clearInterval(id);
     // goToBooking only reads params.id, which is in the list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, backend, session.token, params.id, kind]);
+  }, [shown, backend, session.token, params.id, kind]);
 
   const pay = async () => {
     feedback('pop');
@@ -138,18 +143,17 @@ export default function Pay() {
   };
 
   const amount = b ? amountFor(b, kind) : 0;
-  const payment = b ? (kind === 'VISIT' ? b.visitPayment : b.finalPayment) : null;
 
   return (
     <Screen
       testID="pay"
       wash="lavender"
-      header={<Header title={kind === 'VISIT' ? t('pay.titleVisit') : t('pay.titleFinal')} back={phase === 'CHOOSE' || phase === 'FAILED'} />}
+      header={<Header title={kind === 'VISIT' ? t('pay.titleVisit') : t('pay.titleFinal')} back={shown === 'CHOOSE' || shown === 'FAILED'} />}
       footer={
-        phase === 'CHOOSE' ? <Button label={t('pay.cta', { amount: formatRupees(amount) })} icon="lock-closed" onPress={() => void pay()} disabled={!b} testID="pay-now" />
-          : phase === 'PAID' ? <Button label={kind === 'VISIT' ? t('pay.continueVisit') : t('pay.viewReceipt')} trailingIcon="arrow-forward" variant="lime" onPress={done} testID="pay-continue" />
-            : phase === 'PENDING' || phase === 'CASH' ? <Button label={t('pay.goToBooking')} variant="outline" onPress={goToBooking} testID="pay-go-booking" />
-              : phase === 'FAILED' ? (
+        shown === 'CHOOSE' ? <Button label={t('pay.cta', { amount: formatRupees(amount) })} icon="lock-closed" onPress={() => void pay()} disabled={!b} testID="pay-now" />
+          : shown === 'PAID' ? <Button label={kind === 'VISIT' ? t('pay.continueVisit') : t('pay.viewReceipt')} trailingIcon="arrow-forward" variant="lime" onPress={done} testID="pay-continue" />
+            : shown === 'PENDING' || shown === 'CASH' ? <Button label={t('pay.goToBooking')} variant="outline" onPress={goToBooking} testID="pay-go-booking" />
+              : shown === 'FAILED' ? (
                 <>
                   <Button label={t('pay.retry')} icon="refresh" onPress={() => void pay()} testID="pay-retry" />
                   <Button label={t('pay.change')} variant="outline" onPress={() => setPhase('CHOOSE')} testID="pay-change" />
@@ -167,7 +171,7 @@ export default function Pay() {
             <Txt variant="caption" color="inkMuted">{b.code}</Txt>
           </View>
 
-          {phase === 'CHOOSE' ? (
+          {shown === 'CHOOSE' ? (
             <Appear style={styles.stack}>
               <Txt variant="title3" heading>{t('pay.method')}</Txt>
               {methods.map((m) => (
@@ -188,7 +192,7 @@ export default function Pay() {
             </Appear>
           ) : null}
 
-          {phase === 'PROCESSING' ? (
+          {shown === 'PROCESSING' ? (
             <View style={styles.center} testID="pay-processing">
               <View style={styles.pulseBox}>
                 <Pulse size={180} color={colors.blue} />
@@ -200,7 +204,7 @@ export default function Pay() {
             </View>
           ) : null}
 
-          {phase === 'PAID' ? (
+          {shown === 'PAID' ? (
             <View style={styles.center} testID="pay-success">
               <Celebrate size={150}><Art3D name="pay_success" size={132} shadow /></Celebrate>
               <Txt variant="title1" align="center" heading>{t('pay.success')}</Txt>
@@ -214,7 +218,7 @@ export default function Pay() {
             </View>
           ) : null}
 
-          {phase === 'PENDING' ? (
+          {shown === 'PENDING' ? (
             <View style={styles.center} testID="pay-pending">
               <Art3D name="pay_pending" size={132} float shadow />
               <Txt variant="title2" align="center" heading>{t('pay.pending')}</Txt>
@@ -224,7 +228,7 @@ export default function Pay() {
             </View>
           ) : null}
 
-          {phase === 'CASH' ? (
+          {shown === 'CASH' ? (
             <View style={styles.center} testID="pay-cash">
               <Art3D name="cash" size={132} float shadow />
               <Txt variant="title2" align="center" heading>{t('pay.cashTitle', { amount: formatRupees(amount) })}</Txt>
@@ -233,7 +237,7 @@ export default function Pay() {
             </View>
           ) : null}
 
-          {phase === 'FAILED' ? (
+          {shown === 'FAILED' ? (
             <View style={styles.center} testID="pay-failed">
               <Art3D name="card_failed" size={132} />
               <Txt variant="title2" align="center" heading>{t('pay.failed')}</Txt>
