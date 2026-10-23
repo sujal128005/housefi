@@ -76,6 +76,12 @@ export function FestiveBanner({ greeting, onBook }: { readonly greeting: Greetin
   const cx = w / 2;
   const cy = 20 + r;
   const below = 46;
+  // Small phones and long names (Telugu): smaller art and type, and the name kept between the art and "Book now".
+  const k = Math.min(1.1, Math.max(0.8, w / 350));
+  const name = l(greeting.title);
+  const fontSize = Math.round((name.length > 14 ? 24 : 31) * k);
+  const right = onBook ? Math.min(cx + r * 0.8, w - 76) : cx + r * 0.8;
+  const half = right - cx;
   return (
     <Appear>
       <View style={[styles.banner, { height: H }]} onLayout={onLayout} testID="home-festive">
@@ -101,14 +107,14 @@ export function FestiveBanner({ greeting, onBook }: { readonly greeting: Greetin
             <Path d={sparkle(cx + r * 0.62, cy - r * 0.86, 4)} fill={look.accent} />
           </Svg>
         ) : null}
-        <View style={[styles.title, { top: 20 + r * 0.28, left: cx - r * 0.78, width: r * 1.56 }]} pointerEvents="none">
+        <View style={[styles.title, { top: 20 + r * 0.24, left: cx - half, width: half * 2 }]} pointerEvents="none">
           <Txt variant="caption" align="center" style={[styles.brandOn, { color: look.titleShadow }]}>housefi</Txt>
           <Txt variant="title1" align="center" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} testID="home-festive-title"
-            style={[styles.festName, { color: look.title, textShadowColor: look.titleShadow }]}>{l(greeting.title)}</Txt>
+            style={[styles.festName, { fontSize, lineHeight: Math.round(fontSize * 1.2), color: look.title, textShadowColor: look.titleShadow }]}>{name}</Txt>
         </View>
-        <View style={[styles.artRow, { left: Math.max(0, cx - r - 34) }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Image source={art3dImage(look.art[0])} style={styles.artBig} resizeMode="contain" />
-          <Image source={art3dImage(look.art[1])} style={styles.artSmall} resizeMode="contain" />
+        <View style={[styles.artRow, { left: Math.max(-4, cx - r - 34 * k) }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Image source={art3dImage(look.art[0])} style={{ width: 92 * k, height: 92 * k }} resizeMode="contain" />
+          <Image source={art3dImage(look.art[1])} style={{ width: 62 * k, height: 62 * k, marginLeft: -38 * k, marginBottom: -6 }} resizeMode="contain" />
         </View>
         {onBook ? (
           <Tap onPress={onBook} style={styles.cta} accessibilityRole="button" accessibilityLabel={t('festive.bookNow')} testID="home-festive-book" haptic>
@@ -218,10 +224,8 @@ const styles = StyleSheet.create({
   arch: { position: 'absolute', left: 0, top: 0 },
   title: { position: 'absolute', alignItems: 'center' },
   brandOn: { letterSpacing: 2.5 },
-  festName: { fontSize: 31, lineHeight: 37, textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 2 },
-  artRow: { position: 'absolute', bottom: -10, flexDirection: 'row', alignItems: 'flex-end' },
-  artBig: { width: 96, height: 96 },
-  artSmall: { width: 66, height: 66, marginLeft: -40, marginBottom: -6 },
+  festName: { textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 2 },
+  artRow: { position: 'absolute', bottom: -14, flexDirection: 'row', alignItems: 'flex-end' },
   cta: { position: 'absolute', right: 0, top: 52, width: 70, alignItems: 'center', gap: 6 },
   ctaLabel: { textTransform: 'uppercase', letterSpacing: 0.6 },
   ctaPill: { width: 54, height: 30, borderRadius: radius.pill, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center', ...shadow.card },

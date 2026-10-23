@@ -17,6 +17,7 @@ import { Banner, Button, ErrorBanner, Header, Icon, Pill, Screen, Tap, Txt, useT
 import { feedback } from '../../services/feedback';
 import { listenForOtp } from '../../services/otpAutoRead';
 import { Pop } from '../../ui/motion';
+import { useSingleFlight } from '../../ui/useSingleFlight';
 
 const LENGTH = 6;
 
@@ -39,6 +40,9 @@ export default function Otp() {
   const [verified, setVerified] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const stopListening = useRef<() => void>(() => undefined);
+  // One check and one resend at a time: they start from typing, the SMS reader, the button and a text link.
+  const verifying = useSingleFlight();
+  const resending = useSingleFlight();
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
@@ -74,8 +78,8 @@ export default function Otp() {
     Animated.sequence([10, -10, 8, -8, 0].map((v) => Animated.timing(shake, { toValue: v, duration: 50, useNativeDriver: true }))).start();
   };
 
-  const verify = async (value: string) => {
-    if (!challenge || value.length !== LENGTH || busy || blocked) return;
+  const verify = (value: string) => verifying(async () => {
+    if (!challenge || value.length !== LENGTH || blocked) return;
     setBusy(true);
     setProblem(null);
     setError(null);
@@ -110,9 +114,9 @@ export default function Otp() {
     } finally {
       setBusy(false);
     }
-  };
+  });
 
-  const resend = async () => {
+  const resend = () => resending(async () => {
     if (!challenge) return;
     setError(null);
     try {
@@ -127,7 +131,7 @@ export default function Otp() {
     } catch (e) {
       setError(e);
     }
-  };
+  });
 
   const onChange = (v: string) => {
     if (verified) return;

@@ -525,6 +525,8 @@ export const te: Record<StringKey, string> = {
   'rate.tag.onTime': 'సమయానికి',
   'rate.tag.polite': 'మర్యాదగా',
   'rate.thanks': 'మీ రేటింగ్‌కు ధన్యవాదాలు!',
+  'rate.already': "మీరు ఈ సందర్శనకు రేటింగ్ ఇచ్చారు. ధన్యవాదాలు!",
+  'rate.backToBooking': "బుకింగ్‌కు తిరిగి వెళ్ళండి",
   'rate.title': 'విజిట్‌కు రేటింగ్',
   'rate.what': 'మీకు ఏది నచ్చింది?',
   'receipt.by': 'సర్వీస్ చేసినవారు: {name}',

@@ -54,7 +54,8 @@ export default function Rate() {
       await backend.bookings.rate(session.token, id, { satisfied: satisfied ?? stars >= 3, stars, tags: tags.map((k) => k.replace('rate.tag.', '')), comment: comment.trim(), byWoman });
       feedback('success');
       toast.show(t('rate.thanks'), 'heart');
-      router.back();
+      if (router.canGoBack()) router.back();
+      else router.replace(`/booking/${id}`);
     } catch (e) {
       feedback('error');
       setError(e);
@@ -62,6 +63,24 @@ export default function Rate() {
       setBusy(false);
     }
   };
+
+  // Opened again for a visit that is already rated (an old link, a reload): show the rating, not an empty form.
+  const done = q.data?.rating ?? null;
+  if (done) {
+    return (
+      <Screen testID="rate" wash="peach" header={<Header title={t('rate.title')} />}
+        footer={<Button label={t('rate.backToBooking')} variant="outline" onPress={() => router.replace(`/booking/${id}`)} testID="rate-back" />}>
+        <View style={styles.head}>
+          <TechPhoto photo={tech?.photo} gender={tech?.gender ?? 'M'} size={104} />
+          <Txt variant="title2" align="center" heading testID="rate-already">{t('rate.already')}</Txt>
+          <View style={styles.stars}>
+            {[1, 2, 3, 4, 5].map((n) => <Icon key={n} name={n <= done.stars ? 'star' : 'star-outline'} size={34} color={n <= done.stars ? 'yellow' : 'lineStrong'} />)}
+          </View>
+          {done.comment ? <Txt variant="callout" color="inkMuted" align="center">“{done.comment}”</Txt> : null}
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen testID="rate" wash="peach" header={<Header title={t('rate.title')} />}

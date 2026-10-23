@@ -138,6 +138,11 @@ export function StartupRecovery({ failed, slow, onRetry }: { readonly failed: bo
   return (
     <BrandScreen testID={failed ? 'startup-failed' : 'startup-loading'}>
       {/* Fonts and language may not be ready yet, so the button speaks both languages. */}
+      {failed ? (
+        <Txt variant="callout" color="inkMuted" align="center" testID="startup-failed-text">
+          {"Couldn't connect to Housefi. Check your internet and try again.\nHousefiకి కనెక్ట్ కాలేదు. ఇంటర్నెట్ చూసి మళ్ళీ ప్రయత్నించండి."}
+        </Txt>
+      ) : null}
       {failed || slow ? <Button label="Retry / మళ్ళీ ప్రయత్నించండి" icon="refresh" onPress={onRetry} testID="startup-retry" /> : <ActivityIndicator color={colors.navy} size="large" />}
     </BrandScreen>
   );

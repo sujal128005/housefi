@@ -525,6 +525,8 @@ export const en = {
   'rate.tag.onTime': 'On time',
   'rate.tag.polite': 'Polite',
   'rate.thanks': 'Thanks for your rating!',
+  'rate.already': "You have rated this visit. Thank you!",
+  'rate.backToBooking': "Back to the booking",
   'rate.title': 'Rate your visit',
   'rate.what': 'What did you like?',
   'receipt.by': 'Serviced by {name}',

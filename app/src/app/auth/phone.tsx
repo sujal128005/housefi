@@ -11,6 +11,7 @@ import { useAppState } from '../../state/AppState';
 import { authFlow } from '../../state/authFlow';
 import { space } from '../../theme/tokens';
 import { Banner, Button, ErrorBanner, Field, Header, Pill, Screen, Tap, Txt } from '../../ui';
+import { useSingleFlight } from '../../ui/useSingleFlight';
 
 /** "9876543210" -> "98765 43210" while typing; a pasted or autofilled "+91 98765 43210" becomes the same. */
 function formatTyping(raw: string): string {
@@ -29,12 +30,14 @@ export default function PhoneSignIn() {
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  // The keyboard's Done and the button: one code request at a time (each request is an SMS).
+  const once = useSingleFlight();
 
   const digits = value.replace(/\D/g, '');
   const phone = normalizePhone(digits);
   const showInvalid = (touched || digits.length === 10) && !phone;
 
-  const send = async () => {
+  const send = () => once(async () => {
     setTouched(true);
     if (!phone) return;
     setBusy(true);
@@ -49,14 +52,14 @@ export default function PhoneSignIn() {
     } finally {
       setBusy(false);
     }
-  };
+  });
 
   return (
     <Screen
       testID="auth-phone"
       wash="sky"
       header={<Header onBack={backOrStart} />}
-      footer={<Button label={t('auth.phone.send')} trailingIcon="arrow-forward" onPress={send} loading={busy} disabled={!phone} testID="phone-send" />}
+      footer={<Button label={t('auth.phone.send')} trailingIcon="arrow-forward" onPress={() => void send()} loading={busy} disabled={!phone} testID="phone-send" />}
     >
       <View style={styles.art}><Art3D name={asTech ? 'tech_hero' : 'key'} size={120} float shadow /></View>
       {asTech ? <View style={styles.roleTag}><Pill label={t('auth.phone.asTech')} tone="info" icon="construct" /></View> : null}
@@ -74,7 +77,7 @@ export default function PhoneSignIn() {
         autoComplete="tel"
         placeholder="98765 43210"
         returnKeyType="done"
-        onSubmitEditing={send}
+        onSubmitEditing={() => void send()}
         error={showInvalid ? t('auth.phone.invalid') : null}
         hint={t('auth.phone.hint')}
       />

@@ -24,4 +24,13 @@ describe('request time limit', () => {
     expect(typeof stop).toBe('function');
     stop();
   });
+
+  it('hands out the same wrapper on every read, so screens that depend on backend.chat do not restart', () => {
+    const b = withTimeouts(createMockBackend({ store: memoryStore(), latency: [0, 0] }));
+    expect(b.chat).toBe(b.chat);
+    expect(b.tech.chat).toBe(b.tech.chat);
+    expect(b.chat.get).toBe(b.chat.get);
+    expect(b.bookings.get).toBe(b.bookings.get);
+    expect(b.chat).not.toBe(b.tech.chat);
+  });
 });

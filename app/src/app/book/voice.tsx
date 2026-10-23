@@ -18,6 +18,7 @@ import { colors, radius, shadow, space } from '../../theme/tokens';
 import { Banner, Button, Card, Header, Icon, Screen, Tap, Txt } from '../../ui';
 import { Appear, Pulse } from '../../ui/motion';
 import { feedback } from '../../services/feedback';
+import { useSingleFlight } from '../../ui/useSingleFlight';
 
 /** Speech-to-text takes up to 30 seconds in one go; the API keeps longer notes as audio only. */
 export const VOICE_MAX_SEC = 30;
@@ -72,7 +73,9 @@ export default function VoiceNote() {
     };
   }, [phase, uri, writing, backend, session.token, sec, draft.serviceId, locale]);
 
-  const start = async () => {
+  // A quick double tap on the mic must not prepare the recorder twice (the second attempt fails).
+  const starting = useSingleFlight();
+  const start = () => starting(async () => {
     player.pause();
     const perm = await requestRecordingPermissionsAsync().catch(() => null);
     if (!perm?.granted) {
@@ -94,7 +97,7 @@ export default function VoiceNote() {
     setWriting(null);
     feedback('pop');
     setPhase('RECORDING');
-  };
+  });
 
   async function stop(): Promise<void> {
     if (stopping.current) return;
