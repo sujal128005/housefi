@@ -1469,6 +1469,7 @@ export const en = {
   'fair.technicianVisit': "Their share of the visit fee",
   'fair.parts': "Parts and materials",
   'fair.partsNote': "Paid back to the technician in full",
+  'fair.partsNoteYou': "Paid back to you in full",
   'fair.housefi': "Housefi",
   'fair.housefiNote': "Support, 15-day warranty, safe payments, the app",
   'fair.coupon': "The {amount} coupon discount was paid by Housefi, not the technician.",

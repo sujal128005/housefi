@@ -1469,6 +1469,7 @@ export const te: Record<StringKey, string> = {
   'fair.technicianVisit': "విజిట్ ఫీజులో వారి వాటా",
   'fair.parts': "విడిభాగాలు, సామగ్రి",
   'fair.partsNote': "టెక్నీషియన్‌కు పూర్తిగా తిరిగి చెల్లిస్తారు",
+  'fair.partsNoteYou': "మీకు పూర్తిగా తిరిగి చెల్లిస్తారు",
   'fair.housefi': "Housefi",
   'fair.housefiNote': "సపోర్ట్, 15 రోజుల వారంటీ, సురక్షిత చెల్లింపులు, యాప్",
   'fair.coupon': "{amount} కూపన్ తగ్గింపును Housefi చెల్లించింది, టెక్నీషియన్ కాదు.",

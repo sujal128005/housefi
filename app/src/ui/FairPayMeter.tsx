@@ -20,7 +20,7 @@ export function FairPayMeter({ split: f, viewer }: { readonly split: FairPay | n
       key: 'technician', amount: f.technician, label: viewer === 'technician' ? t('fair.you') : t('fair.technician'),
       note: f.withBill ? t('fair.technicianNote', { percent: f.labourSharePercent }) : t('fair.technicianVisit'),
     },
-    ...(f.parts > 0 ? [{ key: 'parts' as const, amount: f.parts, label: t('fair.parts'), note: t('fair.partsNote') }] : []),
+    ...(f.parts > 0 ? [{ key: 'parts' as const, amount: f.parts, label: t('fair.parts'), note: viewer === 'technician' ? t('fair.partsNoteYou') : t('fair.partsNote') }] : []),
     { key: 'housefi', amount: housefi, label: t('fair.housefi'), note: t('fair.housefiNote') },
   ];
   const sum = parts.reduce((s, p) => s + p.amount, 0) || 1;
