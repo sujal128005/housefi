@@ -11,14 +11,17 @@ export function normaliseCode(raw: string): string {
   return raw.trim().toUpperCase().replace(/\s+/g, '');
 }
 
-/** The discount on a bill of `grossPaise`, or 0 when the bill is below the coupon's minimum. */
+/**
+ * The discount on a bill of `grossPaise`, or 0 when the bill is below the coupon's minimum. Always whole rupees (bills
+ * are whole rupees everywhere): a percentage is rounded down, so 26% of ₹580 is ₹150 off, not ₹150.80.
+ */
 export function discountFor(c: Pick<Coupon, 'kind' | 'value' | 'maxDiscountPaise' | 'minBillPaise'>, grossPaise: bigint): bigint {
   if (grossPaise < c.minBillPaise) return 0n;
   let d = c.kind === 'FLAT' ? BigInt(c.value) * 100n : (grossPaise * BigInt(c.value)) / 100n;
   if (c.maxDiscountPaise !== null && d > c.maxDiscountPaise) d = c.maxDiscountPaise;
   const most = grossPaise - MIN_PAYABLE_PAISE;
   if (d > most) d = most > 0n ? most : 0n;
-  return d;
+  return (d / 100n) * 100n;
 }
 
 export type CouponProblem = 'UNKNOWN' | 'INACTIVE' | 'NOT_YET' | 'EXPIRED' | 'USED_UP' | 'ALREADY_USED' | 'FIRST_BOOKING_ONLY' | 'BILL_TOO_SMALL';
