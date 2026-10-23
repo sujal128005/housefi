@@ -1,8 +1,10 @@
-// Phone features: camera / gallery photos (booking problems, the technician's profile photo) and the current location.
+// Phone features: camera / gallery photos (booking problems, the technician's profile photo), the skill check's work
+// video and certificate files, and the current location.
 // Every photo is re-saved as a JPEG of sensible size before it is uploaded: the API accepts JPEG, PNG and HEIC only (not
 // WebP and the like), a smaller file uploads faster on mobile data, and re-saving drops the camera's metadata.
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import type { Position } from './api';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
@@ -143,5 +145,35 @@ export async function quickPosition(timeoutMs = 5000): Promise<Position | null> 
     return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracyM: pos.coords.accuracy ?? null };
   } catch {
     return null;
+  }
+}
+
+export type VideoResult = { readonly ok: true; readonly uri: string; readonly durationSec: number | null } | { readonly ok: false; readonly reason: 'CANCELLED' | 'DENIED' | 'UNAVAILABLE' };
+
+/** A work video from the gallery (the skill check), up to 2 minutes; iPhones compress it to a medium size. */
+export async function pickVideo(): Promise<VideoResult> {
+  try {
+    if (Platform.OS === 'web') return { ok: false, reason: 'UNAVAILABLE' };
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], videoMaxDuration: 120, videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium, allowsEditing: false });
+    const a = r.canceled ? null : r.assets[0];
+    if (!a) return { ok: false, reason: 'CANCELLED' };
+    return { ok: true, uri: a.uri, durationSec: a.duration != null ? Math.round(a.duration / 1000) : null };
+  } catch {
+    return { ok: false, reason: 'UNAVAILABLE' };
+  }
+}
+
+export type DocumentResult = { readonly ok: true; readonly uri: string; readonly mimeType: string } | { readonly ok: false; readonly reason: 'CANCELLED' | 'DENIED' | 'UNAVAILABLE' | 'TOO_BIG' };
+
+/** A certificate as a PDF from the phone's files (at most 10 MB). */
+export async function pickPdf(): Promise<DocumentResult> {
+  try {
+    const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf'], copyToCacheDirectory: true, multiple: false });
+    const a = r.canceled ? null : r.assets[0];
+    if (!a) return { ok: false, reason: 'CANCELLED' };
+    if (a.size != null && a.size > 10 * 1024 * 1024) return { ok: false, reason: 'TOO_BIG' };
+    return { ok: true, uri: a.uri, mimeType: a.mimeType ?? 'application/pdf' };
+  } catch {
+    return { ok: false, reason: 'UNAVAILABLE' };
   }
 }

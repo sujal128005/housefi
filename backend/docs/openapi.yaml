@@ -30,6 +30,7 @@ tags:
   - name: notifications
   - name: support
   - name: technician
+  - name: skills
   - name: coordinator
   - name: identity
   - name: telephony
@@ -630,6 +631,39 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UploadTicket' } } } }
 
+  /uploads/videos:
+    post:
+      tags: [uploads]
+      summary: Signed URL for a technician's work video (video/mp4 or video/quicktime, max 100 MB, max 2 min)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentType, bytes]
+              properties:
+                contentType: { type: string, enum: [video/mp4, video/quicktime] }
+                bytes: { type: integer, maximum: 104857600 }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UploadTicket' } } } }
+  /uploads/documents:
+    post:
+      tags: [uploads]
+      summary: Signed URL for a technician's certificate (PDF or photo, max 10 MB)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentType, bytes]
+              properties:
+                contentType: { type: string, enum: [application/pdf, image/jpeg, image/png, image/heic] }
+                bytes: { type: integer, maximum: 10485760 }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/UploadTicket' } } } }
+
   # ---------------- ai ----------------
   /ai/top-problems:
     get:
@@ -844,6 +878,119 @@ paths:
                 note: { type: string, minLength: 3, maxLength: 300 }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TechProfile' } } } }
+  /tech/skills:
+    get:
+      tags: [technician, skills]
+      summary: "The skill check (after the Aadhaar scan: level, exam per trade, work video, certificates)"
+      description: >-
+        A trade gets job offers only once verified: a passed exam, a work video HQ approved, or HQ itself. The review
+        window starts when the skill check is sent (POST /tech/skills/submit). Trades from before the skill check count
+        as verified (EARLIER).
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillCheck' } } } }
+  /tech/skills/level:
+    put:
+      tags: [technician, skills]
+      summary: The level the technician chooses (sets how hard the exam is); 409 after an exam was started
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SkillLevelInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillCheck' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/skills/exams:
+    post:
+      tags: [technician, skills]
+      summary: Start the exam for one of the technician's trades (or get the one still running for it)
+      description: >-
+        10 questions: 3 MCQs (3 min), 3 diagram questions (4 min), 4 "choose the part or tool" questions (5 min); 2 points
+        each, 3 for a fast right part answer; 60% to pass. The server keeps the time and the answers; the paper never
+        carries them. 409 while another exam runs, for a verified trade, or before the retake time (retryAfterSec).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SkillExamStart' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillExam' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/skills/exams/{attemptId}:
+    get:
+      tags: [technician, skills]
+      summary: The exam as it stands (marked once its time is up)
+      parameters: [{ name: attemptId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillExam' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /tech/skills/exams/{attemptId}/sections/{index}/start:
+    post:
+      tags: [technician, skills]
+      summary: Open the next section (in order); the section before closes
+      parameters:
+        - { name: attemptId, in: path, required: true, schema: { type: string } }
+        - { name: index, in: path, required: true, schema: { type: integer, minimum: 0, maximum: 2 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillExam' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/skills/exams/{attemptId}/answers/{questionId}:
+    put:
+      tags: [technician, skills]
+      summary: Answer (or change the answer to) a question of the open section, while its time runs
+      parameters:
+        - { name: attemptId, in: path, required: true, schema: { type: string } }
+        - { name: questionId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SkillExamAnswer' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillExam' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/skills/exams/{attemptId}/left-app:
+    post:
+      tags: [technician, skills]
+      summary: The technician left the app during the exam; the third time submits it
+      parameters: [{ name: attemptId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillExam' } } } }
+  /tech/skills/exams/{attemptId}/submit:
+    post:
+      tags: [technician, skills]
+      summary: Submit the exam; the result comes back at once
+      parameters: [{ name: attemptId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillExam' } } } }
+  /tech/skills/video:
+    post:
+      tags: [technician, skills]
+      summary: A 1-2 minute work video (POST /uploads/videos first) for HQ to watch; replaces one waiting or refused
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SkillVideoInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillCheck' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+  /tech/skills/certificates:
+    post:
+      tags: [technician, skills]
+      summary: Add a certificate (POST /uploads/documents first); at most 4
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SkillCertificateInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillCheck' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/skills/certificates/{certificateId}:
+    delete:
+      tags: [technician, skills]
+      parameters: [{ name: certificateId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillCheck' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /tech/skills/submit:
+    post:
+      tags: [technician, skills]
+      summary: Send the skill check for review (needs the level and an exam taken or a video); the review window starts now
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillCheck' } } } }
+        '409': { $ref: '#/components/responses/Error' }
   /tech/availability:
     post:
       tags: [technician]
@@ -1526,7 +1673,7 @@ components:
     TechIdCard:
       type: object
       description: Only what is needed to confirm a technician's Housefi identity. Never ID-document images or numbers, date of birth, address or phone.
-      required: [techCode, name, photo, photoStatus, gender, skills, verification, simulated, verifyUrl, verifyIsDemo, fictional]
+      required: [techCode, name, photo, photoStatus, gender, skills, verifiedSkills, certifications, verification, simulated, verifyUrl, verifyIsDemo, fictional]
       properties:
         techCode: { $ref: '#/components/schemas/TechCode' }
         name: { type: string }
@@ -1534,6 +1681,8 @@ components:
         photoStatus: { type: string, enum: [PENDING, APPROVED, REJECTED] }
         gender: { type: string, enum: [M, F] }
         skills: { type: array, items: { $ref: '#/components/schemas/CategoryId' } }
+        verifiedSkills: { type: array, items: { $ref: '#/components/schemas/CategoryId' }, description: Trades proven in the skill check }
+        certifications: { type: array, items: { $ref: '#/components/schemas/Certification' } }
         verification: { $ref: '#/components/schemas/Verification' }
         simulated: { type: boolean }
         verifyUrl: { type: string, format: uri, description: 'https://<verification domain>/t/{token}' }
@@ -1541,13 +1690,15 @@ components:
         fictional: { type: boolean }
     TechVerifyResult:
       type: object
-      required: [techCode, displayName, photo, gender, verification, simulated, active, checkedAt, fictional]
+      required: [techCode, displayName, photo, gender, verification, verifiedSkills, certifications, simulated, active, checkedAt, fictional]
       properties:
         techCode: { $ref: '#/components/schemas/TechCode' }
         displayName: { type: string, description: First name and last initial }
         photo: { type: [string, 'null'], description: Approved photo only }
         gender: { type: string, enum: [M, F] }
         verification: { $ref: '#/components/schemas/Verification' }
+        verifiedSkills: { type: array, items: { $ref: '#/components/schemas/CategoryId' }, description: Empty unless active }
+        certifications: { type: array, items: { $ref: '#/components/schemas/Certification' }, description: Empty unless active }
         simulated: { type: boolean }
         active: { type: boolean, description: Allowed to work for Housefi right now }
         checkedAt: { type: integer, description: Epoch ms }
@@ -1697,6 +1848,194 @@ components:
             online: { type: boolean }
             rating: { type: [number, 'null'] }
             jobsDone: { type: integer }
+            skillCheck: { oneOf: [{ $ref: '#/components/schemas/TechSkillSummary' }, { type: 'null' }], description: null before the first submission }
+    TechSkillSummary:
+      type: object
+      required: [level, required, submittedAt, verifiedSkills, certifications]
+      properties:
+        level: { oneOf: [{ $ref: '#/components/schemas/SkillLevel' }, { type: 'null' }] }
+        required: { type: boolean, description: The skill check still has to be sent (a trade not verified, nothing sent yet) }
+        submittedAt: { type: [integer, 'null'] }
+        verifiedSkills: { type: array, items: { $ref: '#/components/schemas/CategoryId' }, description: Trades that get job offers }
+        certifications: { type: array, items: { $ref: '#/components/schemas/Certification' } }
+    Certification:
+      type: object
+      required: [kind, title]
+      properties:
+        kind: { type: string, enum: [ITI, SKILL_INDIA, OTHER] }
+        title: { type: string }
+    SkillLevel: { type: string, enum: [UNSKILLED, SEMI_SKILLED, SKILLED, HIGHLY_SKILLED] }
+    SkillLevelInput:
+      type: object
+      required: [level]
+      properties: { level: { $ref: '#/components/schemas/SkillLevel' } }
+    SkillExamStart:
+      type: object
+      required: [categoryId]
+      properties: { categoryId: { $ref: '#/components/schemas/CategoryId' } }
+    SkillExamAnswer:
+      type: object
+      required: [optionId]
+      properties: { optionId: { type: string, pattern: '^[a-f]$' } }
+    SkillVideoInput:
+      type: object
+      required: [source]
+      properties:
+        source: { type: string, enum: [LIVE, UPLOAD, SAMPLE], description: SAMPLE (no file) for the team's demo accounts only }
+        uploadId: { type: string, description: Required for LIVE and UPLOAD }
+    SkillCertificateInput:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string, enum: [ITI, SKILL_INDIA, OTHER] }
+        title: { type: string, maxLength: 80 }
+        uploadId: { type: string }
+        sample: { type: boolean, description: No file, for the team's demo accounts only }
+    SkillReview: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+    SkillCheck:
+      type: object
+      required: [level, required, submittedAt, canSubmit, demo, trades, video, certificates, rules]
+      properties:
+        level: { oneOf: [{ $ref: '#/components/schemas/SkillLevel' }, { type: 'null' }] }
+        required: { type: boolean }
+        submittedAt: { type: [integer, 'null'] }
+        canSubmit: { type: boolean }
+        demo: { type: boolean }
+        trades:
+          type: array
+          items:
+            type: object
+            required: [categoryId, verifiedVia, verifiedAt, exam]
+            properties:
+              categoryId: { $ref: '#/components/schemas/CategoryId' }
+              verifiedVia: { type: [string, 'null'], enum: [EXAM, VIDEO, HQ, EARLIER, null] }
+              verifiedAt: { type: [integer, 'null'] }
+              exam:
+                type: object
+                required: [state, attemptId, points, maxPoints, retakeAt]
+                properties:
+                  state: { type: string, enum: [NONE, IN_PROGRESS, PASSED, FAILED] }
+                  attemptId: { type: [string, 'null'] }
+                  points: { type: [integer, 'null'] }
+                  maxPoints: { type: integer }
+                  retakeAt: { type: [integer, 'null'] }
+        video:
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              required: [id, source, status, durationSec, categoryIds, reviewNote, createdAt]
+              properties:
+                id: { type: string }
+                source: { type: string, enum: [LIVE, UPLOAD, SAMPLE] }
+                status: { $ref: '#/components/schemas/SkillReview' }
+                durationSec: { type: [integer, 'null'] }
+                categoryIds: { type: array, items: { $ref: '#/components/schemas/CategoryId' } }
+                reviewNote: { type: [string, 'null'] }
+                createdAt: { type: integer }
+        certificates:
+          type: array
+          items:
+            type: object
+            required: [id, kind, title, status, sample, reviewNote, createdAt]
+            properties:
+              id: { type: string }
+              kind: { type: string, enum: [ITI, SKILL_INDIA, OTHER] }
+              title: { type: string }
+              status: { $ref: '#/components/schemas/SkillReview' }
+              sample: { type: boolean }
+              reviewNote: { type: [string, 'null'] }
+              createdAt: { type: integer }
+        rules:
+          type: object
+          required: [sections, passPercent, maxLeftApp, minVideoSec, maxVideoSec, maxCertificates, retakeAfterSec]
+          properties:
+            sections: { type: array, items: { $ref: '#/components/schemas/SkillExamSectionRule' } }
+            passPercent: { type: integer }
+            maxLeftApp: { type: integer }
+            minVideoSec: { type: integer }
+            maxVideoSec: { type: integer }
+            maxCertificates: { type: integer }
+            retakeAfterSec: { type: integer }
+    SkillExamSectionRule:
+      type: object
+      required: [type, count, limitSec]
+      properties:
+        type: { type: string, enum: [MCQ, DIAGRAM, SELECT] }
+        count: { type: integer }
+        limitSec: { type: integer }
+    SkillExam:
+      type: object
+      description: The paper as the technician sees it. Never the right answers; the result says only right or wrong per question.
+      required: [id, categoryId, level, state, serverNow, startedAt, endsAt, sections, currentSection, questions, answers, leftApp, maxLeftApp, result]
+      properties:
+        id: { type: string }
+        categoryId: { $ref: '#/components/schemas/CategoryId' }
+        level: { $ref: '#/components/schemas/SkillLevel' }
+        state: { type: string, enum: [IN_PROGRESS, SUBMITTED] }
+        serverNow: { type: integer, description: The server's clock (ms) for the time left }
+        startedAt: { type: integer }
+        endsAt: { type: integer }
+        sections:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/SkillExamSectionRule'
+              - type: object
+                required: [startedAt, endsAt]
+                properties: { startedAt: { type: [integer, 'null'] }, endsAt: { type: [integer, 'null'] } }
+        currentSection: { type: integer, description: -1 before the first section is opened }
+        questions:
+          type: array
+          items:
+            type: object
+            required: [id, section, type, q, art, options]
+            properties:
+              id: { type: string }
+              section: { type: integer }
+              type: { type: string, enum: [MCQ, DIAGRAM, SELECT] }
+              q: { $ref: '#/components/schemas/Localized' }
+              art: { type: [string, 'null'], description: A picture the app draws (diagram labelled A-D, or a joining task) }
+              options:
+                type: array
+                items:
+                  type: object
+                  required: [id, en, te, art]
+                  properties:
+                    id: { type: string }
+                    en: { type: [string, 'null'] }
+                    te: { type: [string, 'null'] }
+                    art: { type: [string, 'null'] }
+        answers: { type: object, additionalProperties: { type: string }, description: question id to option id }
+        leftApp: { type: integer }
+        maxLeftApp: { type: integer }
+        result:
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              required: [correct, total, points, basePoints, bonusPoints, maxPoints, passPoints, passed, autoSubmitted, retakeAt, questions]
+              properties:
+                correct: { type: integer }
+                total: { type: integer }
+                points: { type: integer }
+                basePoints: { type: integer }
+                bonusPoints: { type: integer }
+                maxPoints: { type: integer }
+                passPoints: { type: integer }
+                passed: { type: boolean }
+                autoSubmitted: { type: boolean }
+                retakeAt: { type: [integer, 'null'] }
+                questions:
+                  type: array
+                  items:
+                    type: object
+                    required: [questionId, correct, fast, points, changes, secondsTaken]
+                    properties:
+                      questionId: { type: string }
+                      correct: { type: boolean }
+                      fast: { type: boolean }
+                      points: { type: integer }
+                      changes: { type: integer }
+                      secondsTaken: { type: [integer, 'null'] }
     JobOffer:
       type: object
       required: [id, bookingId, code, serviceId, categoryId, issueIds, notes, photoCount, area, pincode, time, distanceKm, visitEarning, createdAt, expiresAt]

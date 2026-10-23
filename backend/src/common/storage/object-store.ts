@@ -90,6 +90,11 @@ export class MediaUrls {
   photoUrl(uploadId: string): Promise<string> {
     return this.store.presignGet(verifiedKey(uploadId), READ_URL_TTL_SEC);
   }
+
+  /** Any checked file (a work video, a certificate), read-only for a short time. */
+  fileUrl(uploadId: string): Promise<string> {
+    return this.store.presignGet(verifiedKey(uploadId), READ_URL_TTL_SEC);
+  }
 }
 
 @Global()

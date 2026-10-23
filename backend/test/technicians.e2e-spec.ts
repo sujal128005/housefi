@@ -75,6 +75,8 @@ describe('technicians (e2e)', () => {
         online: false,
         rating: null,
         jobsDone: 0,
+        // A new technician sends the skill check next (test/skills.e2e-spec.ts).
+        skillCheck: { level: null, required: true, submittedAt: null, verifiedSkills: [], certifications: [] },
       });
       const refreshed = await api().post('/v1/auth/refresh').send({ refreshToken: auth.refreshToken }).expect(200);
       expect(refreshed.body).toMatchObject({ isNew: false, technician: { verification: 'PENDING' } });

@@ -144,7 +144,7 @@ export class DispatchService {
       JOIN bookings b ON b.id = ${b.id}::uuid
       JOIN users u ON u.id = t.user_id
       WHERE t.verification = 'APPROVED' AND t.online AND u.status = 'ACTIVE'
-        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.category_id = ANY(${skillsFor(b.categoryId)}::category_id[]))
+        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.verified_at IS NOT NULL AND s.category_id = ANY(${skillsFor(b.categoryId)}::category_id[]))
         -- Demo bookings go only to the team's demo technicians, real bookings only to real technicians.
         AND u.is_demo = b.is_demo
         AND (t.phone_type = 'SMARTPHONE' OR (
@@ -182,7 +182,7 @@ export class DispatchService {
       SELECT count(*)::bigint AS n FROM technicians t
       JOIN users u ON u.id = t.user_id
       WHERE t.verification = 'APPROVED' AND t.coordinator_id IS NOT NULL AND t.phone_type <> 'SMARTPHONE'
-        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.category_id = ANY(${skillsFor(b.categoryId)}::category_id[]))
+        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.verified_at IS NOT NULL AND s.category_id = ANY(${skillsFor(b.categoryId)}::category_id[]))
         AND u.status = 'ACTIVE' AND u.is_demo = ${b.isDemo}
         AND (t.pincode = ${b.pincode} OR t.pincode IN (SELECT a.near_pincode FROM service_area_pincodes a WHERE a.pincode = ${b.pincode}))
         AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))`;
@@ -286,7 +286,7 @@ export class DispatchService {
       FROM technicians t JOIN users u ON u.id = t.user_id, addresses a
       WHERE a.id = ${addressId}::uuid AND a.location IS NOT NULL AND t.last_location IS NOT NULL
         AND t.verification = 'APPROVED' AND t.online AND u.status = 'ACTIVE' AND u.is_demo = ${isDemo} AND t.phone_type = 'SMARTPHONE'
-        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.category_id = ANY(${skillsFor(service.categoryId)}::category_id[]))
+        AND EXISTS (SELECT 1 FROM technician_skills s WHERE s.technician_id = t.user_id AND s.verified_at IS NOT NULL AND s.category_id = ANY(${skillsFor(service.categoryId)}::category_id[]))
         AND (t.pincode = a.pincode OR t.pincode IN (SELECT n.near_pincode FROM service_area_pincodes n WHERE n.pincode = a.pincode)
           OR (${radiusM} > 0 AND ST_DWithin(t.last_location, a.location, ${radiusM})))
         AND NOT EXISTS (SELECT 1 FROM bookings busy WHERE busy.technician_id = t.user_id AND busy.status = ANY(${[...TECH_ACTIVE]}::booking_status[]))`;

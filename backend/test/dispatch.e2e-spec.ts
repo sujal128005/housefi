@@ -93,6 +93,16 @@ describe('dispatch (e2e)', () => {
       expect(await offerOf(pending.token)).toBeNull();
     });
 
+    it('offers a trade only once it is verified in the skill check', async () => {
+      const plumber = await tech();
+      await t.prisma.technicianSkill.update({ where: { technicianId_categoryId: { technicianId: plumber.id, categoryId: 'PLUMBING' } }, data: { verifiedAt: null, verifiedVia: null } });
+      const id = await searching();
+      expect(await openOffer(id)).toBeNull();
+      await t.prisma.technicianSkill.update({ where: { technicianId_categoryId: { technicianId: plumber.id, categoryId: 'PLUMBING' } }, data: { verifiedAt: new Date(t.clock.now()), verifiedVia: 'EXAM' } });
+      await dispatch().offerNext(id);
+      expect((await openOffer(id))?.technicianId).toBe(plumber.id);
+    });
+
     it('shares electrical, AC and appliance jobs between those trades; plumbing and carpentry stay with their own', async () => {
       const fanJob = { serviceId: 'elec-fan', problem: { issueIds: ['fan-dead'], notes: '', voiceNote: null, photos: [] } };
       const plumber = await tech({ profile: { skills: ['PLUMBING', 'CARPENTRY'] } });

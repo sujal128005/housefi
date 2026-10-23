@@ -2,7 +2,7 @@
 // (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
 // build of the app uses it.
 import type {
-  Address, AddressInput, Booking, CancelReason, Category, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput,
+  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput,
   Greeting, Locality, NearPlace, PincodePlaces,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
@@ -332,6 +332,25 @@ export interface TechApi {
   requestIdentityCorrection(token: string, kind: 'NAME' | 'PHOTO', note: string): Promise<TechProfile>;
   /** Online = ready to receive job offers. Only verified technicians can go online. */
   setOnline(token: string, online: boolean): Promise<TechProfile>;
+  /** The skill check (after the Aadhaar scan): level, an exam per trade, a work video, certificates. */
+  skills(token: string): Promise<SkillCheck>;
+  /** Sets how hard the exam is; CONFLICT once an exam was started. */
+  setSkillLevel(token: string, level: SkillLevel): Promise<SkillCheck>;
+  /** A new exam paper for one of the technician's trades, or the one still running for it. */
+  startExam(token: string, categoryId: CategoryId): Promise<SkillExam>;
+  exam(token: string, id: string): Promise<SkillExam>;
+  /** Opens the next section (in order); the one before closes. */
+  startExamSection(token: string, id: string, index: number): Promise<SkillExam>;
+  answerExam(token: string, id: string, questionId: string, optionId: string): Promise<SkillExam>;
+  /** The app was left during the exam; the third time submits it. */
+  examLeftApp(token: string, id: string): Promise<SkillExam>;
+  submitExam(token: string, id: string): Promise<SkillExam>;
+  /** A 1-2 minute work video (recorded or chosen), uploaded first; SAMPLE for demo accounts. */
+  sendSkillVideo(token: string, input: SkillVideoInput): Promise<SkillCheck>;
+  addCertificate(token: string, input: CertificateInput): Promise<SkillCheck>;
+  removeCertificate(token: string, id: string): Promise<SkillCheck>;
+  /** Sends the skill check for review; the review time starts now. */
+  submitSkills(token: string): Promise<SkillCheck>;
   /** The job currently offered to this technician, if any. */
   offer(token: string): Promise<JobOffer | null>;
   /** OFFER_EXPIRED when too late or the customer cancelled. */

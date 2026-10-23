@@ -154,6 +154,12 @@ export default function TechHome() {
           <Switch value={p.online} onValueChange={(v) => void setOnline(v)} disabled={busy} trackColor={{ true: colors.onLimeTint, false: colors.lineStrong }} thumbColor={colors.surface}
             accessibilityLabel={t('thome.availability')} testID="tech-online-switch" />
         </View>
+        {/* A trade without proof gets no jobs; technicians from before the skill check may add certificates. */}
+        {p.skillCheck && p.skillCheck.verifiedSkills.length < p.skills.length ? (
+          <Banner tone="warning" icon="school-outline" text={t('skills.bannerNew')} action={t('skills.open')} onAction={() => router.push('/tech/skills')} testID="thome-skills-new" />
+        ) : p.skillCheck && p.skillCheck.level === null && p.skillCheck.certifications.length === 0 ? (
+          <Banner tone="info" icon="ribbon-outline" text={t('skills.banner')} action={t('skills.open')} onAction={() => router.push('/tech/skills')} testID="thome-skills" />
+        ) : null}
         <ErrorBanner error={error && isApiError(error, 'CONFLICT') ? null : error} />
         {error && isApiError(error, 'CONFLICT') ? <Banner tone="info" text={t('thome.finishFirst')} /> : null}
 

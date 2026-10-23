@@ -7,8 +7,14 @@ import { crc32 } from 'node:zlib';
 
 export const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/heic'] as const;
 export const AUDIO_TYPES = ['audio/m4a', 'audio/mp4', 'audio/aac'] as const;
+/** A technician's work video (skill check): what phones record. */
+export const VIDEO_TYPES = ['video/mp4', 'video/quicktime'] as const;
+/** A certificate: a PDF or a photo of it. */
+export const DOCUMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/heic'] as const;
 export type PhotoType = (typeof PHOTO_TYPES)[number];
 export type AudioType = (typeof AUDIO_TYPES)[number];
+export type VideoType = (typeof VIDEO_TYPES)[number];
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
 /** A file that is not what it claims to be, or that cannot be read safely. */
 export class MediaError extends Error {}
@@ -70,8 +76,15 @@ function ftypBrands(b: Uint8Array): string[] | null {
 // ---------- type checks ----------
 
 /** True when the bytes really are `type` (magic numbers; HEIC and M4A by their ftyp brands). */
-export function isType(b: Uint8Array, type: PhotoType | AudioType): boolean {
+export function isType(b: Uint8Array, type: PhotoType | AudioType | VideoType | DocumentType): boolean {
   switch (type) {
+    case 'video/mp4':
+    case 'video/quicktime': {
+      const brands = ftypBrands(b);
+      return !!brands && !brands.some((x) => HEIF_BRANDS.has(x));
+    }
+    case 'application/pdf':
+      return ascii(b, 0, 5) === '%PDF-';
     case 'image/jpeg':
       return startsWith(b, [0xff, 0xd8, 0xff]);
     case 'image/png':
@@ -118,6 +131,11 @@ export function audioDurationSec(b: Uint8Array, type: AudioType): number {
     need(rate > 0, 'unknown sample rate');
     return Math.ceil(samples / rate);
   }
+  return mp4DurationSec(b);
+}
+
+/** Length of an MP4 / MOV / M4A file in seconds (rounded up), from its movie header. */
+export function mp4DurationSec(b: Uint8Array): number {
   const moov = boxes(b, 0, b.length).find((x) => x.type === 'moov');
   need(!!moov, 'no moov box');
   const mvhd = child(b, moov, 'mvhd');
@@ -334,4 +352,28 @@ export function stripLocation(input: Uint8Array, type: PhotoType): Uint8Array {
   if (type === 'image/jpeg') return stripJpeg(b);
   if (type === 'image/png') return stripPng(b);
   return stripHeic(b);
+}
+
+// ---------- videos ----------
+
+/** A place written as ISO 6709 text ("+17.4172+078.4359+000.000/"), as phones store it in videos. */
+const ISO6709 = /[+-]\d{2}(?:\.\d+)?[+-]\d{3}(?:\.\d+)?(?:[+-]\d+(?:\.\d+)?)?\//g;
+
+/**
+ * Removes where a video was recorded: phones write the place as ISO 6709 text in the movie's metadata (QuickTime
+ * "©xyz" and "com.apple.quicktime.location.ISO6709", Android the same "©xyz"). Every such text inside the moov box
+ * becomes zeros, same length, so no box sizes change. The pictures and sound are untouched.
+ */
+export function stripVideoLocation(input: Uint8Array): Uint8Array {
+  const moov = boxes(input, 0, input.length).find((x) => x.type === 'moov');
+  need(!!moov, 'no moov box');
+  const out = new Uint8Array(input);
+  const text = Buffer.from(out.subarray(moov.start, moov.end)).toString('latin1');
+  for (const m of text.matchAll(ISO6709)) {
+    for (let i = 0; i < m[0].length; i++) {
+      const at = moov.start + m.index + i;
+      if (out[at]! >= 0x30 && out[at]! <= 0x39) out[at] = 0x30;
+    }
+  }
+  return out;
 }

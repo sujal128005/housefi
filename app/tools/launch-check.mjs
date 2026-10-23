@@ -99,7 +99,18 @@ async function main() {
   await waitFor({ id: 'auth-phone' }, 20000);
   assertHealthy();
 
-  const crash = adb(['logcat', '-d', '-v', 'brief']).toString('utf8').split(/\r?\n/).find((l) => /FATAL EXCEPTION|AndroidRuntime: FATAL/.test(l));
+  // A crash of the app itself fails the check. The emulator's own apps (Gmail, Play services...) sometimes crash on
+  // their own: the line after "FATAL EXCEPTION" names the process, and only the app's counts.
+  const lines = adb(['logcat', '-d', '-v', 'brief']).toString('utf8').split(/\r?\n/);
+  const crash = lines.find((l, i) => {
+    if (!/FATAL EXCEPTION|AndroidRuntime: FATAL/.test(l)) return false;
+    const proc = lines.slice(i + 1, i + 4).map((x) => /Process: ([^,\s]+)/.exec(x)?.[1]).find(Boolean);
+    if (proc && proc !== PKG) {
+      console.log(`Ignored a crash of another app on the emulator (${proc}).`);
+      return false;
+    }
+    return true;
+  });
   if (crash) throw new Error(`crash in the device log: ${crash}`);
   console.log('Launch check passed.');
 }

@@ -1,10 +1,10 @@
-// Photos and voice notes go straight from the phone to Housefi's private storage: the API hands out a short-lived
+// Photos, voice notes, work videos and certificates go straight from the phone to Housefi's private storage: the API hands out a short-lived
 // upload URL for one file of a declared type and size, the phone PUTs the file there, and the file's id is sent with
 // the booking (or the AI call). The server checks every file before using it. One upload per local file: retries and
 // the same photo used twice (photo check, then the booking) reuse the first upload.
 import { ApiError } from '../api';
 
-export type UploadKind = 'photos' | 'audio';
+export type UploadKind = 'photos' | 'audio' | 'videos' | 'documents';
 export type PhotoStage = 'PROBLEM' | 'INSPECTION' | 'COMPLETION' | 'PROFILE' | 'CHAT';
 
 export interface UploadTicket {
@@ -14,14 +14,19 @@ export interface UploadTicket {
 
 const PHOTO_TYPES: Readonly<Record<string, string>> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic' };
 const AUDIO_TYPES: Readonly<Record<string, string>> = { m4a: 'audio/m4a', mp4: 'audio/mp4', aac: 'audio/aac' };
+const VIDEO_TYPES: Readonly<Record<string, string>> = { mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', qt: 'video/quicktime' };
+const DOCUMENT_TYPES: Readonly<Record<string, string>> = { pdf: 'application/pdf', ...PHOTO_TYPES };
+const ALLOWED: Readonly<Record<UploadKind, Readonly<Record<string, string>>>> = { photos: PHOTO_TYPES, audio: AUDIO_TYPES, videos: VIDEO_TYPES, documents: DOCUMENT_TYPES };
 
 /** The file's type: what the file says, else its extension. Only the types the API accepts. */
 export function contentTypeFor(kind: UploadKind, uri: string, blobType: string): string {
-  const allowed = kind === 'photos' ? PHOTO_TYPES : AUDIO_TYPES;
+  const allowed = ALLOWED[kind];
+  const ext = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(uri)?.[1]?.toLowerCase() ?? '';
+  // A certificate's ".pdf" wins: phones may report a local file's type as anything.
+  if (kind === 'documents' && ext === 'pdf') return 'application/pdf';
   const declared = blobType.split(';')[0]?.trim().toLowerCase() ?? '';
   if (Object.values(allowed).includes(declared)) return declared;
   if (kind === 'audio' && (declared === 'audio/x-m4a' || declared === 'audio/mpeg4')) return 'audio/m4a';
-  const ext = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(uri)?.[1]?.toLowerCase() ?? '';
   const byExt = allowed[ext];
   if (byExt) return byExt;
   throw new ApiError('VALIDATION', { message: 'unsupported file type' });

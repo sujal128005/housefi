@@ -56,6 +56,8 @@ describe('technician identity (e2e)', () => {
         photoStatus: 'APPROVED',
         gender: 'F',
         skills: ['PLUMBING', 'CLEANING'],
+        verifiedSkills: ['PLUMBING', 'CLEANING'],
+        certifications: [],
         verification: 'APPROVED',
         simulated: false,
         verifyUrl: expect.stringMatching(/^https:\/\/housefi\.tech\/t\/#[A-Za-z0-9]{24}$/),
@@ -70,7 +72,7 @@ describe('technician identity (e2e)', () => {
       expect(scan.headers['cache-control']).toBe('no-store');
       expect(scan.body).toEqual({
         techCode: card.body.techCode, displayName: 'Swathi N.', photo: expect.stringContaining('op=get'), gender: 'F',
-        verification: 'APPROVED', simulated: false, active: true, checkedAt: t.clock.now(), fictional: false,
+        verification: 'APPROVED', verifiedSkills: ['PLUMBING', 'CLEANING'], certifications: [], simulated: false, active: true, checkedAt: t.clock.now(), fictional: false,
       });
       expect(JSON.stringify(scan.body)).not.toMatch(/9876500011|Naidu|Banjara|4521/);
     });

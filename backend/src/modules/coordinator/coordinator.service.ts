@@ -188,7 +188,7 @@ export class CoordinatorService {
       // Demo bookings only to demo technicians and the other way round.
       if (tech.user.isDemo !== b.isDemo) throw new AppError('CONFLICT', {}, 'demo and real bookings and technicians are kept apart');
       if (tech.verification !== 'APPROVED') throw new AppError('NOT_VERIFIED');
-      if (!tech.skills.some((s) => s.categoryId === b.categoryId)) throw new AppError('CONFLICT', {}, `technician has no ${b.categoryId} skill`);
+      if (!tech.skills.some((s) => s.categoryId === b.categoryId && s.verifiedAt)) throw new AppError('CONFLICT', {}, `technician has no verified ${b.categoryId} skill`);
       if ((await tx.booking.count({ where: { technicianId, status: { in: [...TECH_ACTIVE] } } })) > 0) throw new AppError('CONFLICT', {}, 'technician is on another job');
       if (!ASSIGNABLE.includes(b.status)) throw new AppError('CONFLICT', {}, `booking is ${b.status}`);
       // A queue entry another coordinator is handling (claimed in the last 15 minutes) is theirs to assign.

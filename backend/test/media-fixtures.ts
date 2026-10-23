@@ -126,3 +126,15 @@ export function adts(frames: number): Buffer {
   const frame = Buffer.from([0xff, 0xf1, (1 << 6) | (4 << 2), 0x80, 0x00 | (7 >> 3), ((7 & 7) << 5) | 0x1f, 0xfc]);
   return Buffer.concat(Array.from({ length: frames }, () => frame));
 }
+
+/** An MP4 video whose movie header says `seconds` long, with the phone's location (ISO 6709) in its metadata. */
+export function mp4Video(seconds: number, location = '+17.4126+078.4482/'): Buffer {
+  const mvhd = fullBox('mvhd', 0, be32(0), be32(0), be32(1000), be32(Math.round(seconds * 1000)), Buffer.alloc(80));
+  const xyz = box('\u00a9xyz', be16(location.length), be16(0), Buffer.from(location, 'latin1'));
+  return Buffer.concat([box('ftyp', Buffer.from('isom'), be32(0), Buffer.from('isomiso2mp41')), box('moov', mvhd, box('udta', xyz)), box('mdat', Buffer.alloc(64))]);
+}
+
+/** A small PDF (only its signature is checked). */
+export function pdf(): Buffer {
+  return Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n', 'latin1');
+}

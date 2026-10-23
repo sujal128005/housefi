@@ -43,7 +43,7 @@ export class AdminOpsController {
   // ---------- attention ----------
 
   @Get('alerts')
-  alerts(): Promise<{ sos: number; newestSosAt: number | null; reports: number; queries: number; conversations: number }> {
+  alerts(): Promise<{ sos: number; newestSosAt: number | null; reports: number; queries: number; conversations: number; skills: number }> {
     return this.ops.alerts();
   }
 

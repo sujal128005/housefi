@@ -336,3 +336,14 @@ nav { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transpar
 .form label.check input { width: 18px; height: 18px; margin: 0; }
 .drawer-body { padding-bottom: 110px; }
 .modal { padding-bottom: 28px; }
+
+/* Skill checks */
+.trade-chip { display: inline-block; margin: 0 6px 2px 0; padding: 2px 8px; border-radius: 999px; background: var(--line, #EEF1F8); font-size: 12px; font-weight: 600; }
+.card.inner { padding: 14px; margin: 10px 0; display: grid; gap: 10px; }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.skill-video { width: 100%; max-height: 420px; border-radius: 12px; background: #0B1240; }
+.skill-cert { max-width: 100%; max-height: 420px; border-radius: 12px; border: 1px solid var(--line, #E5E7F0); object-fit: contain; }
+.checks { display: flex; flex-wrap: wrap; gap: 16px; }
+.checks label.check { align-items: center; }
+td.ok { color: #0A6A3A; font-weight: 600; }
+td.bad { color: #A3262B; font-weight: 600; }

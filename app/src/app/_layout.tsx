@@ -139,6 +139,8 @@ function Shell({ fontsReady }: { readonly fontsReady: boolean }) {
             <Stack.Screen name="tech/offer/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
             <Stack.Screen name="tech/quote/[id]" options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="tech/verification" options={{ animation: 'fade', gestureEnabled: false }} />
+            <Stack.Screen name="tech/exam/[id]" options={{ animation: 'fade', gestureEnabled: false }} />
+            <Stack.Screen name="tech/skill-video" options={{ animation: 'slide_from_bottom' }} />
           </Stack>
           <CustomerAlerts />
           <TechAlerts />

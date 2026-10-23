@@ -342,6 +342,57 @@ describe('live client: payout details', () => {
   });
 });
 
+describe('live client: skill check', () => {
+  const CHECK = { level: 'SKILLED', required: true, submittedAt: null, canSubmit: false, demo: false, trades: [], video: null, certificates: [], rules: {} };
+  const EXAM = { id: 'ex1', categoryId: 'PLUMBING', level: 'SKILLED', state: 'IN_PROGRESS', serverNow: 1, startedAt: 1, endsAt: 2, sections: [], currentSection: 0, questions: [], answers: {}, leftApp: 0, maxLeftApp: 3, result: null };
+
+  it('runs the exam through its endpoints, part by part', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['GET /tech/skills'] = () => json(200, CHECK);
+    t.routes['PUT /tech/skills/level'] = () => json(200, CHECK);
+    t.routes['POST /tech/skills/exams'] = () => json(200, EXAM);
+    t.routes['POST /tech/skills/exams/ex1/sections/1/start'] = () => json(200, { ...EXAM, currentSection: 1 });
+    t.routes['PUT /tech/skills/exams/ex1/answers/pl3-m1'] = () => json(200, { ...EXAM, answers: { 'pl3-m1': 'b' } });
+    t.routes['POST /tech/skills/exams/ex1/left-app'] = () => json(200, { ...EXAM, leftApp: 1 });
+    t.routes['POST /tech/skills/exams/ex1/submit'] = () => json(200, { ...EXAM, state: 'SUBMITTED' });
+    t.routes['POST /tech/skills/submit'] = () => json(200, { ...CHECK, submittedAt: 5 });
+    expect((await t.backend.tech.skills(s.token)).level).toBe('SKILLED');
+    await t.backend.tech.setSkillLevel(s.token, 'SKILLED');
+    expect(t.calls.at(-1)).toMatchObject({ method: 'PUT', url: '/tech/skills/level', body: { level: 'SKILLED' } });
+    expect((await t.backend.tech.startExam(s.token, 'PLUMBING')).id).toBe('ex1');
+    expect(t.calls.at(-1)?.body).toEqual({ categoryId: 'PLUMBING' });
+    expect((await t.backend.tech.startExamSection(s.token, 'ex1', 1)).currentSection).toBe(1);
+    expect((await t.backend.tech.answerExam(s.token, 'ex1', 'pl3-m1', 'b')).answers).toEqual({ 'pl3-m1': 'b' });
+    expect(t.calls.at(-1)?.body).toEqual({ optionId: 'b' });
+    expect((await t.backend.tech.examLeftApp(s.token, 'ex1')).leftApp).toBe(1);
+    expect((await t.backend.tech.submitExam(s.token, 'ex1')).state).toBe('SUBMITTED');
+    expect((await t.backend.tech.submitSkills(s.token)).submittedAt).toBe(5);
+  });
+
+  it('uploads the work video and a PDF certificate first, and sends a demo sample without a file', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['POST /uploads/videos'] = () => json(200, { id: 'vid-1', uploadUrl: 'https://files.test/u/x?sig', expiresAt: 1 });
+    t.routes['POST /uploads/documents'] = () => json(200, { id: 'doc-1', uploadUrl: 'https://files.test/u/x?sig', expiresAt: 1 });
+    t.routes['POST /tech/skills/video'] = () => json(200, CHECK);
+    t.routes['POST /tech/skills/certificates'] = () => json(200, CHECK);
+    t.routes['DELETE /tech/skills/certificates/c1'] = () => json(200, CHECK);
+    await t.backend.tech.sendSkillVideo(s.token, { source: 'LIVE', uri: 'file:///rec/work.mp4' });
+    expect(t.calls.find((c) => c.url === '/uploads/videos')?.body).toEqual({ contentType: 'video/mp4', bytes: 1234 });
+    expect(t.calls.at(-1)).toMatchObject({ url: '/tech/skills/video', body: { source: 'LIVE', uploadId: 'vid-1' } });
+    await t.backend.tech.addCertificate(s.token, { kind: 'ITI', title: 'ITI Plumber', uri: 'file:///docs/iti.pdf', mimeType: 'application/pdf' });
+    expect(t.calls.find((c) => c.url === '/uploads/documents')?.body).toEqual({ contentType: 'application/pdf', bytes: 1234 });
+    expect(t.calls.at(-1)).toMatchObject({ url: '/tech/skills/certificates', body: { kind: 'ITI', title: 'ITI Plumber', uploadId: 'doc-1' } });
+    await t.backend.tech.sendSkillVideo(s.token, { source: 'SAMPLE' });
+    expect(t.calls.at(-1)?.body).toEqual({ source: 'SAMPLE' });
+    await t.backend.tech.addCertificate(s.token, { kind: 'SKILL_INDIA', title: '', sample: true });
+    expect(t.calls.at(-1)?.body).toEqual({ kind: 'SKILL_INDIA', title: '', sample: true });
+    await t.backend.tech.removeCertificate(s.token, 'c1');
+    expect(t.calls.at(-1)).toMatchObject({ method: 'DELETE', url: '/tech/skills/certificates/c1' });
+  });
+});
+
 describe('live client: places and the festive greeting', () => {
   it('asks the directory with the names encoded, and reads the answers', async () => {
     const t = setup();

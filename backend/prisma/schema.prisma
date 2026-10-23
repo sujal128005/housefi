@@ -606,6 +606,10 @@ model Technician {
   /// HMAC of name, birth date, gender and last 4 digits: one person, one technician account.
   aadhaarFingerprint Bytes?                                 @unique @map("aadhaar_fingerprint")
   aadhaarVerifiedAt  DateTime?                              @map("aadhaar_verified_at") @db.Timestamptz(6)
+  /// Skill check (after the Aadhaar scan): the level they chose, and when they sent it (the review window starts
+  /// from the later of this and submittedAt).
+  skillLevel         SkillLevel?                            @map("skill_level")
+  skillSubmittedAt   DateTime?                              @map("skill_submitted_at") @db.Timestamptz(6)
   /// 4-digit PIN for accepting jobs by phone (keypad phones), stored only as an HMAC.
   ivrPinHash         Bytes?                                 @map("ivr_pin_hash")
   ivrConsentAt       DateTime?                              @map("ivr_consent_at") @db.Timestamptz(6)
@@ -628,10 +632,144 @@ model Technician {
   payouts       Payout[]
   ratings       Rating[]
   payoutAccount TechnicianPayoutAccount?
+  skillExams    SkillExamAttempt[]
+  skillVideos   SkillVideo[]
+  certificates  SkillCertificate[]
 
   @@index([pincode, online, verification])
   @@index([verification, submittedAt])
   @@map("technicians")
+}
+
+// ---------- skill check (after the Aadhaar scan) and certifications ----------
+
+/// What the technician says best describes them; sets how hard the exam is.
+enum SkillLevel {
+  UNSKILLED
+  SEMI_SKILLED
+  SKILLED
+  HIGHLY_SKILLED
+
+  @@map("skill_level")
+}
+
+/// A person's decision on a work video or a certificate.
+enum SkillReview {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("skill_review")
+}
+
+enum TradeVerifiedVia {
+  /// Passed the skill exam for the trade.
+  EXAM
+  /// HQ watched a work video and approved it for the trade.
+  VIDEO
+  /// HQ verified the trade itself (e.g. a keypad-phone technician tested in person).
+  HQ
+  /// The trade was there before the skill check existed.
+  EARLIER
+
+  @@map("trade_verified_via")
+}
+
+enum SkillVideoSource {
+  /// Recorded in the app (stops at 2 minutes).
+  LIVE
+  /// Chosen from the phone's gallery.
+  UPLOAD
+  /// The team's demo accounts only: no real video.
+  SAMPLE
+
+  @@map("skill_video_source")
+}
+
+enum CertificateKind {
+  ITI
+  SKILL_INDIA
+  OTHER
+
+  @@map("certificate_kind")
+}
+
+/// One skill exam paper for one trade: 3 MCQs, 3 diagram questions and 4 "choose the right part or tool" questions,
+/// each section with its own time limit. The server keeps the time and the score; the app never sees the answers.
+model SkillExamAttempt {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  technicianId  String     @map("technician_id") @db.Uuid
+  categoryId    CategoryId @map("category_id")
+  level         SkillLevel
+  /// The paper, in order (question bank ids).
+  questionIds   String[]   @map("question_ids")
+  /// When each section was opened (ms since epoch, null until opened). Opening a section closes the one before.
+  sectionStarts Json       @default("[]") @map("section_starts")
+  /// Per question id: { option, firstAt, lastAt, changes } (ms; changes = how many times the answer was changed).
+  answers       Json       @default("{}")
+  /// How many times the technician left the app during the exam.
+  leftApp       Int        @default(0) @map("left_app")
+  startedAt     DateTime   @map("started_at") @db.Timestamptz(6)
+  submittedAt   DateTime?  @map("submitted_at") @db.Timestamptz(6)
+  /// Submitted by the time limit or by leaving the app too often, not by the technician.
+  autoSubmitted Boolean    @default(false) @map("auto_submitted")
+  correct       Int?
+  basePoints    Int?       @map("base_points")
+  bonusPoints   Int?       @map("bonus_points")
+  passed        Boolean?
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+
+  @@index([technicianId, categoryId, startedAt(sort: Desc)])
+  @@map("skill_exam_attempts")
+}
+
+/// A 1-2 minute video of the technician at work: a person in HQ watches it and approves it for one or more trades.
+model SkillVideo {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  technicianId String           @map("technician_id") @db.Uuid
+  uploadId     String?          @unique @map("upload_id") @db.Uuid
+  source       SkillVideoSource
+  durationSec  Int?             @map("duration_sec")
+  status       SkillReview      @default(PENDING)
+  /// The trades HQ verified with this video.
+  categoryIds  CategoryId[]     @default([]) @map("category_ids")
+  reviewNote   String?          @map("review_note")
+  reviewedById String?          @map("reviewed_by_id") @db.Uuid
+  reviewedAt   DateTime?        @map("reviewed_at") @db.Timestamptz(6)
+  createdAt    DateTime         @map("created_at") @db.Timestamptz(6)
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+  upload     Upload?    @relation("SkillVideoUpload", fields: [uploadId], references: [id], onDelete: SetNull)
+
+  @@index([technicianId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("skill_videos")
+}
+
+/// An ITI / Skill India / other certificate (image or PDF). Once HQ approves it, it shows as a certification on the
+/// technician's profile and ID page.
+model SkillCertificate {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  technicianId String          @map("technician_id") @db.Uuid
+  kind         CertificateKind
+  /// What it is, as the technician wrote it (e.g. "ITI Plumber 2019").
+  title        String          @default("")
+  uploadId     String?         @unique @map("upload_id") @db.Uuid
+  /// The team's demo accounts only: no real file.
+  sample       Boolean         @default(false)
+  status       SkillReview     @default(PENDING)
+  reviewNote   String?         @map("review_note")
+  reviewedById String?         @map("reviewed_by_id") @db.Uuid
+  reviewedAt   DateTime?       @map("reviewed_at") @db.Timestamptz(6)
+  createdAt    DateTime        @map("created_at") @db.Timestamptz(6)
+
+  technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
+  upload     Upload?    @relation("SkillCertificateUpload", fields: [uploadId], references: [id], onDelete: SetNull)
+
+  @@index([technicianId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@map("skill_certificates")
 }
 
 enum PayoutRail {
@@ -660,8 +798,12 @@ model TechnicianPayoutAccount {
 }
 
 model TechnicianSkill {
-  technicianId String     @map("technician_id") @db.Uuid
-  categoryId   CategoryId @map("category_id")
+  technicianId String            @map("technician_id") @db.Uuid
+  categoryId   CategoryId        @map("category_id")
+  /// When this trade was verified (a passed skill exam, a work video HQ approved, or HQ itself). Job offers go only
+  /// to verified trades. Trades from before the skill check were marked verified (EARLIER).
+  verifiedAt   DateTime?         @map("verified_at") @db.Timestamptz(6)
+  verifiedVia  TradeVerifiedVia? @map("verified_via")
 
   technician Technician @relation(fields: [technicianId], references: [userId], onDelete: Cascade)
 
@@ -1093,6 +1235,10 @@ model Rating {
 enum UploadKind {
   PHOTO
   AUDIO
+  /// A technician's work video for the skill check (mp4 / mov, up to 2 minutes).
+  VIDEO
+  /// A certificate: an image or a PDF.
+  DOCUMENT
 
   @@map("upload_kind")
 }
@@ -1105,6 +1251,8 @@ enum UploadStage {
   PROFILE
   /// A photo sent in the chat between the customer and the technician (cleared with the chat).
   CHAT
+  /// A technician's skill-check file: work video or certificate.
+  SKILL
 
   @@map("upload_stage")
 }
@@ -1140,11 +1288,14 @@ model Upload {
   urlExpiresAt DateTime     @map("url_expires_at") @db.Timestamptz(6)
   verifiedAt   DateTime?    @map("verified_at") @db.Timestamptz(6)
 
-  owner       User         @relation(fields: [ownerId], references: [id])
-  booking     Booking?     @relation(fields: [bookingId], references: [id])
+  owner            User              @relation(fields: [ownerId], references: [id])
+  booking          Booking?          @relation(fields: [bookingId], references: [id])
   /// Set when this is a technician's registration photo (kept while it is in use).
-  profileOf   Technician?  @relation("TechnicianPhoto")
-  chatMessage ChatMessage?
+  profileOf        Technician?       @relation("TechnicianPhoto")
+  chatMessage      ChatMessage?
+  /// Kept while it is a technician's work video or certificate.
+  skillVideo       SkillVideo?       @relation("SkillVideoUpload")
+  skillCertificate SkillCertificate? @relation("SkillCertificateUpload")
 
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([bookingId])

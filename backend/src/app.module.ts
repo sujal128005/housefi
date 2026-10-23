@@ -33,6 +33,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { NotifierModule } from './modules/notifications/notifier';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { SkillsModule } from './modules/skills/skills.module';
 import { SlotsModule } from './modules/slots/slots.module';
 import { SupportModule } from './modules/support/support.module';
 import { TechniciansModule } from './modules/technicians/technicians.module';
@@ -44,7 +45,7 @@ export class AppModule {
   static forRoot(config: Env): DynamicModule {
     return {
       module: AppModule,
-      imports: [ConfigModule.forRoot(config), ClockModule, RedisModule, PrismaModule, StorageModule, CryptoModule, AuditModule, NotifierModule, RateLimitModule, AuthModule, UploadsModule, UsersModule, CatalogModule, PlacesModule, AddressesModule, SlotsModule, BookingsModule, PaymentsModule, TechniciansModule, DispatchModule, JobsModule, EarningsModule, NotificationsModule, AiModule, SupportModule, ChatModule, CoordinatorModule, IdentityModule, TelephonyModule, CouponsModule, InvoicesModule, PartsModule, AdminModule, HealthModule],
+      imports: [ConfigModule.forRoot(config), ClockModule, RedisModule, PrismaModule, StorageModule, CryptoModule, AuditModule, NotifierModule, RateLimitModule, AuthModule, UploadsModule, UsersModule, CatalogModule, PlacesModule, AddressesModule, SlotsModule, BookingsModule, PaymentsModule, TechniciansModule, SkillsModule, DispatchModule, JobsModule, EarningsModule, NotificationsModule, AiModule, SupportModule, ChatModule, CoordinatorModule, IdentityModule, TelephonyModule, CouponsModule, InvoicesModule, PartsModule, AdminModule, HealthModule],
       providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
         // Guards run in this order: per-IP rate limit first (cheap, stops floods before token checks), then auth.
