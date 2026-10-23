@@ -345,6 +345,10 @@ export interface TechIdCard {
   readonly photoStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   readonly gender: Gender;
   readonly skills: readonly CategoryId[];
+  /** Trades proven in the skill check (older servers: absent). */
+  readonly verifiedSkills?: readonly CategoryId[];
+  /** Certificates Housefi checked (ITI, Skill India...). */
+  readonly certifications?: readonly Certification[];
   readonly verification: Verification;
   readonly simulated: boolean;
   /** Link in the QR code: Housefi's verification page with a random, non-guessable token (no personal data). */
@@ -362,6 +366,8 @@ export interface TechVerifyResult {
   readonly photo: string | null;
   readonly gender: Gender;
   readonly verification: Verification;
+  readonly verifiedSkills?: readonly CategoryId[];
+  readonly certifications?: readonly Certification[];
   readonly simulated: boolean;
   /** Allowed to work for Housefi right now. */
   readonly active: boolean;
@@ -415,7 +421,147 @@ export interface TechProfile extends Omit<TechProfileInput, 'state' | 'district'
   readonly aadhaar?: { readonly last4: string; readonly nameMatches: boolean; readonly genderMatches?: boolean; readonly verifiedAt: number } | null;
   /** When the check is promised (ms): an approval is shown only from then on (domain/techReview.ts). null before submitting. */
   readonly reviewBy?: number | null;
+  /** The skill check (after the Aadhaar scan); null before submitting, absent from older servers. */
+  readonly skillCheck?: TechSkillSummary | null;
 }
+
+// ---------- skill check ----------
+
+export type SkillLevel = 'UNSKILLED' | 'SEMI_SKILLED' | 'SKILLED' | 'HIGHLY_SKILLED';
+export type CertificateKind = 'ITI' | 'SKILL_INDIA' | 'OTHER';
+export type SkillReview = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface Certification {
+  readonly kind: CertificateKind;
+  readonly title: string;
+}
+
+/** What the profile says about the skill check. */
+export interface TechSkillSummary {
+  readonly level: SkillLevel | null;
+  /** Still to be sent: a trade is not verified yet and nothing was sent. */
+  readonly required: boolean;
+  readonly submittedAt: number | null;
+  /** Trades that get job offers. */
+  readonly verifiedSkills: readonly CategoryId[];
+  readonly certifications: readonly Certification[];
+}
+
+export interface SkillTrade {
+  readonly categoryId: CategoryId;
+  readonly verifiedVia: 'EXAM' | 'VIDEO' | 'HQ' | 'EARLIER' | null;
+  readonly verifiedAt: number | null;
+  readonly exam: {
+    readonly state: 'NONE' | 'IN_PROGRESS' | 'PASSED' | 'FAILED';
+    readonly attemptId: string | null;
+    readonly points: number | null;
+    readonly maxPoints: number;
+    /** After a failed exam: when it can be taken again (ms); null when it can be taken now. */
+    readonly retakeAt: number | null;
+  };
+}
+
+export interface SkillVideo {
+  readonly id: string;
+  readonly source: 'LIVE' | 'UPLOAD' | 'SAMPLE';
+  readonly status: SkillReview;
+  readonly durationSec: number | null;
+  readonly categoryIds: readonly CategoryId[];
+  readonly reviewNote: string | null;
+  readonly createdAt: number;
+}
+
+export interface SkillCertificate {
+  readonly id: string;
+  readonly kind: CertificateKind;
+  readonly title: string;
+  readonly status: SkillReview;
+  readonly sample: boolean;
+  readonly reviewNote: string | null;
+  readonly createdAt: number;
+}
+
+export type ExamQuestionType = 'MCQ' | 'DIAGRAM' | 'SELECT';
+
+export interface SkillExamRules {
+  readonly sections: readonly { readonly type: ExamQuestionType; readonly count: number; readonly limitSec: number }[];
+  readonly passPercent: number;
+  readonly maxLeftApp: number;
+  readonly minVideoSec: number;
+  readonly maxVideoSec: number;
+  readonly maxCertificates: number;
+  readonly retakeAfterSec: number;
+}
+
+/** The whole skill check (GET /tech/skills). */
+export interface SkillCheck {
+  readonly level: SkillLevel | null;
+  readonly required: boolean;
+  readonly submittedAt: number | null;
+  readonly canSubmit: boolean;
+  /** A team demo account: may use a sample video and certificate (the exam is the real one). */
+  readonly demo: boolean;
+  readonly trades: readonly SkillTrade[];
+  readonly video: SkillVideo | null;
+  readonly certificates: readonly SkillCertificate[];
+  readonly rules: SkillExamRules;
+}
+
+export interface ExamOption {
+  readonly id: string;
+  readonly en: string | null;
+  readonly te: string | null;
+  /** A part or tool picture, or a diagram label ("label.A"). */
+  readonly art: string | null;
+}
+
+export interface ExamQuestion {
+  readonly id: string;
+  readonly section: number;
+  readonly type: ExamQuestionType;
+  readonly q: Localized;
+  readonly art: string | null;
+  readonly options: readonly ExamOption[];
+}
+
+export interface ExamResult {
+  readonly correct: number;
+  readonly total: number;
+  readonly points: number;
+  readonly basePoints: number;
+  readonly bonusPoints: number;
+  readonly maxPoints: number;
+  readonly passPoints: number;
+  readonly passed: boolean;
+  readonly autoSubmitted: boolean;
+  readonly retakeAt: number | null;
+  readonly questions: readonly { readonly questionId: string; readonly correct: boolean; readonly fast: boolean; readonly points: number; readonly changes: number; readonly secondsTaken: number | null }[];
+}
+
+/** One exam paper as the technician sees it: never the answers. Times are the server's (see serverNow). */
+export interface SkillExam {
+  readonly id: string;
+  readonly categoryId: CategoryId;
+  readonly level: SkillLevel;
+  readonly state: 'IN_PROGRESS' | 'SUBMITTED';
+  readonly serverNow: number;
+  readonly startedAt: number;
+  readonly endsAt: number;
+  readonly sections: readonly { readonly type: ExamQuestionType; readonly count: number; readonly limitSec: number; readonly startedAt: number | null; readonly endsAt: number | null }[];
+  /** The open section, -1 before the first is opened. */
+  readonly currentSection: number;
+  readonly questions: readonly ExamQuestion[];
+  /** Question id → chosen option id. */
+  readonly answers: Readonly<Record<string, string>>;
+  readonly leftApp: number;
+  readonly maxLeftApp: number;
+  readonly result: ExamResult | null;
+}
+
+export type SkillVideoInput = { readonly source: 'LIVE' | 'UPLOAD'; readonly uri: string } | { readonly source: 'SAMPLE' };
+export type CertificateInput =
+  | { readonly kind: CertificateKind; readonly title: string; readonly uri: string; readonly mimeType: string }
+  | { readonly kind: CertificateKind; readonly title: string; readonly sample: true };
 
 export interface TechSession {
   readonly token: string;

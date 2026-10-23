@@ -110,14 +110,22 @@ export default function TechProfile() {
         <View style={styles.skills}>
           {p.skills.map((k) => {
             const c = categoryById(k);
+            // Proven in the skill check (older servers say nothing: shown as before).
+            const proven = !p.skillCheck || p.skillCheck.verifiedSkills.includes(k);
             return c ? (
-              <View key={k} style={styles.skill}>
+              <View key={k} style={[styles.skill, !proven && styles.skillUnproven]} testID={`tprofile-skill-${k}-${proven ? 'proven' : 'unproven'}`}>
                 <Art3D name={c.art} size={24} />
                 <Txt variant="label">{l(c.name)}</Txt>
+                {p.skillCheck && proven ? <Icon name="checkmark-circle" size={14} color="success" /> : null}
               </View>
             ) : null;
           })}
         </View>
+        {p.skillCheck?.certifications.length ? (
+          <View style={styles.skills} testID="tprofile-certifications">
+            {p.skillCheck.certifications.map((c, i) => <Pill key={`${c.kind}-${i}`} tone="success" icon="ribbon" label={c.title || t(`skills.cert.${c.kind}`)} />)}
+          </View>
+        ) : null}
         <Txt variant="footnote" color="inkMuted">{t('tprofile.area', { areas: p.areas, city: p.city, pincode: p.pincode })} · {t('track.experience', { years: p.experienceYears })}</Txt>
       </Wash>
 
@@ -153,6 +161,12 @@ export default function TechProfile() {
             <ListRow icon="id-card-outline" title={t('id.open')} subtitle={t('id.openSub')} onPress={() => router.push('/tech/id-card')} testID="tprofile-id-card" />
             <Divider />
             <ListRow icon="help-buoy-outline" title={t('id.correction')} subtitle={t('id.correctionSub')} onPress={() => setFix(true)} testID="tprofile-correction" />
+            <Divider />
+          </>
+        ) : null}
+        {p.skillCheck ? (
+          <>
+            <ListRow icon="school-outline" title={t('skills.open')} subtitle={t('skills.verifiedTrades')} onPress={() => router.push('/tech/skills')} testID="tprofile-skills" />
             <Divider />
           </>
         ) : null}
@@ -231,5 +245,6 @@ const styles = StyleSheet.create({
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, marginTop: space.xs },
   skills: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   skill: { flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, minHeight: 40, borderRadius: radius.pill, backgroundColor: colors.surface },
+  skillUnproven: { opacity: 0.55 },
   list: { paddingVertical: space.xs },
 });

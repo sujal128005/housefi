@@ -1,4 +1,4 @@
-// Technician registration steps: details → Aadhaar → checking (until the promised time) → verified.
+// Technician registration steps: details → Aadhaar → skill check → checking (until the promised time) → verified.
 import { approvalShown, techHref, techStage } from '../domain/techReview';
 import { formatClock } from '../i18n/format';
 
@@ -11,6 +11,16 @@ describe('technician registration steps', () => {
     expect(techStage({ verification: null, aadhaar: null, reviewBy: null }, T0)).toBe('DETAILS');
     expect(techStage({ verification: 'PENDING', aadhaar: null, reviewBy: T0 + 2 * HOUR }, T0)).toBe('AADHAAR');
     expect(techStage({ verification: 'PENDING', aadhaar: AADHAAR, reviewBy: T0 + 2 * HOUR }, T0)).toBe('CHECKING');
+  });
+
+  it('asks for the skill check after the Aadhaar scan, until it is sent', () => {
+    const skills = (required: boolean) => ({ level: null, required, submittedAt: required ? null : T0, verifiedSkills: [], certifications: [] });
+    const p = { verification: 'PENDING' as const, aadhaar: AADHAAR, reviewBy: T0 + 2 * HOUR };
+    expect(techStage({ ...p, skillCheck: skills(true) }, T0)).toBe('SKILLS');
+    expect(techHref({ ...p, skillCheck: skills(true) }, T0)).toBe('/tech/skills');
+    expect(techStage({ ...p, skillCheck: skills(false) }, T0)).toBe('CHECKING');
+    // Before the Aadhaar scan, the scan comes first.
+    expect(techStage({ ...p, aadhaar: null, skillCheck: skills(true) }, T0)).toBe('AADHAAR');
   });
 
   it('shows an approval only from the promised time, even when it was given earlier', () => {

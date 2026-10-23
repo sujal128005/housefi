@@ -6,7 +6,7 @@ import {
   type CouponResult, type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
-  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, Slot, TechProfile, VoiceNote,
+  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote,
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
@@ -105,6 +105,14 @@ const decodeNotification = (json: unknown): AppNotification => record<AppNotific
 const decodeEarnings = (json: unknown): Earnings => record<Earnings>(json, 'earnings', ['today', 'total', 'entries']);
 const decodePayoutAccount = (json: unknown): PayoutAccount => record<PayoutAccount>(json, 'payout account', ['rail', 'holderName', 'hint', 'updatedAt']);
 const decodeNothing = (): void => undefined;
+const decodeSkillCheck = (json: unknown): SkillCheck => record<SkillCheck>(json, 'skill check', ['level', 'required', 'canSubmit', 'trades', 'video', 'certificates', 'rules']);
+const decodeExam = (json: unknown): SkillExam => record<SkillExam>(json, 'exam', ['id', 'categoryId', 'state', 'serverNow', 'sections', 'currentSection', 'questions', 'answers', 'result']);
+const UPLOAD_PATHS: Readonly<Record<UploadKind, ApiPath>> = {
+  photos: apiPath`/uploads/photos`,
+  audio: apiPath`/uploads/audio`,
+  videos: apiPath`/uploads/videos`,
+  documents: apiPath`/uploads/documents`,
+};
 const decodeName = (json: unknown): string => {
   if (typeof json !== 'string') throw new DecodeError('place: expected a name');
   return json;
@@ -175,7 +183,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
   const uploader = createUploader({
     fetch: doFetch,
     ticket: (handle, kind: UploadKind, body) =>
-      call(handle, 'POST', kind === 'photos' ? apiPath`/uploads/photos` : apiPath`/uploads/audio`, (j): UploadTicket => {
+      call(handle, 'POST', UPLOAD_PATHS[kind], (j): UploadTicket => {
         const o = obj(j, 'upload');
         return { id: str(o, 'id'), uploadUrl: str(o, 'uploadUrl') };
       }, body),
@@ -363,6 +371,26 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     idCard: (handle) => call(handle, 'GET', apiPath`/tech/id-card`, decodeTechIdCard),
     requestIdentityCorrection: (handle, kind, note) => call(handle, 'POST', apiPath`/tech/identity-corrections`, decodeProfile, { kind, note }),
     setOnline: (handle, online) => call(handle, 'POST', apiPath`/tech/availability`, decodeProfile, { online }),
+    skills: (handle) => call(handle, 'GET', apiPath`/tech/skills`, decodeSkillCheck),
+    setSkillLevel: (handle, level) => call(handle, 'PUT', apiPath`/tech/skills/level`, decodeSkillCheck, { level }),
+    startExam: (handle, categoryId) => call(handle, 'POST', apiPath`/tech/skills/exams`, decodeExam, { categoryId }),
+    exam: (handle, id) => call(handle, 'GET', apiPath`/tech/skills/exams/${id}`, decodeExam),
+    startExamSection: (handle, id, index) => call(handle, 'POST', apiPath`/tech/skills/exams/${id}/sections/${String(index)}/start`, decodeExam),
+    answerExam: (handle, id, questionId, optionId) => call(handle, 'PUT', apiPath`/tech/skills/exams/${id}/answers/${questionId}`, decodeExam, { optionId }),
+    examLeftApp: (handle, id) => call(handle, 'POST', apiPath`/tech/skills/exams/${id}/left-app`, decodeExam),
+    submitExam: (handle, id) => call(handle, 'POST', apiPath`/tech/skills/exams/${id}/submit`, decodeExam),
+    async sendSkillVideo(handle, input) {
+      if (input.source === 'SAMPLE') return call(handle, 'POST', apiPath`/tech/skills/video`, decodeSkillCheck, { source: 'SAMPLE' });
+      const uploadId = await uploader.upload(handle, 'videos', input.uri);
+      return call(handle, 'POST', apiPath`/tech/skills/video`, decodeSkillCheck, { source: input.source, uploadId });
+    },
+    async addCertificate(handle, input) {
+      if ('sample' in input) return call(handle, 'POST', apiPath`/tech/skills/certificates`, decodeSkillCheck, { kind: input.kind, title: input.title, sample: true });
+      const uploadId = await uploader.upload(handle, 'documents', input.uri);
+      return call(handle, 'POST', apiPath`/tech/skills/certificates`, decodeSkillCheck, { kind: input.kind, title: input.title, uploadId });
+    },
+    removeCertificate: (handle, id) => call(handle, 'DELETE', apiPath`/tech/skills/certificates/${id}`, decodeSkillCheck),
+    submitSkills: (handle) => call(handle, 'POST', apiPath`/tech/skills/submit`, decodeSkillCheck),
     offer: (handle) => call(handle, 'GET', apiPath`/tech/offers/current`, decodeOffer),
     acceptOffer: (handle, offerId) => call(handle, 'POST', apiPath`/tech/offers/${offerId}/accept`, decodeJob),
     rejectOffer: (handle, offerId, reason) => call(handle, 'POST', apiPath`/tech/offers/${offerId}/reject`, decodeNothing, { reason }),

@@ -17,6 +17,14 @@ export function reviewHours(submittedAt: number): 2 | 4 | 24 {
   return 24;
 }
 
+/**
+ * When the review starts: the profile's submission, or the skill check's when that came later (a new technician sends
+ * the skill check last, after the Aadhaar scan).
+ */
+export function reviewStart(t: { readonly submittedAt: Date; readonly skillSubmittedAt: Date | null }): number {
+  return Math.max(t.submittedAt.getTime(), t.skillSubmittedAt?.getTime() ?? 0);
+}
+
 /** When the technician is told they will hear back (ms since epoch). */
 export function reviewBy(submittedAt: number, demo = false): number {
   return submittedAt + (demo ? DEMO_REVIEW_MS : reviewHours(submittedAt) * HOUR_MS);

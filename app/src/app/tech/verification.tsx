@@ -2,7 +2,8 @@
 // day, 4 h in the evening, a day at night; from the server) and what is being checked, ticking off as it is done. An
 // approval shows only from that time (domain/techReview.ts), then "You're verified" and the way into the app. A
 // request to correct something shows at once; rejected or suspended means no jobs. Until the Aadhaar card is
-// verified (camera scan of its Secure QR), that is the next step here.
+// verified (camera scan of its Secure QR), that is the next step here; then the skill check (its review time starts
+// when it is sent).
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -66,7 +67,7 @@ export default function Verification() {
     { key: 'tverify.c.name', state: aadhaar ? (aadhaar.nameMatches ? 'done' : 'warn') : 'wait' },
     { key: 'tverify.c.gender', state: aadhaar ? (aadhaar.genderMatches !== false ? 'done' : 'warn') : 'wait' },
     { key: 'tverify.c.photo', state: ready ? 'done' : 'wait' },
-    { key: 'tverify.c.skills', state: ready ? 'done' : 'wait' },
+    { key: 'tverify.c.skills', state: ready || (p.skillCheck?.verifiedSkills.length ?? 0) > 0 ? 'done' : 'wait' },
   ];
 
   const due = p.reviewBy != null ? new Date(p.reviewBy) : null;
@@ -77,7 +78,7 @@ export default function Verification() {
         : sameDay(due, tomorrow) ? t('tverify.byTomorrow', { time: formatClock(due, locale) })
           : t('tverify.byDate', { time: formatClock(due, locale), date: formatDate(due, locale) });
 
-  const shownState = ready ? 'APPROVED' : stage === 'CHECKING' || stage === 'AADHAAR' ? 'PENDING' : p.verification;
+  const shownState = ready ? 'APPROVED' : stage === 'CHECKING' || stage === 'AADHAAR' || stage === 'SKILLS' ? 'PENDING' : p.verification;
 
   return (
     <Screen
@@ -127,6 +128,18 @@ export default function Verification() {
             </View>
           </View>
           <Button label={t('aadhaar.scan')} icon="qr-code" size="md" onPress={() => router.push('/tech/aadhaar')} testID="tverify-aadhaar-scan" />
+        </Card>
+      ) : null}
+      {stage === 'SKILLS' ? (
+        <Card style={styles.aadhaar} testID="tverify-skills">
+          <View style={styles.step}>
+            <Art3D name="tools" size={44} />
+            <View style={styles.flex}>
+              <Txt variant="bodyStrong">{t('skills.cardTitle')}</Txt>
+              <Txt variant="footnote" color="inkMuted">{t('skills.cardBody')}</Txt>
+            </View>
+          </View>
+          <Button label={t('skills.open')} icon="school-outline" size="md" onPress={() => router.push('/tech/skills')} testID="tverify-skills-open" />
         </Card>
       ) : null}
       {stage !== 'STOPPED' ? (

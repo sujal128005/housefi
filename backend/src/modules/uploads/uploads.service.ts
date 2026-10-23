@@ -6,13 +6,17 @@ import { PrismaService } from '../../common/prisma/prisma.module';
 import { OBJECT_STORE, type ObjectStore, ObjectTooLarge, uploadKey, verifiedKey } from '../../common/storage/object-store';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
-import { type AudioType, audioDurationSec, isType, MediaError, type PhotoType, stripLocation } from './media';
+import { type AudioType, audioDurationSec, type DocumentType, isType, MediaError, mp4DurationSec, type PhotoType, stripLocation, stripVideoLocation, type VideoType } from './media';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** README security checklist: photos up to 8 MB, voice notes up to 2 MB and 60 s. */
-export const MAX_BYTES: Readonly<Record<UploadKind, number>> = { PHOTO: 8 * 1024 * 1024, AUDIO: 2 * 1024 * 1024 };
+/**
+ * README security checklist: photos up to 8 MB, voice notes up to 2 MB and 60 s. Skill check: a work video up to
+ * 100 MB and 2 minutes (a few seconds' grace for the recorder), a certificate (PDF or photo) up to 10 MB.
+ */
+export const MAX_BYTES: Readonly<Record<UploadKind, number>> = { PHOTO: 8 * 1024 * 1024, AUDIO: 2 * 1024 * 1024, VIDEO: 100 * 1024 * 1024, DOCUMENT: 10 * 1024 * 1024 };
 export const MAX_AUDIO_SEC = 60;
+export const MAX_VIDEO_SEC = 125;
 /** Upload tickets per person per hour (4 photos and a voice note per booking leaves plenty of room for retries). */
 export const TICKETS_PER_HOUR = 40;
 /** An upload not used in a booking within this time is deleted (bucket and database). */
@@ -60,6 +64,8 @@ export class UploadsService {
       const allowed = owner.role === 'COORDINATOR' || stage === 'CHAT' || (owner.role === 'TECHNICIAN' ? stage !== 'PROBLEM' : stage === 'PROBLEM');
       if (!allowed) throw new AppError('VALIDATION', { fields: { stage: 'INVALID' } }, `a ${owner.role.toLowerCase()} cannot upload ${stage} photos`);
     }
+    // A technician's work video or certificate (skill check).
+    if (kind === 'VIDEO' || kind === 'DOCUMENT') stage = 'SKILL';
     const now = this.clock.now();
     const recent = await this.prisma.upload.findMany({ where: { ownerId: owner.id, createdAt: { gt: new Date(now - 60 * 60_000) } }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } });
     if (recent.length >= TICKETS_PER_HOUR) {
@@ -105,15 +111,15 @@ export class UploadsService {
   async sweep(batch = 200): Promise<number> {
     const now = this.clock.now();
     const old = await this.prisma.upload.findMany({
-      // A technician's registration photo in use is kept.
-      where: { bookingId: null, profileOf: { is: null }, OR: [{ createdAt: { lt: new Date(now - UNUSED_UPLOAD_TTL_MS) } }, { state: 'REJECTED' }] },
+      // A technician's registration photo, work video or certificate in use is kept.
+      where: { bookingId: null, profileOf: { is: null }, skillVideo: { is: null }, skillCertificate: { is: null }, OR: [{ createdAt: { lt: new Date(now - UNUSED_UPLOAD_TTL_MS) } }, { state: 'REJECTED' }] },
       select: { id: true },
       take: batch,
     });
     let n = 0;
     for (const { id } of old) {
       // The row goes first, and only if it is still unused: a booking cannot attach it any more.
-      const gone = await this.prisma.upload.deleteMany({ where: { id, bookingId: null, profileOf: { is: null } } });
+      const gone = await this.prisma.upload.deleteMany({ where: { id, bookingId: null, profileOf: { is: null }, skillVideo: { is: null }, skillCertificate: { is: null } } });
       if (gone.count === 0) continue;
       await this.removeObjects(id);
       n++;
@@ -144,7 +150,7 @@ export class UploadsService {
     }
     if (!bytes) throw invalid(field, 'the file has not been uploaded yet');
     if (bytes.length !== u.bytes) return this.reject(u, 'size differs from the ticket');
-    const type = u.contentType as PhotoType | AudioType;
+    const type = u.contentType as PhotoType | AudioType | VideoType | DocumentType;
     if (!isType(bytes, type)) return this.reject(u, `not a ${type} file`);
     let durationSec: number | null = null;
     let checked: Uint8Array = bytes;
@@ -152,7 +158,11 @@ export class UploadsService {
       if (u.kind === 'AUDIO') {
         durationSec = audioDurationSec(bytes, type as AudioType);
         if (durationSec > MAX_AUDIO_SEC) return this.reject(u, `longer than ${MAX_AUDIO_SEC} s`);
-      } else {
+      } else if (u.kind === 'VIDEO') {
+        durationSec = mp4DurationSec(bytes);
+        if (durationSec > MAX_VIDEO_SEC) return this.reject(u, `longer than ${MAX_VIDEO_SEC} s`);
+        checked = stripVideoLocation(bytes);
+      } else if (type !== 'application/pdf') {
         checked = stripLocation(bytes, type as PhotoType);
       }
     } catch (err) {

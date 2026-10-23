@@ -85,7 +85,8 @@ export function TechIdCardView({ card, viewer, onOpenVerification }: {
 }) {
   const { t, l, locale } = useI18n();
   const look = verificationLook(card.verification, card.simulated);
-  const skills = card.skills.map((k) => categoryById(k)).filter((c) => !!c).map((c) => l(c.name));
+  // Proven trades when the server says (skill check), else every trade on the profile.
+  const skills = (card.verifiedSkills ?? card.skills).map((k) => categoryById(k)).filter((c) => !!c).map((c) => l(c.name));
   // The link sits where the "My Housefi ID" row was on the previous screen: ignore a carried-over second tap.
   const [armed, setArmed] = useState(false);
   useEffect(() => {
@@ -120,6 +121,11 @@ export function TechIdCardView({ card, viewer, onOpenVerification }: {
         <Txt variant="title2" align="center" testID="id-name" numberOfLines={2}>{card.name}</Txt>
         <Txt variant="callout" color="inkMuted" align="center">{t('id.role')}</Txt>
         {skills.length > 0 ? <Txt variant="footnote" color="inkMuted" align="center" numberOfLines={2}>{skills.join(' · ')}</Txt> : null}
+        {card.certifications?.length ? (
+          <View style={styles.certs} testID="id-certifications">
+            {card.certifications.map((c, i) => <Pill key={`${c.kind}-${i}`} tone="success" icon="ribbon" label={c.title || t(`skills.cert.${c.kind}`)} />)}
+          </View>
+        ) : null}
         {card.fictional ? <Txt variant="caption" color="demo" align="center">{t('id.fictional')}</Txt> : null}
         {!card.fictional && card.photo?.startsWith('demo:') ? <Txt variant="caption" color="demo" align="center">{t('id.sample')}</Txt> : null}
         {viewer === 'self' && card.photoStatus !== 'APPROVED' ? <Pill label={t('id.photoPending')} tone="warning" icon="image" /> : null}
@@ -266,6 +272,7 @@ export function IdCardPage({ title, testID, query, viewer }: {
 const noSelect = Platform.OS === 'web' ? ({ userSelect: 'none' } as unknown as ViewStyle) : null;
 
 const styles = StyleSheet.create({
+  certs: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.xs },
   flex: { flex: 1 },
   skel: { height: 560, borderRadius: radius.xxl },
   photoBox: { overflow: 'hidden', backgroundColor: colors.surfaceMuted },

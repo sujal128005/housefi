@@ -72,6 +72,9 @@ PostgreSQL 16, build, `npm audit`). Dependabot proposes minor/patch updates only
   server-side before use.
 - Identity: technician ID card + QR (`/t/` page), Aadhaar Secure QR verified offline (only last 4 digits, birth year,
   gender, name match kept).
+- Skill check (after the Aadhaar scan): level → timed exam per trade (marked on the server) and/or a work video HQ
+  approves, plus up to 4 certificates. Job offers go only to **verified trades** (`technician_skills.verified_at`);
+  `SKILL_CHECK_REQUIRED` (default true). The review window starts when the skill check is sent.
 - Privacy: names, phones and addresses encrypted at rest; phone lookups by HMAC; logs never contain secrets or
   personal data; `DELETE /me` erases an account (button in the app: Account / Profile → Delete account).
 
@@ -155,6 +158,13 @@ Add next year's dates there and ship a backend change: no new app build needed.
 **Addresses: states, districts, localities, PIN codes**: India Post's directory in
 `backend/assets/places/india-pincodes.json.gz` (how to refresh it: `backend/assets/places/README.md`), served by
 `src/modules/places/`. Technician registration uses it (state → district → localities → PIN that belongs to one).
+
+**Skill exam questions**: one JSON file per trade in `backend/src/modules/skills/questions/` (English + Telugu, bands
+1-4 = the four levels; each band needs at least 3 MCQ, 3 DIAGRAM, 4 SELECT; more questions = more variety). Pictures
+are ids drawn by the app (`app/src/illustrations/SkillArt.tsx`); a new id goes in `app/src/illustrations/skillArtIds.json`
+and gets a drawing (tests on both sides check). Diagram answers are the letters marked in `skillScenes.tsx`. A question
+change needs only a backend deploy; a new picture needs an app build. HQ reviews videos and certificates on the
+**Skill checks** page.
 
 **Telephony** (masked calls, keypad job offers): `TelephonyProvider` in `src/modules/telephony/telephony-provider.ts`
 (Exotel and a fake). `TELEPHONY_PROVIDER=off` until Exotel is set up (calls fall back to "call me back").

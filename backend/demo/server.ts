@@ -186,6 +186,8 @@ async function readyTechnician(app: NestFastifyApplication, store: DemoObjectSto
   // Approved as an admin would with `npm run tech -- approve`, with the review time already over.
   const prisma = app.get(PrismaService);
   await prisma.technician.update({ where: { userId }, data: { submittedAt: new Date(Date.now() - 25 * 3_600_000) } });
+  // Every trade proven (as HQ would after testing them), so jobs of every kind reach this technician.
+  await prisma.technicianSkill.updateMany({ where: { technicianId: userId }, data: { verifiedAt: new Date(), verifiedVia: 'HQ' } });
   await app.get(TechVerificationService).approve(userId, { type: 'ADMIN', id: null, via: 'demo' });
   await api('/tech/availability', { online: true }, token);
   await api('/tech/location', { ...TECH_AT, accuracy: 20 }, token);

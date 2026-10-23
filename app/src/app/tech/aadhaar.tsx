@@ -1,8 +1,8 @@
 // Aadhaar verification for technicians: the camera reads the Secure QR code printed on the Aadhaar card (or the e-Aadhaar
 // PDF), and the server checks UIDAI's digital signature offline. Nothing is sent to UIDAI, and Housefi keeps only the
 // last 4 digits, the birth year, the gender and whether the name matches: never the Aadhaar number, photo or address.
-// During registration it is the required step after the details (no way back, no skipping), and it leads to
-// "checking your details".
+// During registration it is the required step after the details (no way back, no skipping), and it leads to the
+// skill check (or "checking your details").
 // Scanning is built for speed, like a payment app's scanner:
 // - The camera is live the moment the screen opens (permission is asked straight away the first time) and reads from
 //   the first frame: full-resolution analysis, continuous focus, a light, and 1x / 2x / 3x zoom for small or far codes.
@@ -14,7 +14,7 @@ import { CameraView, scanFromURLAsync, useCameraPermissions } from 'expo-camera'
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { techStage } from '../../domain/techReview';
+import { techHref, techStage } from '../../domain/techReview';
 import { Art3D } from '../../illustrations/Art3D';
 import { useI18n } from '../../i18n/I18n';
 import { resetTo } from '../../navigation';
@@ -55,7 +55,8 @@ export default function AadhaarScan() {
   const [slow, setSlow] = useState(false);
   // The registration step (profile submitted, Aadhaar not yet scanned), as opposed to opening it from the checking page.
   const [required] = useState(() => techStage(session.profile, Date.now()) === 'AADHAAR');
-  const next = () => (required ? resetTo('/tech/verification') : router.back());
+  // The next registration step: the skill check for a new technician, else "checking your details".
+  const next = () => (required ? resetTo(techHref(session.profile, Date.now())) : router.back());
   const live = phase === 'SCAN' && Platform.OS !== 'web' && !!permission?.granted;
 
   // Ask for the camera at once the first time, so the camera opens without an extra tap.

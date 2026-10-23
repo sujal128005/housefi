@@ -44,6 +44,8 @@ export function testEnv(overrides: NodeJS.ProcessEnv = {}): Env {
     CORS_ORIGINS: 'http://localhost:8081',
     // Most tests approve technicians directly; the Aadhaar gate has its own tests.
     AADHAAR_REQUIRED: 'false',
+    // Likewise the skill check (an approval verifies the trades); test/skills.e2e-spec.ts switches it on.
+    SKILL_CHECK_REQUIRED: 'false',
     // Approval by hand unless a test switches the automatic approval on.
     AUTO_APPROVE_TECHNICIANS: 'false',
     DATABASE_URL: process.env.DATABASE_URL_TEST ?? 'postgresql://unused:unused@127.0.0.1:1/unused',

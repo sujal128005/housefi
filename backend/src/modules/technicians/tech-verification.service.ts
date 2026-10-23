@@ -11,7 +11,7 @@ import type { Env } from '../../config/env';
 import { newVerifyToken, verifyTokenHash } from '../identity/identity-codes';
 import { Notifier } from '../notifications/notifier';
 import { CATEGORY_ORDER } from './technicians.schemas';
-import { reviewBy } from './review-window';
+import { reviewBy, reviewStart } from './review-window';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -56,6 +56,16 @@ const READY_FOR_AUTO = {
 } satisfies Prisma.TechnicianWhereInput;
 
 /**
+ * With the skill check: also a verified trade (a passed exam), no work video waiting for HQ (a person decides those),
+ * and the skill check sent (or, for a profile from before it, every trade already verified).
+ */
+const SKILLS_READY = {
+  skills: { some: { verifiedAt: { not: null } } },
+  skillVideos: { none: { status: 'PENDING' } },
+  OR: [{ skillSubmittedAt: { not: null } }, { skillLevel: null, skills: { every: { verifiedAt: { not: null } } } }],
+} satisfies Prisma.TechnicianWhereInput;
+
+/**
  * Manual verification of technician profiles (README §12: "manual approve via a protected endpoint or SQL for
  * now"). Used by the `npm run tech` command line; the admin portal will call the same methods later.
  */
@@ -91,7 +101,7 @@ export class TechVerificationService {
         areas: t.areas,
         vehicle: t.vehicleEnc.length > 0 ? await this.cipher.decrypt('technicians.vehicle', t.vehicleEnc) : '',
         submittedAt: t.submittedAt,
-        reviewBy: new Date(reviewBy(t.submittedAt.getTime(), t.user.isDemo)),
+        reviewBy: new Date(reviewBy(reviewStart(t), t.user.isDemo)),
         techCode: t.techCode,
         aadhaar: t.aadhaarVerifiedAt ? `xxxx-${t.aadhaarLast4} (${t.aadhaarNameMatch ? 'name matches' : 'NAME DIFFERS'}${t.aadhaarGenderMatch === false ? `, GENDER DIFFERS: Aadhaar ${t.aadhaarGender}, profile ${t.gender}` : ''})` : 'not checked',
         photo: t.photoUploadId ? t.photoStatus : 'none',
@@ -124,6 +134,18 @@ export class TechVerificationService {
       if (t && !t.aadhaarNameMatch) throw new AppError('CONFLICT', {}, 'the name on the Aadhaar differs from the legal name: correct the name first (identity name ...)');
       if (t && t.aadhaarGenderMatch === false) throw new AppError('CONFLICT', {}, 'the gender on the Aadhaar differs from the profile: the technician corrects it in Edit profile');
     }
+    if (UUID.test(technicianId)) {
+      if (this.config.SKILL_CHECK_REQUIRED) {
+        // Job offers go only to verified trades: approving with none would leave the technician without work.
+        const verified = await this.prisma.technicianSkill.count({ where: { technicianId, verifiedAt: { not: null } } });
+        if (!verified && (await this.prisma.technician.count({ where: { userId: technicianId } }))) {
+          throw new AppError('CONFLICT', {}, 'no trade is verified yet (a passed skill exam, an approved work video, or HQ verifies a trade)');
+        }
+      } else {
+        // Without the skill check (local testing), the approval verifies the profile's trades.
+        await this.prisma.technicianSkill.updateMany({ where: { technicianId, verifiedAt: null }, data: { verifiedAt: new Date(this.clock.now()), verifiedVia: 'HQ' } });
+      }
+    }
     const promised = await this.decide(technicianId, actor, 'tech.approve', { verification: 'APPROVED', verifiedAt: new Date(this.clock.now()), photoStatus: 'APPROVED' });
     // The technician sees it at the review time they were given (review-window.ts), or now if that has passed.
     return { shownFrom: new Date(Math.max(this.clock.now(), promised)) };
@@ -136,15 +158,15 @@ export class TechVerificationService {
    * differs) waits for a person (npm run tech pending). Returns how many were approved.
    */
   async autoApprove(batch = 50): Promise<number> {
-    const ready = await this.prisma.technician.findMany({ where: READY_FOR_AUTO, select: { userId: true }, orderBy: { submittedAt: 'asc' }, take: batch });
+    const ready = await this.prisma.technician.findMany({ where: this.readyForAuto(), select: { userId: true }, orderBy: { submittedAt: 'asc' }, take: batch });
     let n = 0;
     for (const t of ready) if (await this.approveIfReady(t.userId)) n++;
     return n;
   }
 
-  /** One technician, right after their Aadhaar check passed (no waiting for the next sweep). True when approved. */
+  /** One technician, right after their Aadhaar check or skill check passed (no waiting for the next sweep). True when approved. */
   async approveIfReady(technicianId: string): Promise<boolean> {
-    if (!UUID.test(technicianId) || !(await this.prisma.technician.count({ where: { ...READY_FOR_AUTO, userId: technicianId } }))) return false;
+    if (!UUID.test(technicianId) || !(await this.prisma.technician.count({ where: { ...this.readyForAuto(), userId: technicianId } }))) return false;
     try {
       await this.approve(technicianId, { type: 'SYSTEM', id: null, via: 'auto' });
       return true;
@@ -153,6 +175,10 @@ export class TechVerificationService {
       if (err instanceof AppError && err.code === 'CONFLICT') return false;
       throw err;
     }
+  }
+
+  private readyForAuto(): Prisma.TechnicianWhereInput {
+    return this.config.SKILL_CHECK_REQUIRED ? { ...READY_FOR_AUTO, ...SKILLS_READY } : READY_FOR_AUTO;
   }
 
   /** Withdraws an approval (complaints, fraud): offline at once, no offers, the QR page shows "not active". */
@@ -263,7 +289,7 @@ export class TechVerificationService {
       if (!before) throw new AppError('NOT_FOUND');
       // Only a submitted, not yet decided profile can be decided: a stale decision must not override a resubmission.
       if (before.verification !== 'PENDING') throw new AppError('CONFLICT', {}, `profile is ${before.verification}, not PENDING`);
-      const promised = reviewBy(before.submittedAt.getTime(), before.user.isDemo);
+      const promised = reviewBy(reviewStart(before), before.user.isDemo);
       await tx.technician.update({ where: { userId: technicianId }, data });
       // The note itself is read from GET /tech/me; the notification only says there is one.
       await this.notifier.enqueue(tx, [

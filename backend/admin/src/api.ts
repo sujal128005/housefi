@@ -207,6 +207,53 @@ export interface Alerts {
   readonly reports: number;
   readonly queries: number;
   readonly conversations: number;
+  /** Skill checks waiting for HQ (a video, a certificate, or no trade verified). */
+  readonly skills: number;
+}
+
+export interface SkillQueueRow {
+  readonly technicianId: string;
+  readonly name: string;
+  readonly techCode: string | null;
+  readonly verification: string;
+  readonly level: string | null;
+  readonly submittedAt: number | null;
+  readonly demo: boolean;
+  readonly trades: readonly { readonly categoryId: CategoryId; readonly verifiedVia: string | null }[];
+  readonly exams: readonly { readonly categoryId: CategoryId; readonly points: number; readonly passed: boolean }[];
+  readonly videoWaiting: boolean;
+  readonly certificatesWaiting: number;
+}
+
+export interface SkillDetail extends SkillQueueRow {
+  readonly attempts: readonly {
+    readonly id: string;
+    readonly categoryId: CategoryId;
+    readonly level: string;
+    readonly startedAt: number;
+    readonly submittedAt: number | null;
+    readonly autoSubmitted: boolean;
+    readonly leftApp: number;
+    readonly points: number | null;
+    readonly maxPoints: number;
+    readonly passed: boolean | null;
+    readonly questions: readonly {
+      readonly id: string;
+      readonly section: number;
+      readonly type: string;
+      readonly text: string;
+      readonly art: string | null;
+      readonly chosen: string | null;
+      readonly right: string;
+      readonly correct: boolean;
+      readonly fast: boolean;
+      readonly points: number;
+      readonly secondsTaken: number | null;
+      readonly changes: number;
+    }[];
+  }[];
+  readonly videos: readonly { readonly id: string; readonly source: string; readonly status: string; readonly durationSec: number | null; readonly url: string | null; readonly categoryIds: readonly CategoryId[]; readonly reviewNote: string | null; readonly createdAt: number; readonly reviewedAt: number | null }[];
+  readonly certificates: readonly { readonly id: string; readonly kind: string; readonly title: string; readonly status: string; readonly sample: boolean; readonly url: string | null; readonly contentType: string | null; readonly reviewNote: string | null; readonly createdAt: number }[];
 }
 
 export interface ConversationRow {
@@ -424,6 +471,11 @@ export const api = {
   techAction: (id: string, action: TechAction, reason: string) => call<void>('POST', `/technicians/${id}/action`, { action, reason }),
 
   payouts: (state: 'PENDING' | 'PAID' | 'FAILED') => call<PayoutRow[]>('GET', `/payouts?state=${state}`),
+  skillQueue: (state: 'WAITING' | 'ALL') => call<SkillQueueRow[]>('GET', `/skills?state=${state}`),
+  skillDetail: (technicianId: string) => call<SkillDetail>('GET', `/skills/${technicianId}`),
+  decideVideo: (id: string, decision: 'APPROVE' | 'REJECT', categoryIds: readonly CategoryId[], note: string) => call<void>('POST', `/skills/videos/${id}`, { decision, categoryIds, note }),
+  decideCertificate: (id: string, decision: 'APPROVE' | 'REJECT', note: string) => call<void>('POST', `/skills/certificates/${id}`, { decision, note }),
+  decideTrade: (technicianId: string, categoryId: CategoryId, verified: boolean, note: string) => call<void>('POST', `/skills/${technicianId}/trades`, { categoryId, verified, note }),
   preparePayouts: () => call<PayoutRow[]>('POST', '/payouts/prepare'),
   payoutPaid: (id: string, reference: string) => call<PayoutRow>('POST', `/payouts/${id}/paid`, { reference }),
   payoutFailed: (id: string) => call<PayoutRow>('POST', `/payouts/${id}/failed`),

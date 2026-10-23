@@ -19,6 +19,7 @@ import { MediaUrls } from '../../common/storage/object-store';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { CATEGORY_ORDER } from '../technicians/technicians.schemas';
+import type { CertificationDto } from '../technicians/technicians.service';
 import { AadhaarQrError, identityFingerprint, namesMatch, uidaiKeys, verifyAadhaarQr } from './aadhaar-qr';
 import { displayName, newVerifyToken, VERIFY_TOKEN, verifyTokenHash } from './identity-codes';
 import { TechVerificationService } from '../technicians/tech-verification.service';
@@ -39,6 +40,10 @@ export interface TechIdCardDto {
   readonly photoStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   readonly gender: 'M' | 'F';
   readonly skills: readonly string[];
+  /** The trades proven in the skill check (a passed exam, a video HQ approved, or HQ). */
+  readonly verifiedSkills: readonly string[];
+  /** Certificates HQ approved (ITI, Skill India...). */
+  readonly certifications: readonly CertificationDto[];
   readonly verification: Verification;
   readonly simulated: boolean;
   readonly verifyUrl: string;
@@ -53,6 +58,9 @@ export interface TechVerifyResultDto {
   readonly photo: string | null;
   readonly gender: 'M' | 'F';
   readonly verification: Verification;
+  /** Proven trades and approved certificates (shown only while the technician is active). */
+  readonly verifiedSkills: readonly string[];
+  readonly certifications: readonly CertificationDto[];
   /** True for the team's demo technicians (the page says "Housefi team demo account"). */
   readonly simulated: boolean;
   readonly active: boolean;
@@ -116,6 +124,8 @@ export class IdentityService {
       photoStatus: t.photoStatus,
       gender: t.gender,
       skills: t.skills.map((s) => s.categoryId).sort((a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b)),
+      verifiedSkills: verifiedSkills(t),
+      certifications: await this.certifications(t.userId),
       verification: t.verification,
       simulated: t.user.isDemo,
       verifyUrl: `${this.config.VERIFY_PAGE_URL}${await this.token(t)}`,
@@ -131,17 +141,25 @@ export class IdentityService {
     if (!VERIFY_TOKEN.test(token)) throw new AppError('NOT_FOUND');
     const t = await this.prisma.technician.findUnique({ where: { verifyTokenHash: verifyTokenHash(token) }, include: { user: true, skills: true } });
     if (!t?.techCode || t.user.status === 'DELETED') throw new AppError('NOT_FOUND');
+    const active = t.verification === 'APPROVED' && t.user.status === 'ACTIVE';
     return {
       techCode: t.techCode,
       displayName: displayName(await this.legalName(t)),
       photo: t.photoUploadId && t.photoStatus === 'APPROVED' ? await this.media.photoUrl(t.photoUploadId) : null,
       gender: t.gender,
       verification: t.verification,
+      verifiedSkills: active ? verifiedSkills(t) : [],
+      certifications: active ? await this.certifications(t.userId) : [],
       simulated: t.user.isDemo,
-      active: t.verification === 'APPROVED' && t.user.status === 'ACTIVE',
+      active,
       checkedAt: this.clock.now(),
       fictional: false,
     };
+  }
+
+  private async certifications(technicianId: string): Promise<CertificationDto[]> {
+    const rows = await this.prisma.skillCertificate.findMany({ where: { technicianId, status: 'APPROVED' }, orderBy: { createdAt: 'asc' }, select: { kind: true, title: true } });
+    return rows.map((c) => ({ kind: c.kind, title: c.title }));
   }
 
   /** Issues a new QR token; the old link stops working at once (lost phone, screenshot shared). Audited. */
@@ -263,4 +281,8 @@ export class IdentityService {
     if (t.legalNameEnc) return this.cipher.decrypt('technicians.legal_name', t.legalNameEnc);
     return t.user.nameEnc ? this.cipher.decrypt('users.name', t.user.nameEnc) : '';
   }
+}
+
+function verifiedSkills(t: { readonly skills: readonly TechnicianSkill[] }): string[] {
+  return t.skills.filter((s) => s.verifiedAt).map((s) => s.categoryId).sort((a, b) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b));
 }

@@ -132,15 +132,25 @@ export class AdminOpsService {
   }
 
   /** The red counter in the sidebar and the alarm: open SOS, newest first seen. */
-  async alerts(): Promise<{ sos: number; newestSosAt: number | null; reports: number; queries: number; conversations: number }> {
-    const [sos, newest, reports, queries, conversations] = await Promise.all([
+  async alerts(): Promise<{ sos: number; newestSosAt: number | null; reports: number; queries: number; conversations: number; skills: number }> {
+    const [sos, newest, reports, queries, conversations, skills] = await Promise.all([
       this.prisma.supportTicket.count({ where: { kind: 'UNSAFE', state: { not: 'RESOLVED' } } }),
       this.prisma.supportTicket.findFirst({ where: { kind: 'UNSAFE', state: { not: 'RESOLVED' } }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
       this.prisma.supportTicket.count({ where: { ...GROUP_WHERE.REPORTS, state: { not: 'RESOLVED' } } }),
       this.prisma.supportTicket.count({ where: { kind: 'CALLBACK', state: { not: 'RESOLVED' } } }),
       this.prisma.supportThread.count({ where: { state: 'OPEN', unreadForHq: { gt: 0 } } }),
+      // Skill checks waiting for a person: a work video or certificate, or a check sent with no trade verified.
+      this.prisma.technician.count({
+        where: {
+          OR: [
+            { skillVideos: { some: { status: 'PENDING' } } },
+            { certificates: { some: { status: 'PENDING' } } },
+            { skillSubmittedAt: { not: null }, verification: 'PENDING', skills: { none: { verifiedAt: { not: null } } } },
+          ],
+        },
+      }),
     ]);
-    return { sos, newestSosAt: newest?.createdAt.getTime() ?? null, reports, queries, conversations };
+    return { sos, newestSosAt: newest?.createdAt.getTime() ?? null, reports, queries, conversations, skills };
   }
 
   // ---------- live conversations (Queries) ----------

@@ -12,7 +12,7 @@ import { newTechCode, newVerifyToken, verifyTokenHash } from '../identity/identi
 import { PlacesService } from '../places/places.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { CATEGORY_ORDER, type TechProfileInput } from './technicians.schemas';
-import { reviewBy } from './review-window';
+import { reviewBy, reviewStart } from './review-window';
 import { genderMatches } from '../identity/gender-match';
 
 type Db = Prisma.TransactionClient | PrismaService;
@@ -46,6 +46,26 @@ export interface TechProfileDto {
   readonly online: boolean;
   readonly rating: number | null;
   readonly jobsDone: number;
+  /** Skill check (after the Aadhaar scan); null before the first submission. */
+  readonly skillCheck: TechSkillSummaryDto | null;
+}
+
+/** openapi.yaml TechSkillSummary: GET /tech/skills has the whole skill check. */
+export interface TechSkillSummaryDto {
+  readonly level: 'UNSKILLED' | 'SEMI_SKILLED' | 'SKILLED' | 'HIGHLY_SKILLED' | null;
+  /** The technician still has to send it: a trade is not verified and nothing was sent yet. */
+  readonly required: boolean;
+  readonly submittedAt: number | null;
+  /** Trades that get job offers. */
+  readonly verifiedSkills: readonly string[];
+  /** Certificates HQ approved, shown on the profile and the ID page. */
+  readonly certifications: readonly CertificationDto[];
+}
+
+/** openapi.yaml Certification. */
+export interface CertificationDto {
+  readonly kind: 'ITI' | 'SKILL_INDIA' | 'OTHER';
+  readonly title: string;
 }
 
 /** openapi.yaml TechIdentity. */
@@ -85,6 +105,7 @@ export class TechniciansService {
       return {
         id: user.id, phone, name, gender: 'M', experienceYears: 0, skills: [], city: '', pincode: '', areas: '', state: null, district: null, localities: [], vehicle: '',
         phoneType: 'SMARTPHONE', verification: null, identity: null, aadhaar: null, reviewBy: null, correctionNote: null, online: false, rating: null, jobsDone: 0,
+        skillCheck: null,
       };
     }
     return {
@@ -107,12 +128,25 @@ export class TechniciansService {
       aadhaar: row.aadhaarVerifiedAt && row.aadhaarLast4
         ? { last4: row.aadhaarLast4, nameMatches: row.aadhaarNameMatch === true, genderMatches: row.aadhaarGenderMatch !== false, verifiedAt: row.aadhaarVerifiedAt.getTime() }
         : null,
-      reviewBy: reviewBy(row.submittedAt.getTime(), user.isDemo),
+      reviewBy: reviewBy(reviewStart(row), user.isDemo),
       correctionNote: row.correctionNoteEn !== null ? { en: row.correctionNoteEn, te: row.correctionNoteTe ?? row.correctionNoteEn } : null,
       online: row.online,
       rating: row.ratingAvg !== null ? Number(row.ratingAvg) : null,
       jobsDone: row.jobsDone,
+      skillCheck: {
+        level: row.skillLevel,
+        required: !row.skillSubmittedAt && row.skills.some((s) => !s.verifiedAt),
+        submittedAt: row.skillSubmittedAt?.getTime() ?? null,
+        verifiedSkills: row.skills.filter((s) => s.verifiedAt).map((s) => s.categoryId).sort(byCategoryOrder),
+        certifications: await this.certifications(row.userId),
+      },
     };
+  }
+
+  /** Certificates HQ approved (shown on the profile and the public ID page). */
+  async certifications(technicianId: string): Promise<CertificationDto[]> {
+    const rows = await this.prisma.skillCertificate.findMany({ where: { technicianId, status: 'APPROVED' }, orderBy: { createdAt: 'asc' }, select: { kind: true, title: true } });
+    return rows.map((c) => ({ kind: c.kind, title: c.title }));
   }
 
   private async identityOf(row: TechnicianRow): Promise<TechIdentityDto | null> {
@@ -194,8 +228,9 @@ export class TechniciansService {
             ...(photoId ? { photoUploadId: photoId, photoStatus: 'PENDING' as const } : {}),
           };
           await tx.technician.upsert({ where: { userId }, create: { userId, ...fields }, update: fields });
-          await tx.technicianSkill.deleteMany({ where: { technicianId: userId } });
-          await tx.technicianSkill.createMany({ data: input.skills.map((categoryId) => ({ technicianId: userId, categoryId })) });
+          // Trades kept keep their verification (skill check); a new trade starts unverified (no offers for it yet).
+          await tx.technicianSkill.deleteMany({ where: { technicianId: userId, categoryId: { notIn: [...input.skills] } } });
+          await tx.technicianSkill.createMany({ data: input.skills.map((categoryId) => ({ technicianId: userId, categoryId })), skipDuplicates: true });
           if (nameEnc) await tx.user.update({ where: { id: userId }, data: { nameEnc } });
           await this.clearLocation(tx, userId);
           await this.withdrawOffers(tx, userId);
@@ -296,6 +331,10 @@ export class TechniciansService {
     });
     // Where payouts went (bank account or UPI) goes too; payouts already made keep only their amounts.
     await tx.technicianPayoutAccount.deleteMany({ where: { technicianId: userId } });
+    // The skill check: work videos and certificates (their files go with the account's uploads), exam papers.
+    await tx.skillVideo.deleteMany({ where: { technicianId: userId } });
+    await tx.skillCertificate.deleteMany({ where: { technicianId: userId } });
+    await tx.skillExamAttempt.deleteMany({ where: { technicianId: userId } });
     await this.withdrawOffers(tx, userId);
     await this.clearLocation(tx, userId);
   }
