@@ -72,7 +72,7 @@ describe('technician identity (e2e)', () => {
       expect(scan.headers['cache-control']).toBe('no-store');
       expect(scan.body).toEqual({
         techCode: card.body.techCode, displayName: 'Swathi N.', photo: expect.stringContaining('op=get'), gender: 'F',
-        verification: 'APPROVED', verifiedSkills: ['PLUMBING', 'CLEANING'], certifications: [], simulated: false, active: true, checkedAt: t.clock.now(), fictional: false,
+        verification: 'APPROVED', verifiedSkills: ['PLUMBING', 'CLEANING'], certifications: [], simulated: false, active: true, checkedAt: t.clock.now(), fictional: false, passport: null,
       });
       expect(JSON.stringify(scan.body)).not.toMatch(/9876500011|Naidu|Banjara|4521/);
     });
@@ -106,6 +106,70 @@ describe('technician identity (e2e)', () => {
     it('is not available before the profile is submitted', async () => {
       const auth = await signIn(t, '9876500012', 'TECHNICIAN');
       await api().get('/v1/tech/id-card').set(as(auth.accessToken)).expect(404);
+      await api().get('/v1/tech/passport').set(as(auth.accessToken)).expect(404);
+      await api().put('/v1/tech/passport').set(as(auth.accessToken)).send({ public: true }).expect(404);
+    });
+  });
+
+  describe('Skill Passport', () => {
+    it('stays private until the technician switches it on, then shows proven trades, courses and certificates on the QR page', async () => {
+      const tech = await createTechnician(t);
+      const at = new Date(t.clock.now());
+      // Plumbing proven by the exam (best passed score counts), cleaning by HQ; one checked ITI certificate, one course,
+      // and one certificate still waiting for review (never shown).
+      await t.prisma.technicianSkill.update({ where: { technicianId_categoryId: { technicianId: tech.id, categoryId: 'PLUMBING' } }, data: { verifiedVia: 'EXAM', verifiedAt: at } });
+      await t.prisma.technicianSkill.update({ where: { technicianId_categoryId: { technicianId: tech.id, categoryId: 'CLEANING' } }, data: { verifiedVia: 'HQ', verifiedAt: at } });
+      const exam = { technicianId: tech.id, categoryId: 'PLUMBING' as const, level: 'SKILLED' as const, questionIds: [], startedAt: at, submittedAt: at };
+      await t.prisma.skillExamAttempt.createMany({ data: [
+        { ...exam, basePoints: 30, bonusPoints: 2, passed: true },
+        { ...exam, basePoints: 36, bonusPoints: 4, passed: true },
+        { ...exam, basePoints: 50, bonusPoints: 0, passed: false },
+      ] });
+      await t.prisma.skillCertificate.createMany({ data: [
+        { technicianId: tech.id, kind: 'ITI', title: 'ITI Plumber 2019', status: 'APPROVED', createdAt: at },
+        { technicianId: tech.id, kind: 'HOUSEFI_COURSE', title: 'Housefi course: Fixing leaking taps', status: 'APPROVED', createdAt: at },
+        { technicianId: tech.id, kind: 'SKILL_INDIA', title: 'Not checked yet', status: 'PENDING', createdAt: at },
+      ] });
+      await t.prisma.technician.update({ where: { userId: tech.id }, data: { jobsDone: 42, ratingAvg: 4.8, ratingCount: 30, skillLevel: 'SKILLED' } });
+
+      const mine = await api().get('/v1/tech/passport').set(as(tech.token)).expect(200);
+      expect(mine.headers['cache-control']).toBe('no-store');
+      expect(mine.body).toEqual({
+        public: false,
+        link: expect.stringMatching(/^https:\/\/housefi\.tech\/t\/#[A-Za-z0-9]{24}$/),
+        passport: {
+          memberSince: expect.any(Number), experienceYears: TECH_PROFILE.experienceYears, city: TECH_PROFILE.city, level: 'SKILLED',
+          jobsDone: 42, rating: 4.8, ratingCount: 30,
+          trades: [
+            { categoryId: 'PLUMBING', provenBy: 'EXAM', examPoints: 40, examMaxPoints: expect.any(Number), at: at.getTime() },
+            { categoryId: 'CLEANING', provenBy: 'HQ', examPoints: null, examMaxPoints: null, at: at.getTime() },
+          ],
+          courses: [{ title: 'Fixing leaking taps', at: at.getTime() }],
+          certificates: [{ kind: 'ITI', title: 'ITI Plumber 2019' }],
+        },
+      });
+      const token = tokenOf(mine.body.link);
+      expect((await api().get(`/v1/verify/technicians/${token}`).expect(200)).body.passport).toBeNull();
+
+      // Switched on: the QR page shows it (still without phone, legal surname or address).
+      const on = await api().put('/v1/tech/passport').set(as(tech.token)).send({ public: true }).expect(200);
+      expect(on.body.public).toBe(true);
+      const scan = await api().get(`/v1/verify/technicians/${token}`).expect(200);
+      expect(scan.body.passport).toEqual(mine.body.passport);
+      expect(JSON.stringify(scan.body)).not.toMatch(/9876500011|Naidu|Banjara|Not checked yet/);
+
+      // Hidden again when the technician is not active, and when they switch it off.
+      await t.prisma.technician.update({ where: { userId: tech.id }, data: { verification: 'SUSPENDED' } });
+      expect((await api().get(`/v1/verify/technicians/${token}`).expect(200)).body.passport).toBeNull();
+      await t.prisma.technician.update({ where: { userId: tech.id }, data: { verification: 'APPROVED' } });
+      await api().put('/v1/tech/passport').set(as(tech.token)).send({ public: false }).expect(200);
+      expect((await api().get(`/v1/verify/technicians/${token}`).expect(200)).body.passport).toBeNull();
+
+      await api().put('/v1/tech/passport').set(as(tech.token)).send({ public: 'yes' }).expect(422);
+      await api().put('/v1/tech/passport').set(as(tech.token)).send({ public: true, phone: '1' }).expect(422);
+      const customer = (await signIn(t, '9876543210')).accessToken;
+      await api().get('/v1/tech/passport').set(as(customer)).expect(404); // other roles do not see the route
+      expect((await t.prisma.auditLog.findMany({ where: { entityId: tech.id, action: { startsWith: 'tech.passport' } }, orderBy: { id: 'asc' } })).map((a) => a.action)).toEqual(['tech.passport_shown', 'tech.passport_hidden']);
     });
   });
 

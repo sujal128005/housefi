@@ -18,6 +18,7 @@ import { PrismaService } from '../../common/prisma/prisma.module';
 import { MediaUrls } from '../../common/storage/object-store';
 import { InjectConfig } from '../../config/config.module';
 import type { Env } from '../../config/env';
+import { MAX_POINTS } from '../skills/exam-rules';
 import { CATEGORY_ORDER } from '../technicians/technicians.schemas';
 import type { CertificationDto } from '../technicians/technicians.service';
 import { AadhaarQrError, identityFingerprint, namesMatch, uidaiKeys, verifyAadhaarQr } from './aadhaar-qr';
@@ -66,6 +67,26 @@ export interface TechVerifyResultDto {
   readonly active: boolean;
   readonly checkedAt: number;
   readonly fictional: false;
+  /** The Skill Passport, when the technician switched it on (and is active); null otherwise. */
+  readonly passport: PassportDto | null;
+}
+
+/** openapi.yaml SkillPassport: the technician's career, as they chose to show it. No contact details, no address. */
+export interface PassportDto {
+  /** When they joined Housefi (ms). */
+  readonly memberSince: number;
+  readonly experienceYears: number;
+  readonly city: string;
+  readonly level: 'UNSKILLED' | 'SEMI_SKILLED' | 'SKILLED' | 'HIGHLY_SKILLED' | null;
+  readonly jobsDone: number;
+  readonly rating: number | null;
+  readonly ratingCount: number;
+  /** Each proven trade and how: the skill exam (with its score), a work video Housefi approved, Housefi, or earlier. */
+  readonly trades: readonly { readonly categoryId: string; readonly provenBy: 'EXAM' | 'VIDEO' | 'HQ' | 'EARLIER'; readonly examPoints: number | null; readonly examMaxPoints: number | null; readonly at: number }[];
+  /** Housefi courses completed. */
+  readonly courses: readonly { readonly title: string; readonly at: number }[];
+  /** Certificates Housefi checked (ITI, Skill India, other). */
+  readonly certificates: readonly CertificationDto[];
 }
 
 export interface AadhaarResultDto {
@@ -154,6 +175,54 @@ export class IdentityService {
       active,
       checkedAt: this.clock.now(),
       fictional: false,
+      passport: active && t.passportPublic ? await this.passportOf(t) : null,
+    };
+  }
+
+  // ---------- Skill Passport ----------
+
+  /** The technician's own passport (what the QR page shows when it is on), with the switch and the link. */
+  async myPassport(technicianId: string): Promise<{ readonly public: boolean; readonly link: string; readonly passport: PassportDto }> {
+    const t = await this.tech(technicianId);
+    if (!t?.techCode) throw new AppError('NOT_FOUND', {}, 'submit the profile first');
+    return { public: t.passportPublic, link: `${this.config.VERIFY_PAGE_URL}${await this.token(t)}`, passport: await this.passportOf(t) };
+  }
+
+  /** Shows or hides the passport on the public QR page. */
+  async setPassportPublic(technicianId: string, on: boolean): Promise<{ readonly public: boolean; readonly link: string; readonly passport: PassportDto }> {
+    const t = await this.tech(technicianId);
+    if (!t?.techCode) throw new AppError('NOT_FOUND', {}, 'submit the profile first');
+    if (t.passportPublic !== on) {
+      await this.prisma.technician.update({ where: { userId: technicianId }, data: { passportPublic: on } });
+      await this.audit.record({ actorType: 'TECHNICIAN', actorId: technicianId, action: on ? 'tech.passport_shown' : 'tech.passport_hidden', entity: 'technician', entityId: technicianId });
+    }
+    return this.myPassport(technicianId);
+  }
+
+  private async passportOf(t: TechRow): Promise<PassportDto> {
+    const [exams, certs] = await Promise.all([
+      this.prisma.skillExamAttempt.findMany({ where: { technicianId: t.userId, passed: true }, select: { categoryId: true, basePoints: true, bonusPoints: true } }),
+      this.prisma.skillCertificate.findMany({ where: { technicianId: t.userId, status: 'APPROVED' }, orderBy: { createdAt: 'asc' }, select: { kind: true, title: true, createdAt: true } }),
+    ]);
+    const best = new Map<string, number>();
+    for (const e of exams) best.set(e.categoryId, Math.max(best.get(e.categoryId) ?? 0, (e.basePoints ?? 0) + (e.bonusPoints ?? 0)));
+    return {
+      memberSince: t.user.createdAt.getTime(),
+      experienceYears: t.experienceYears,
+      city: t.city,
+      level: t.skillLevel,
+      jobsDone: t.jobsDone,
+      rating: t.ratingAvg !== null ? Number(t.ratingAvg) : null,
+      ratingCount: t.ratingCount,
+      trades: t.skills
+        .filter((s) => s.verifiedAt)
+        .sort((a, b) => CATEGORY_ORDER.indexOf(a.categoryId) - CATEGORY_ORDER.indexOf(b.categoryId))
+        .map((s) => {
+          const points = s.verifiedVia === 'EXAM' ? best.get(s.categoryId) ?? null : null;
+          return { categoryId: s.categoryId, provenBy: s.verifiedVia ?? 'HQ', examPoints: points, examMaxPoints: points !== null ? MAX_POINTS : null, at: s.verifiedAt!.getTime() };
+        }),
+      courses: certs.filter((c) => c.kind === 'HOUSEFI_COURSE').map((c) => ({ title: c.title.replace(/^Housefi course: /, ''), at: c.createdAt.getTime() })),
+      certificates: certs.filter((c) => c.kind !== 'HOUSEFI_COURSE').map((c) => ({ kind: c.kind, title: c.title })),
     };
   }
 

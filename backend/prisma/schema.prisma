@@ -609,6 +609,9 @@ model Technician {
   /// Skill check (after the Aadhaar scan): the level they chose, and when they sent it (the review window starts
   /// from the later of this and submittedAt).
   skillLevel         SkillLevel?                            @map("skill_level")
+  /// Skill Passport: the technician chose to show their career (trades and how they were proven, courses, jobs,
+  /// rating, member since) on their public QR page. Off until they switch it on.
+  passportPublic     Boolean                                @default(false) @map("passport_public")
   skillSubmittedAt   DateTime?                              @map("skill_submitted_at") @db.Timestamptz(6)
   /// 4-digit PIN for accepting jobs by phone (keypad phones), stored only as an HMAC.
   ivrPinHash         Bytes?                                 @map("ivr_pin_hash")

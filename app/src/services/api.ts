@@ -2,7 +2,7 @@
 // (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
 // build of the app uses it.
 import type {
-  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
+  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, MyPassport, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
   Greeting, Locality, NearPlace, PincodePlaces,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
@@ -328,6 +328,10 @@ export interface TechApi {
   submitProfile(token: string, input: TechProfileInput): Promise<TechProfile>;
   /** The signed-in technician's own digital ID card. */
   idCard(token: string): Promise<TechIdCard>;
+  /** The Skill Passport: what the public QR page shows when it is switched on, plus the switch and the link. */
+  passport(token: string): Promise<MyPassport>;
+  /** Shows or hides the Skill Passport on the public QR page. */
+  setPassportPublic(token: string, on: boolean): Promise<MyPassport>;
   /** Asks support to correct the legal name or photo (the technician cannot change them directly). */
   requestIdentityCorrection(token: string, kind: 'NAME' | 'PHOTO', note: string): Promise<TechProfile>;
   /** Online = ready to receive job offers. Only verified technicians can go online. */

@@ -1,14 +1,17 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Param, Post, Put } from '@nestjs/common';
 import { z } from 'zod';
 import { RateLimit } from '../../common/rate-limit/rate-limit.guard';
 import { ZodValidationPipe } from '../../common/validation/zod-validation.pipe';
 import { type AuthUser, CurrentUser, Public, Roles } from '../auth/auth.guard';
 import { type TechProfileDto, TechniciansService } from '../technicians/technicians.service';
-import { type AadhaarResultDto, IdentityService, type TechIdCardDto, type TechVerifyResultDto } from './identity.service';
+import { type AadhaarResultDto, IdentityService, type PassportDto, type TechIdCardDto, type TechVerifyResultDto } from './identity.service';
 
 const CorrectionBody = z.object({ kind: z.enum(['NAME', 'PHOTO']), note: z.string().trim().min(3).max(300) }).strict();
 /** The decimal text the camera reads from an Aadhaar Secure QR (a few thousand digits). */
 const AadhaarBody = z.object({ qr: z.string().trim().min(50).max(8000) }).strict();
+/** openapi.yaml PassportSetting. */
+const PassportBody = z.object({ public: z.boolean() }).strict();
+type MyPassport = { readonly public: boolean; readonly link: string; readonly passport: PassportDto };
 
 /** Technician ID cards, identity corrections, Aadhaar checks, and the public QR verification. */
 @Controller()
@@ -23,6 +26,21 @@ export class IdentityController {
   @Header('Cache-Control', 'no-store')
   idCard(@CurrentUser() user: AuthUser): Promise<TechIdCardDto> {
     return this.identity.idCard(user.id);
+  }
+
+  /** The technician's Skill Passport: what the QR page shows when it is switched on. */
+  @Get('tech/passport')
+  @Roles('TECHNICIAN')
+  @Header('Cache-Control', 'no-store')
+  passport(@CurrentUser() user: AuthUser): Promise<MyPassport> {
+    return this.identity.myPassport(user.id);
+  }
+
+  @Put('tech/passport')
+  @Roles('TECHNICIAN')
+  @RateLimit({ limit: 20, windowSec: 3600 })
+  setPassport(@CurrentUser() user: AuthUser, @Body(new ZodValidationPipe(PassportBody)) body: z.infer<typeof PassportBody>): Promise<MyPassport> {
+    return this.identity.setPassportPublic(user.id, body.public);
   }
 
   @Post('tech/identity-corrections')

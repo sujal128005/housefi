@@ -1,6 +1,7 @@
 // Housefi verification page for a scanned Technician ID card (opened from the QR code: housefi://verify/<token> in the
 // demo; Housefi's public verification page on the live backend). No sign-in. Shows the minimum: photo, first name
-// and initial, Technician ID, and whether the technician is active with Housefi right now.
+// and initial, Technician ID, and whether the technician is active with Housefi right now; plus their Skill Passport
+// when they switched it on.
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Art3D } from '../../illustrations/Art3D';
@@ -12,6 +13,7 @@ import { useBackend, useQuery } from '../../services/ServicesProvider';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, EmptyState, ErrorView, Header, Icon, Screen, Skeleton, Txt } from '../../ui';
 import { Logo } from '../../ui/Logo';
+import { SkillPassportView } from '../../ui/SkillPassport';
 import { TechPhoto, VerificationPill } from '../../ui/TechIdentity';
 
 export default function VerifyTechnician() {
@@ -47,6 +49,7 @@ export default function VerifyTechnician() {
           {r.fictional ? <Txt variant="caption" color="demo" align="center">{t('id.fictional')}</Txt> : null}
         </View>
       ) : null}
+      {r?.passport ? <SkillPassportView passport={r.passport} testID="verify-passport" /> : null}
       {backend.demo ? <Banner tone="demo" text={t('verify.demo')} /> : null}
     </Screen>
   );
