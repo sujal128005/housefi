@@ -166,6 +166,12 @@ and gets a drawing (tests on both sides check). Diagram answers are the letters 
 change needs only a backend deploy; a new picture needs an app build. HQ reviews videos and certificates on the
 **Skill checks** page.
 
+**Courses** (technician app → Learn tab): the course texts, lessons and quizzes are in
+`backend/src/modules/courses/catalog/*.json` (English + Telugu); HQ → **Courses** uploads one video per lesson (MP4/MOV,
+at most 100 MB: Cloudflare's limit) and publishes. Basic and safety free; advanced free at 3.8★, otherwise ₹99
+(`course_payments`, same Razorpay checkout and webhook as bookings). Completion = every lesson watched at normal speed +
+quiz 3/5 → a `HOUSEFI_COURSE` certification on the profile and ID. Changing course texts needs a backend deploy only.
+
 **Telephony** (masked calls, keypad job offers): `TelephonyProvider` in `src/modules/telephony/telephony-provider.ts`
 (Exotel and a fake). `TELEPHONY_PROVIDER=off` until Exotel is set up (calls fall back to "call me back").
 

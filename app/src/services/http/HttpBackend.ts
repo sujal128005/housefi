@@ -6,7 +6,7 @@ import {
   type CouponResult, type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
-  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote,
+  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
@@ -106,6 +106,8 @@ const decodeEarnings = (json: unknown): Earnings => record<Earnings>(json, 'earn
 const decodePayoutAccount = (json: unknown): PayoutAccount => record<PayoutAccount>(json, 'payout account', ['rail', 'holderName', 'hint', 'updatedAt']);
 const decodeNothing = (): void => undefined;
 const decodeSkillCheck = (json: unknown): SkillCheck => record<SkillCheck>(json, 'skill check', ['level', 'required', 'canSubmit', 'trades', 'video', 'certificates', 'rules']);
+const decodeCourses = (json: unknown): CoursesOverview => record<CoursesOverview>(json, 'courses', ['courses', 'rating', 'freeFromRating', 'price']);
+const decodeCourse = (json: unknown): Course => record<Course>(json, 'course', ['id', 'level', 'access', 'enrolled', 'lessonList', 'quiz', 'certificate']);
 const decodeExam = (json: unknown): SkillExam => record<SkillExam>(json, 'exam', ['id', 'categoryId', 'state', 'serverNow', 'sections', 'currentSection', 'questions', 'answers', 'result']);
 const UPLOAD_PATHS: Readonly<Record<UploadKind, ApiPath>> = {
   photos: apiPath`/uploads/photos`,
@@ -391,6 +393,32 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     },
     removeCertificate: (handle, id) => call(handle, 'DELETE', apiPath`/tech/skills/certificates/${id}`, decodeSkillCheck),
     submitSkills: (handle) => call(handle, 'POST', apiPath`/tech/skills/submit`, decodeSkillCheck),
+    courses: (handle) => call(handle, 'GET', apiPath`/tech/courses`, decodeCourses),
+    course: (handle, id) => call(handle, 'GET', apiPath`/tech/courses/${id}`, decodeCourse),
+    enrollCourse: (handle, id) => call(handle, 'POST', apiPath`/tech/courses/${id}/enroll`, decodeCourse),
+    async buyCourse(handle, id) {
+      const order = await call(handle, 'POST', apiPath`/tech/courses/${id}/payments`, (j) => record<PaymentOrder>(j, 'course order', ['paymentId', 'provider', 'orderId', 'keyId', 'amount']));
+      const verify = (outcome: { orderId: string; paymentId: string; signature: string }) =>
+        call(handle, 'POST', apiPath`/tech/courses/${id}/payments/${order.paymentId}/verify`, decodeCourse, { razorpayOrderId: outcome.orderId, razorpayPaymentId: outcome.paymentId, razorpaySignature: outcome.signature });
+      // A team demo account: no money moves, the server confirms at once.
+      if (order.provider === 'SIMULATED') return verify({ orderId: order.orderId, paymentId: `sim_${order.paymentId}`, signature: 'simulated' });
+      const outcome = await deps.openCheckout({ paymentId: order.paymentId, orderId: order.orderId, keyId: order.keyId, amount: order.amount, description: 'Housefi course' });
+      if (outcome.kind === 'paid') return verify(outcome);
+      // Closed without finishing: the course as the server knows it (Razorpay may still confirm a payment).
+      return call(handle, 'GET', apiPath`/tech/courses/${id}`, decodeCourse);
+    },
+    lesson: (handle, courseId, lessonId) => call(handle, 'GET', apiPath`/tech/courses/${courseId}/lessons/${lessonId}`, (j) => record<Lesson>(j, 'lesson', ['id', 'url', 'durationSec', 'watchedSec', 'completed'])),
+    lessonProgress: (handle, courseId, lessonId, positionSec) =>
+      call(handle, 'POST', apiPath`/tech/courses/${courseId}/lessons/${lessonId}/progress`, (j) => {
+        const o = obj(j, 'progress');
+        return { watchedSec: num(o, 'watchedSec'), completed: o.completed === true };
+      }, { positionSec: Math.max(0, Math.floor(positionSec)) }),
+    courseQuiz: (handle, courseId) => call(handle, 'GET', apiPath`/tech/courses/${courseId}/quiz`, (j) => record<CourseQuiz>(j, 'quiz', ['questions'])),
+    submitCourseQuiz: (handle, courseId, answers) =>
+      call(handle, 'POST', apiPath`/tech/courses/${courseId}/quiz`, (j) => {
+        const r = record<CourseQuizResult>(j, 'quiz result', ['correct', 'total', 'passed', 'course']);
+        return { ...r, course: decodeCourse(r.course) };
+      }, { answers }),
     offer: (handle) => call(handle, 'GET', apiPath`/tech/offers/current`, decodeOffer),
     acceptOffer: (handle, offerId) => call(handle, 'POST', apiPath`/tech/offers/${offerId}/accept`, decodeJob),
     rejectOffer: (handle, offerId, reason) => call(handle, 'POST', apiPath`/tech/offers/${offerId}/reject`, decodeNothing, { reason }),

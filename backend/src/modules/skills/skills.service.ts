@@ -146,7 +146,8 @@ export class SkillsService {
     const [attempts, video, certificates] = await Promise.all([
       this.prisma.skillExamAttempt.findMany({ where: { technicianId: userId }, orderBy: { startedAt: 'desc' } }),
       this.prisma.skillVideo.findFirst({ where: { technicianId: userId }, orderBy: { createdAt: 'desc' } }),
-      this.prisma.skillCertificate.findMany({ where: { technicianId: userId }, orderBy: { createdAt: 'asc' } }),
+      // The technician's own certificates (Housefi course certificates are earned, not sent: they are not listed here).
+      this.prisma.skillCertificate.findMany({ where: { technicianId: userId, kind: { not: 'HOUSEFI_COURSE' } }, orderBy: { createdAt: 'asc' } }),
     ]);
     // An attempt whose time ran out is marked now (the app may have been closed).
     for (const a of attempts) if (!a.submittedAt && this.isOver(a)) Object.assign(a, await this.finish(a.id, true));
@@ -183,7 +184,7 @@ export class SkillsService {
       video: video
         ? { id: video.id, source: video.source, status: video.status, durationSec: video.durationSec, categoryIds: video.categoryIds, reviewNote: video.reviewNote, createdAt: video.createdAt.getTime() }
         : null,
-      certificates: certificates.map((c) => ({ id: c.id, kind: c.kind, title: c.title, status: c.status, sample: c.sample, reviewNote: c.reviewNote, createdAt: c.createdAt.getTime() })),
+      certificates: certificates.map((c) => ({ id: c.id, kind: c.kind as CertificateDto['kind'], title: c.title, status: c.status, sample: c.sample, reviewNote: c.reviewNote, createdAt: c.createdAt.getTime() })),
       rules: {
         sections: SECTIONS.map((s) => ({ type: s.type, count: s.count, limitSec: s.limitSec })),
         passPercent: 60,
@@ -343,7 +344,7 @@ export class SkillsService {
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT user_id FROM technicians WHERE user_id = ${userId}::uuid FOR UPDATE`;
-        if ((await tx.skillCertificate.count({ where: { technicianId: userId, status: { not: 'REJECTED' } } })) >= MAX_CERTIFICATES) {
+        if ((await tx.skillCertificate.count({ where: { technicianId: userId, status: { not: 'REJECTED' }, kind: { not: 'HOUSEFI_COURSE' } } })) >= MAX_CERTIFICATES) {
           throw new AppError('CONFLICT', {}, `at most ${MAX_CERTIFICATES} certificates`);
         }
         const c = await tx.skillCertificate.create({ data: { technicianId: userId, kind: input.kind, title: input.title, uploadId, sample: input.sample, createdAt: new Date(this.clock.now()) } });

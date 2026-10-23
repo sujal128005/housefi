@@ -31,6 +31,7 @@ tags:
   - name: support
   - name: technician
   - name: skills
+  - name: courses
   - name: coordinator
   - name: identity
   - name: telephony
@@ -993,6 +994,89 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SkillCheck' } } } }
         '409': { $ref: '#/components/responses/Error' }
+  /tech/courses:
+    get:
+      tags: [technician, courses]
+      summary: Published courses (every lesson has its video), with this technician's access and progress
+      description: >-
+        Basic and safety courses are free; an advanced course is free with a rating of 3.8 or more, otherwise 99 rupees.
+        Courses are open across trades.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Courses' } } } }
+  /tech/courses/{courseId}:
+    get:
+      tags: [technician, courses]
+      parameters: [{ name: courseId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Course' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /tech/courses/{courseId}/enroll:
+    post:
+      tags: [technician, courses]
+      summary: Start a free course (409 for an advanced course that has to be bought)
+      parameters: [{ name: courseId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Course' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/courses/{courseId}/payments:
+    post:
+      tags: [technician, courses]
+      summary: Buy an advanced course (99 rupees); opens the same checkout page as bookings (SIMULATED for demo accounts)
+      parameters: [{ name: courseId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CourseOrder' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/courses/{courseId}/payments/{paymentId}/verify:
+    post:
+      tags: [technician, courses]
+      summary: After the checkout returns; the server checks the signature and asks Razorpay (the webhook also settles it)
+      parameters: [{ name: courseId, in: path, required: true, schema: { type: string } }, { name: paymentId, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [razorpayOrderId, razorpayPaymentId, razorpaySignature]
+              properties: { razorpayOrderId: { type: string }, razorpayPaymentId: { type: string }, razorpaySignature: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Course' } } } }
+        '402': { $ref: '#/components/responses/Error' }
+  /tech/courses/{courseId}/lessons/{lessonId}:
+    get:
+      tags: [technician, courses]
+      summary: A lesson to watch (signed video link); the course must be started
+      parameters: [{ name: courseId, in: path, required: true, schema: { type: string } }, { name: lessonId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Lesson' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/courses/{courseId}/lessons/{lessonId}/progress:
+    post:
+      tags: [technician, courses]
+      summary: Where the player is; the watched position moves only as fast as real time, and near the end the lesson counts as watched
+      parameters: [{ name: courseId, in: path, required: true, schema: { type: string } }, { name: lessonId, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [positionSec], properties: { positionSec: { type: number, minimum: 0 } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [watchedSec, completed], properties: { watchedSec: { type: integer }, completed: { type: boolean } } } } } }
+  /tech/courses/{courseId}/quiz:
+    get:
+      tags: [technician, courses]
+      summary: The quiz, once every lesson is watched (options in a new order on every try, never the answers)
+      parameters: [{ name: courseId, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CourseQuiz' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [technician, courses]
+      summary: Answer the quiz; 3 of 5 right completes the course and adds a Housefi course certification
+      parameters: [{ name: courseId, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [answers], properties: { answers: { type: object, additionalProperties: { type: string }, description: question number to option id } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CourseQuizResult' } } } }
   /tech/availability:
     post:
       tags: [technician]
@@ -1864,8 +1948,102 @@ components:
       type: object
       required: [kind, title]
       properties:
-        kind: { type: string, enum: [ITI, SKILL_INDIA, OTHER] }
+        kind: { type: string, enum: [ITI, SKILL_INDIA, OTHER, HOUSEFI_COURSE], description: HOUSEFI_COURSE is a Housefi course completed in the app }
         title: { type: string }
+    CourseCard:
+      type: object
+      required: [id, categoryId, level, title, summary, lessons, durationSec, price, access, enrolled, completedLessons, completed]
+      properties:
+        id: { type: string }
+        categoryId: { oneOf: [{ $ref: '#/components/schemas/CategoryId' }, { type: 'null' }] }
+        level: { type: string, enum: [BASIC, SAFETY, ADVANCED] }
+        title: { $ref: '#/components/schemas/Localized' }
+        summary: { $ref: '#/components/schemas/Localized' }
+        lessons: { type: integer }
+        durationSec: { type: integer }
+        price: { type: integer, description: Whole rupees; 0 for basic and safety }
+        access: { type: string, enum: [FREE, RATING, PAY] }
+        enrolled: { type: boolean }
+        completedLessons: { type: integer }
+        completed: { type: boolean }
+    Courses:
+      type: object
+      required: [courses, rating, freeFromRating, price]
+      properties:
+        courses: { type: array, items: { $ref: '#/components/schemas/CourseCard' } }
+        rating: { type: [number, 'null'] }
+        freeFromRating: { type: number }
+        price: { type: integer }
+    Course:
+      allOf:
+        - $ref: '#/components/schemas/CourseCard'
+        - type: object
+          required: [lessonList, quiz, certificate]
+          properties:
+            lessonList:
+              type: array
+              items:
+                type: object
+                required: [id, title, durationSec, watchedSec, completed]
+                properties:
+                  id: { type: string }
+                  title: { $ref: '#/components/schemas/Localized' }
+                  durationSec: { type: integer }
+                  watchedSec: { type: integer }
+                  completed: { type: boolean }
+            quiz:
+              type: object
+              required: [questions, passCorrect, unlocked, attempts, lastCorrect]
+              properties:
+                questions: { type: integer }
+                passCorrect: { type: integer }
+                unlocked: { type: boolean }
+                attempts: { type: integer }
+                lastCorrect: { type: [integer, 'null'] }
+            certificate:
+              oneOf:
+                - { type: 'null' }
+                - { type: object, required: [title, at], properties: { title: { type: string }, at: { type: integer } } }
+    CourseOrder:
+      type: object
+      required: [paymentId, provider, orderId, keyId, amount]
+      properties:
+        paymentId: { type: string }
+        provider: { type: string, enum: [RAZORPAY, SIMULATED] }
+        orderId: { type: string }
+        keyId: { type: string }
+        amount: { type: integer }
+    Lesson:
+      type: object
+      required: [id, title, url, durationSec, watchedSec, completed]
+      properties:
+        id: { type: string }
+        title: { $ref: '#/components/schemas/Localized' }
+        url: { type: string, description: Signed link to the video }
+        durationSec: { type: integer }
+        watchedSec: { type: integer }
+        completed: { type: boolean }
+    CourseQuiz:
+      type: object
+      required: [questions]
+      properties:
+        questions:
+          type: array
+          items:
+            type: object
+            required: [n, q, options]
+            properties:
+              n: { type: integer }
+              q: { $ref: '#/components/schemas/Localized' }
+              options: { type: array, items: { type: object, required: [id, en, te], properties: { id: { type: string }, en: { type: string }, te: { type: string } } } }
+    CourseQuizResult:
+      type: object
+      required: [correct, total, passed, course]
+      properties:
+        correct: { type: integer }
+        total: { type: integer }
+        passed: { type: boolean }
+        course: { $ref: '#/components/schemas/Course' }
     SkillLevel: { type: string, enum: [UNSKILLED, SEMI_SKILLED, SKILLED, HIGHLY_SKILLED] }
     SkillLevelInput:
       type: object

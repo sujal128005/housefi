@@ -1,0 +1,140 @@
+[
+  {
+    "id": "pl-basic", "categoryId": "PLUMBING", "level": "BASIC",
+    "title": { "en": "Plumbing basics", "te": "ప్లంబింగ్ ప్రాథమికాలు" },
+    "summary": { "en": "Taps, pipes and fittings every plumber uses every day.", "te": "ప్రతి ప్లంబర్ రోజూ వాడే కుళాయిలు, పైప్‌లు, ఫిట్టింగ్‌లు." },
+    "lessons": [
+      { "id": "tools", "title": { "en": "The plumber's tools", "te": "ప్లంబర్ పనిముట్లు" } },
+      { "id": "pipes", "title": { "en": "Pipes and fittings: PVC, CPVC and GI", "te": "పైప్‌లు, ఫిట్టింగ్‌లు: PVC, CPVC, GI" } },
+      { "id": "tap", "title": { "en": "Fixing a leaking tap", "te": "కారుతున్న కుళాయి రిపేర్" } },
+      { "id": "joints", "title": { "en": "Sealing joints: Teflon tape and solvent cement", "te": "జాయింట్ సీలింగ్: టెఫ్లాన్ టేప్, సాల్వెంట్ సిమెంట్" } }
+    ],
+    "quiz": [
+      { "q": { "en": "A closed tap keeps dripping. What usually needs changing?", "te": "మూసిన కుళాయి కారుతూనే ఉంది. సాధారణంగా ఏది మార్చాలి?" },
+        "options": [ { "en": "The washer inside the tap", "te": "కుళాయి లోపలి వాషర్" }, { "en": "The water tank", "te": "నీటి ట్యాంక్" }, { "en": "The whole pipe line", "te": "మొత్తం పైప్ లైన్" }, { "en": "The sink", "te": "సింక్" } ], "answer": 0 },
+      { "q": { "en": "What is wrapped on pipe threads to stop leaks?", "te": "లీక్ ఆపడానికి పైప్ థ్రెడ్‌ల మీద ఏం చుడతారు?" },
+        "options": [ { "en": "Teflon (PTFE) tape", "te": "టెఫ్లాన్ (PTFE) టేప్" }, { "en": "Insulation tape", "te": "ఇన్సులేషన్ టేప్" }, { "en": "Paper tape", "te": "పేపర్ టేప్" }, { "en": "Cloth", "te": "గుడ్డ" } ], "answer": 0 },
+      { "q": { "en": "Before repairing a leaking pipe, what do you do first?", "te": "లీక్ అవుతున్న పైప్ రిపేర్ చేసే ముందు మొదట ఏం చేయాలి?" },
+        "options": [ { "en": "Close the water supply", "te": "నీటి సప్లై మూసేయాలి" }, { "en": "Open every tap", "te": "అన్ని కుళాయిలు తెరవాలి" }, { "en": "Hit the pipe", "te": "పైప్‌ను కొట్టాలి" }, { "en": "Nothing", "te": "ఏమీ అక్కర్లేదు" } ], "answer": 0 },
+      { "q": { "en": "Which pipe is used for hot water lines?", "te": "వేడి నీటి లైన్‌కు ఏ పైప్ వాడతారు?" },
+        "options": [ { "en": "CPVC", "te": "CPVC" }, { "en": "Normal PVC", "te": "సాధారణ PVC" }, { "en": "Garden hose", "te": "గార్డెన్ హోస్" }, { "en": "Electrical conduit", "te": "ఎలక్ట్రికల్ కండ్యూట్" } ], "answer": 0 },
+      { "q": { "en": "Which fitting joins two pipes at a right angle?", "te": "రెండు పైప్‌లను లంబ కోణంలో ఏ ఫిట్టింగ్ కలుపుతుంది?" },
+        "options": [ { "en": "Elbow", "te": "ఎల్బో" }, { "en": "Coupler", "te": "కప్లర్" }, { "en": "End cap", "te": "ఎండ్ క్యాప్" }, { "en": "Reducer", "te": "రిడ్యూసర్" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "pl-safety", "categoryId": "PLUMBING", "level": "SAFETY",
+    "title": { "en": "Plumbing safety", "te": "ప్లంబింగ్ భద్రత" },
+    "summary": { "en": "Stay safe around water, power, tools and drains, and protect the customer's home.", "te": "నీరు, కరెంట్, పనిముట్లు, డ్రెయిన్‌ల దగ్గర సురక్షితంగా ఉండండి, కస్టమర్ ఇంటిని కాపాడండి." },
+    "lessons": [
+      { "id": "power", "title": { "en": "Water and electricity together", "te": "నీరు, కరెంట్ కలిసి ఉన్నప్పుడు" } },
+      { "id": "tools", "title": { "en": "Cutting and heating tools", "te": "కటింగ్, హీటింగ్ పనిముట్లు" } },
+      { "id": "drains", "title": { "en": "Drains, gases and hygiene", "te": "డ్రెయిన్‌లు, వాయువులు, పరిశుభ్రత" } },
+      { "id": "home", "title": { "en": "Protecting the customer's home", "te": "కస్టమర్ ఇంటిని కాపాడటం" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Before working on a geyser's pipes, what do you switch off?", "te": "గీజర్ పైప్‌ల మీద పని చేసే ముందు ఏది ఆఫ్ చేయాలి?" },
+        "options": [ { "en": "The geyser's power at the MCB", "te": "MCB వద్ద గీజర్ కరెంట్" }, { "en": "The room light", "te": "గది లైట్" }, { "en": "The fan", "te": "ఫ్యాన్" }, { "en": "Nothing", "te": "ఏమీ వద్దు" } ], "answer": 0 },
+      { "q": { "en": "What do you wear to clear a blocked drain by hand?", "te": "బ్లాక్ అయిన డ్రెయిన్‌ను చేతితో క్లియర్ చేయడానికి ఏం వేసుకోవాలి?" },
+        "options": [ { "en": "Rubber gloves", "te": "రబ్బర్ గ్లౌజులు" }, { "en": "Nothing", "te": "ఏమీ వద్దు" }, { "en": "A cap", "te": "టోపీ" }, { "en": "A watch", "te": "వాచ్" } ], "answer": 0 },
+      { "q": { "en": "Solvent cement has strong fumes. What do you do?", "te": "సాల్వెంట్ సిమెంట్‌కు ఘాటైన వాసన ఉంటుంది. ఏం చేయాలి?" },
+        "options": [ { "en": "Keep the room ventilated", "te": "గదిలో గాలి ఆడేలా చూడాలి" }, { "en": "Close all windows", "te": "అన్ని కిటికీలు మూయాలి" }, { "en": "Smell it to check", "te": "వాసన చూసి చెక్ చేయాలి" }, { "en": "Heat it", "te": "వేడి చేయాలి" } ], "answer": 0 },
+      { "q": { "en": "Before cutting a pipe inside a home, you should:", "te": "ఇంట్లో పైప్ కట్ చేసే ముందు ఏం చేయాలి?" },
+        "options": [ { "en": "Cover the floor and keep a bucket ready", "te": "నేలను కప్పి, బకెట్ సిద్ధంగా ఉంచాలి" }, { "en": "Start cutting at once", "te": "వెంటనే కట్ చేయాలి" }, { "en": "Move the customer's things without asking", "te": "అడగకుండా కస్టమర్ వస్తువులు తీయాలి" }, { "en": "Switch on the geyser", "te": "గీజర్ ఆన్ చేయాలి" } ], "answer": 0 },
+      { "q": { "en": "A blow torch is needed near a curtain. What do you do?", "te": "కర్టెన్ దగ్గర బ్లో టార్చ్ వాడాలి. ఏం చేయాలి?" },
+        "options": [ { "en": "Move the curtain away and keep a fire blanket or water ready", "te": "కర్టెన్ దూరంగా జరిపి, ఫైర్ బ్లాంకెట్ లేదా నీళ్లు సిద్ధంగా ఉంచాలి" }, { "en": "Work quickly near it", "te": "దాని దగ్గరే త్వరగా పని చేయాలి" }, { "en": "Wet the torch", "te": "టార్చ్‌ను తడపాలి" }, { "en": "Ask the customer to hold it", "te": "కస్టమర్‌ను పట్టుకోమనాలి" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "pl-advanced", "categoryId": "PLUMBING", "level": "ADVANCED",
+    "title": { "en": "Advanced plumbing: pumps and pressure", "te": "అడ్వాన్స్‌డ్ ప్లంబింగ్: పంప్‌లు, ప్రెషర్" },
+    "summary": { "en": "Pump systems, valves, hidden leaks and pressure testing.", "te": "పంప్ సిస్టమ్‌లు, వాల్వ్‌లు, కనిపించని లీక్‌లు, ప్రెషర్ టెస్టింగ్." },
+    "lessons": [
+      { "id": "pumps", "title": { "en": "Pump systems and foot valves", "te": "పంప్ సిస్టమ్‌లు, ఫుట్ వాల్వ్‌లు" } },
+      { "id": "valves", "title": { "en": "Non-return and pressure valves", "te": "నాన్-రిటర్న్, ప్రెషర్ వాల్వ్‌లు" } },
+      { "id": "hidden", "title": { "en": "Finding concealed leaks", "te": "కనిపించని లీక్‌లను కనుగొనడం" } },
+      { "id": "testing", "title": { "en": "Pressure testing a new line", "te": "కొత్త లైన్ ప్రెషర్ టెస్టింగ్" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Where is the non-return valve fitted on a pump to an overhead tank?", "te": "ఓవర్‌హెడ్ ట్యాంక్‌కు పంప్‌లో నాన్-రిటర్న్ వాల్వ్ ఎక్కడ బిగిస్తారు?" },
+        "options": [ { "en": "On the delivery side, after the pump", "te": "పంప్ తర్వాత, డెలివరీ వైపు" }, { "en": "Inside the tank", "te": "ట్యాంక్ లోపల" }, { "en": "At every tap", "te": "ప్రతి కుళాయి దగ్గర" }, { "en": "Nowhere", "te": "ఎక్కడా వద్దు" } ], "answer": 0 },
+      { "q": { "en": "What does a foot valve do?", "te": "ఫుట్ వాల్వ్ ఏం చేస్తుంది?" },
+        "options": [ { "en": "Keeps the suction pipe full and stops debris", "te": "సక్షన్ పైప్‌ను నిండుగా ఉంచి, చెత్తను ఆపుతుంది" }, { "en": "Heats the water", "te": "నీటిని వేడి చేస్తుంది" }, { "en": "Measures pressure", "te": "ప్రెషర్ కొలుస్తుంది" }, { "en": "Cuts the power", "te": "కరెంట్ ఆపుతుంది" } ], "answer": 0 },
+      { "q": { "en": "A new water line is pressure tested at about:", "te": "కొత్త నీటి లైన్‌ను సుమారు ఎంత ప్రెషర్‌తో టెస్ట్ చేస్తారు?" },
+        "options": [ { "en": "1.5 times the working pressure", "te": "పని ప్రెషర్‌కు 1.5 రెట్లు" }, { "en": "Half the working pressure", "te": "పని ప్రెషర్‌లో సగం" }, { "en": "No pressure", "te": "ప్రెషర్ లేకుండా" }, { "en": "10 times the working pressure", "te": "పని ప్రెషర్‌కు 10 రెట్లు" } ], "answer": 0 },
+      { "q": { "en": "Pressure is too high on the ground floor. Which part helps?", "te": "గ్రౌండ్ ఫ్లోర్‌లో ప్రెషర్ చాలా ఎక్కువ. ఏ భాగం సహాయపడుతుంది?" },
+        "options": [ { "en": "Pressure reducing valve", "te": "ప్రెషర్ రిడ్యూసింగ్ వాల్వ్" }, { "en": "Tee", "te": "టీ" }, { "en": "Elbow", "te": "ఎల్బో" }, { "en": "End cap", "te": "ఎండ్ క్యాప్" } ], "answer": 0 },
+      { "q": { "en": "Which tool helps find a concealed leak without breaking the wall?", "te": "గోడ పగలకొట్టకుండా లోపలి లీక్‌ను ఏ పనిముట్టు కనుగొంటుంది?" },
+        "options": [ { "en": "Moisture meter", "te": "మాయిశ్చర్ మీటర్" }, { "en": "Hammer", "te": "సుత్తి" }, { "en": "Spirit level", "te": "స్పిరిట్ లెవెల్" }, { "en": "Plunger", "te": "ప్లంజర్" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "el-basic", "categoryId": "ELECTRICAL", "level": "BASIC",
+    "title": { "en": "Electrical basics", "te": "ఎలక్ట్రికల్ ప్రాథమికాలు" },
+    "summary": { "en": "Phase, neutral and earth, boards, MCBs and the most common repairs.", "te": "ఫేజ్, న్యూట్రల్, ఎర్త్, బోర్డ్‌లు, MCBలు, సాధారణ రిపేర్లు." },
+    "lessons": [
+      { "id": "wires", "title": { "en": "Phase, neutral and earth", "te": "ఫేజ్, న్యూట్రల్, ఎర్త్" } },
+      { "id": "boards", "title": { "en": "Switches, sockets and boards", "te": "స్విచ్‌లు, సాకెట్‌లు, బోర్డ్‌లు" } },
+      { "id": "mcb", "title": { "en": "MCBs and wire sizes", "te": "MCBలు, వైర్ సైజులు" } },
+      { "id": "fan", "title": { "en": "A fan that hums but will not turn", "te": "శబ్దం చేస్తూ తిరగని ఫ్యాన్" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Which colour is the earth wire?", "te": "ఎర్త్ వైర్ ఏ రంగు?" },
+        "options": [ { "en": "Green or green-yellow", "te": "ఆకుపచ్చ లేదా ఆకుపచ్చ-పసుపు" }, { "en": "Red", "te": "ఎరుపు" }, { "en": "Black", "te": "నలుపు" }, { "en": "Any colour", "te": "ఏ రంగైనా" } ], "answer": 0 },
+      { "q": { "en": "Why does an MCB trip?", "te": "MCB ఎందుకు ట్రిప్ అవుతుంది?" },
+        "options": [ { "en": "Overload or short circuit", "te": "ఓవర్‌లోడ్ లేదా షార్ట్ సర్క్యూట్" }, { "en": "Cold weather", "te": "చల్లని వాతావరణం" }, { "en": "A new bulb", "te": "కొత్త బల్బ్" }, { "en": "Too few lights", "te": "తక్కువ లైట్లు" } ], "answer": 0 },
+      { "q": { "en": "Which copper wire size suits a 16 A socket circuit?", "te": "16 A సాకెట్ సర్క్యూట్‌కు ఏ సైజు కాపర్ వైర్ సరిపోతుంది?" },
+        "options": [ { "en": "2.5 sq mm", "te": "2.5 చ.మి.మీ." }, { "en": "0.5 sq mm", "te": "0.5 చ.మి.మీ." }, { "en": "1.0 sq mm", "te": "1.0 చ.మి.మీ." }, { "en": "Any size", "te": "ఏ సైజైనా" } ], "answer": 0 },
+      { "q": { "en": "A ceiling fan hums but does not turn. What do you check first?", "te": "సీలింగ్ ఫ్యాన్ శబ్దం చేస్తుంది కానీ తిరగడం లేదు. మొదట ఏం చెక్ చేయాలి?" },
+        "options": [ { "en": "The capacitor", "te": "కెపాసిటర్" }, { "en": "The bulb", "te": "బల్బ్" }, { "en": "The socket", "te": "సాకెట్" }, { "en": "The switch colour", "te": "స్విచ్ రంగు" } ], "answer": 0 },
+      { "q": { "en": "Which tool shows if a wire has phase?", "te": "వైర్‌లో ఫేజ్ ఉందో ఏ పనిముట్టు చూపిస్తుంది?" },
+        "options": [ { "en": "Line tester", "te": "లైన్ టెస్టర్" }, { "en": "Hammer", "te": "సుత్తి" }, { "en": "Measuring tape", "te": "కొలత టేప్" }, { "en": "Plier", "te": "ప్లయర్" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "el-safety", "categoryId": "ELECTRICAL", "level": "SAFETY",
+    "title": { "en": "Electrical safety", "te": "ఎలక్ట్రికల్ భద్రత" },
+    "summary": { "en": "Switch off, test, use the right tools, and what to do after a shock.", "te": "ఆఫ్ చేయండి, టెస్ట్ చేయండి, సరైన పనిముట్లు వాడండి, షాక్ తగిలితే ఏం చేయాలి." },
+    "lessons": [
+      { "id": "isolate", "title": { "en": "Switch off and test before touching", "te": "ముట్టుకునే ముందు ఆఫ్ చేసి టెస్ట్ చేయండి" } },
+      { "id": "tools", "title": { "en": "Insulated tools and dry hands", "te": "ఇన్సులేటెడ్ పనిముట్లు, పొడి చేతులు" } },
+      { "id": "rccb", "title": { "en": "The RCCB: the life saver", "te": "RCCB: ప్రాణ రక్షకం" } },
+      { "id": "shock", "title": { "en": "If someone gets a shock", "te": "ఎవరికైనా షాక్ తగిలితే" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Before changing a socket, you:", "te": "సాకెట్ మార్చే ముందు ఏం చేయాలి?" },
+        "options": [ { "en": "Switch off the MCB and test that it is dead", "te": "MCB ఆఫ్ చేసి, కరెంట్ లేదని టెస్ట్ చేయాలి" }, { "en": "Work fast", "te": "త్వరగా పని చేయాలి" }, { "en": "Switch on all lights", "te": "అన్ని లైట్లు ఆన్ చేయాలి" }, { "en": "Wet your hands", "te": "చేతులు తడపాలి" } ], "answer": 0 },
+      { "q": { "en": "Which device protects people from shock?", "te": "మనుషులను షాక్ నుండి ఏ పరికరం కాపాడుతుంది?" },
+        "options": [ { "en": "RCCB", "te": "RCCB" }, { "en": "Fan regulator", "te": "ఫ్యాన్ రెగ్యులేటర్" }, { "en": "Energy meter", "te": "ఎనర్జీ మీటర్" }, { "en": "Bulb holder", "te": "బల్బ్ హోల్డర్" } ], "answer": 0 },
+      { "q": { "en": "Someone is stuck to a live wire. What do you do first?", "te": "ఎవరైనా కరెంట్ వైర్‌కు అతుక్కుపోయారు. మొదట ఏం చేయాలి?" },
+        "options": [ { "en": "Switch off the power, or push them away with dry wood", "te": "కరెంట్ ఆఫ్ చేయాలి, లేదా పొడి చెక్కతో దూరంగా నెట్టాలి" }, { "en": "Pull them with bare hands", "te": "ఒట్టి చేతులతో లాగాలి" }, { "en": "Pour water on them", "te": "వారి మీద నీళ్లు పోయాలి" }, { "en": "Wait and watch", "te": "చూస్తూ ఉండాలి" } ], "answer": 0 },
+      { "q": { "en": "Your hands are wet. Can you work on a board?", "te": "మీ చేతులు తడిగా ఉన్నాయి. బోర్డ్ మీద పని చేయవచ్చా?" },
+        "options": [ { "en": "No, dry them first", "te": "వద్దు, ముందు ఆరబెట్టుకోవాలి" }, { "en": "Yes, if quick", "te": "త్వరగా అయితే చేయవచ్చు" }, { "en": "Yes, with a cloth", "te": "గుడ్డతో అయితే చేయవచ్చు" }, { "en": "Yes, always", "te": "ఎప్పుడైనా చేయవచ్చు" } ], "answer": 0 },
+      { "q": { "en": "Which screwdriver is right for electrical work?", "te": "ఎలక్ట్రికల్ పనికి ఏ స్క్రూడ్రైవర్ సరైనది?" },
+        "options": [ { "en": "One with an insulated handle", "te": "ఇన్సులేటెడ్ హ్యాండిల్ ఉన్నది" }, { "en": "A bare metal one", "te": "ఒట్టి లోహపుది" }, { "en": "A broken one", "te": "విరిగినది" }, { "en": "Any", "te": "ఏదైనా" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "el-advanced", "categoryId": "ELECTRICAL", "level": "ADVANCED",
+    "title": { "en": "Advanced electrical: earthing and three-phase", "te": "అడ్వాన్స్‌డ్ ఎలక్ట్రికల్: ఎర్తింగ్, త్రీ-ఫేజ్" },
+    "summary": { "en": "Earth pits, three-phase supply, motors and changeovers.", "te": "ఎర్త్ పిట్‌లు, త్రీ-ఫేజ్ సప్లై, మోటార్లు, చేంజ్‌ఓవర్‌లు." },
+    "lessons": [
+      { "id": "earth", "title": { "en": "Earth pits and testing them", "te": "ఎర్త్ పిట్‌లు, వాటి టెస్టింగ్" } },
+      { "id": "3phase", "title": { "en": "Three-phase supply and motors", "te": "త్రీ-ఫేజ్ సప్లై, మోటార్లు" } },
+      { "id": "load", "title": { "en": "Load and MCB sizing", "te": "లోడ్, MCB సైజు" } },
+      { "id": "changeover", "title": { "en": "Changeovers and inverter wiring", "te": "చేంజ్‌ఓవర్‌లు, ఇన్వర్టర్ వైరింగ్" } }
+    ],
+    "quiz": [
+      { "q": { "en": "A good house earth pit has resistance:", "te": "మంచి ఇంటి ఎర్త్ పిట్‌కు రెసిస్టెన్స్:" },
+        "options": [ { "en": "Low, below about 5 ohms", "te": "తక్కువ, సుమారు 5 ఓమ్స్ లోపు" }, { "en": "Above 100 ohms", "te": "100 ఓమ్స్ పైన" }, { "en": "Exactly 230 ohms", "te": "సరిగ్గా 230 ఓమ్స్" }, { "en": "It does not matter", "te": "పట్టింపు లేదు" } ], "answer": 0 },
+      { "q": { "en": "A 3-phase motor turns the wrong way. You:", "te": "3-ఫేజ్ మోటార్ వ్యతిరేకంగా తిరుగుతోంది. ఏం చేయాలి?" },
+        "options": [ { "en": "Swap any two phase wires", "te": "ఏవైనా రెండు ఫేజ్ వైర్లు మార్చాలి" }, { "en": "Swap phase and earth", "te": "ఫేజ్, ఎర్త్ మార్చాలి" }, { "en": "Change the MCB", "te": "MCB మార్చాలి" }, { "en": "Reduce the voltage", "te": "వోల్టేజ్ తగ్గించాలి" } ], "answer": 0 },
+      { "q": { "en": "The voltage between two phases in India is about:", "te": "భారతదేశంలో రెండు ఫేజ్‌ల మధ్య వోల్టేజ్ సుమారు:" },
+        "options": [ { "en": "400–415 V", "te": "400–415 V" }, { "en": "110 V", "te": "110 V" }, { "en": "230 V", "te": "230 V" }, { "en": "1000 V", "te": "1000 V" } ], "answer": 0 },
+      { "q": { "en": "Which tool tests a motor winding's insulation?", "te": "మోటార్ వైండింగ్ ఇన్సులేషన్‌ను ఏ పనిముట్టు టెస్ట్ చేస్తుంది?" },
+        "options": [ { "en": "Megger", "te": "మెగ్గర్" }, { "en": "Line tester", "te": "లైన్ టెస్టర్" }, { "en": "Clamp meter", "te": "క్లాంప్ మీటర్" }, { "en": "Spirit level", "te": "స్పిరిట్ లెవెల్" } ], "answer": 0 },
+      { "q": { "en": "What does a changeover switch do?", "te": "చేంజ్‌ఓవర్ స్విచ్ ఏం చేస్తుంది?" },
+        "options": [ { "en": "Switches the house between mains and generator", "te": "ఇంటిని మెయిన్స్, జనరేటర్ మధ్య మారుస్తుంది" }, { "en": "Measures units", "te": "యూనిట్లు కొలుస్తుంది" }, { "en": "Controls fan speed", "te": "ఫ్యాన్ స్పీడ్ నియంత్రిస్తుంది" }, { "en": "Dims lights", "te": "లైట్లు తగ్గిస్తుంది" } ], "answer": 0 }
+    ]
+  }
+]

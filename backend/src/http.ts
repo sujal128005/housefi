@@ -10,6 +10,9 @@ import type { Env } from './config/env';
 const BODY_LIMIT_BYTES = 100 * 1024;
 /** The one exception: a photo shown to the HQ portal's guide (resized in the browser, sent inline, never stored). */
 export const GUIDE_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
+/** And a course lesson video HQ sends (the most Cloudflare passes in one request). */
+export const LESSON_VIDEO_BODY_LIMIT_BYTES = 100 * 1024 * 1024;
+const LESSON_VIDEO_ROUTE = '/v1/admin/courses/:courseId/lessons/:lessonId/video';
 
 export function createAdapter(config: Env): FastifyAdapter {
   return new FastifyAdapter({
@@ -30,7 +33,10 @@ export async function configureApp(app: NestFastifyApplication, config: Env): Pr
 
   fastify.addHook('onRoute', (route) => {
     if (route.url === '/v1/admin/guide/messages') route.bodyLimit = GUIDE_BODY_LIMIT_BYTES;
+    if (route.url === LESSON_VIDEO_ROUTE && route.method === 'PUT') route.bodyLimit = LESSON_VIDEO_BODY_LIMIT_BYTES;
   });
+  // Lesson videos arrive as the raw request body (only that route accepts them; the body limit elsewhere stays 100 KB).
+  fastify.addContentTypeParser(['video/mp4', 'video/quicktime'], { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
 
   // Nest also routes Fastify's own errors (malformed JSON, body too large) through AllExceptionsFilter.
   fastify.addHook('onRequest', async (req, reply) => {

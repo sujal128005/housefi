@@ -14,11 +14,11 @@ export class ApiError extends Error {
   }
 }
 
-async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function call<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/v1/admin${path}`, {
     method,
     credentials: 'same-origin',
-    headers: { ...(method === 'POST' ? { 'content-type': 'application/json', 'x-housefi-admin': '1' } : {}) },
+    headers: { ...(method === 'POST' ? { 'content-type': 'application/json', 'x-housefi-admin': '1' } : method === 'DELETE' ? { 'x-housefi-admin': '1' } : {}) },
     body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
     cache: 'no-store',
   });
@@ -209,6 +209,41 @@ export interface Alerts {
   readonly conversations: number;
   /** Skill checks waiting for HQ (a video, a certificate, or no trade verified). */
   readonly skills: number;
+}
+
+export interface AdminCourse {
+  readonly id: string;
+  readonly categoryId: CategoryId | null;
+  readonly level: 'BASIC' | 'SAFETY' | 'ADVANCED';
+  readonly title: { readonly en: string; readonly te: string };
+  readonly published: boolean;
+  readonly lessons: readonly { readonly id: string; readonly title: { readonly en: string; readonly te: string }; readonly video: { readonly durationSec: number; readonly bytes: number; readonly uploadedAt: number; readonly url: string } | null }[];
+  readonly quizQuestions: number;
+  readonly stats: { readonly enrolled: number; readonly completed: number; readonly paid: number; readonly revenue: number };
+}
+
+/** A lesson video, sent as the request body with upload progress (0..1). At most 100 MB (Cloudflare's limit). */
+export function uploadLessonVideo(courseId: string, lessonId: string, file: File, onProgress: (share: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `/v1/admin/courses/${encodeURIComponent(courseId)}/lessons/${encodeURIComponent(lessonId)}/video`);
+    xhr.setRequestHeader('content-type', file.type === 'video/quicktime' ? 'video/quicktime' : 'video/mp4');
+    xhr.setRequestHeader('x-housefi-admin', '1');
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      if (xhr.status === 204) return resolve();
+      if (xhr.status === 401) window.dispatchEvent(new Event('hq:signed-out'));
+      let message = `HTTP ${xhr.status}`;
+      try {
+        message = (JSON.parse(xhr.responseText) as { error?: { message?: string } }).error?.message ?? message;
+      } catch {
+        // not JSON (e.g. the proxy refused a file that is too large)
+      }
+      reject(new ApiError(xhr.status, 'ERROR', xhr.status === 413 ? 'the file is larger than 100 MB' : message));
+    };
+    xhr.onerror = () => reject(new ApiError(0, 'NETWORK', 'the upload did not reach the server'));
+    xhr.send(file);
+  });
 }
 
 export interface SkillQueueRow {
@@ -471,6 +506,9 @@ export const api = {
   techAction: (id: string, action: TechAction, reason: string) => call<void>('POST', `/technicians/${id}/action`, { action, reason }),
 
   payouts: (state: 'PENDING' | 'PAID' | 'FAILED') => call<PayoutRow[]>('GET', `/payouts?state=${state}`),
+  courses: () => call<AdminCourse[]>('GET', '/courses'),
+  publishCourse: (id: string, published: boolean) => call<void>('POST', `/courses/${id}/publish`, { published }),
+  removeLessonVideo: (courseId: string, lessonId: string) => call<void>('DELETE', `/courses/${courseId}/lessons/${lessonId}/video`),
   skillQueue: (state: 'WAITING' | 'ALL') => call<SkillQueueRow[]>('GET', `/skills?state=${state}`),
   skillDetail: (technicianId: string) => call<SkillDetail>('GET', `/skills/${technicianId}`),
   decideVideo: (id: string, decision: 'APPROVE' | 'REJECT', categoryIds: readonly CategoryId[], note: string) => call<void>('POST', `/skills/videos/${id}`, { decision, categoryIds, note }),

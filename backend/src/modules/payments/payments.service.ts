@@ -71,6 +71,8 @@ interface WebhookBody {
 @Injectable()
 export class PaymentsService {
   private readonly log = new Logger(PaymentsService.name);
+  /** Other Razorpay orders (course purchases): each handler settles an order it knows and says so. */
+  private readonly orderHandlers: ((rp: RzpPayment) => Promise<boolean>)[] = [];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -81,6 +83,11 @@ export class PaymentsService {
     @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
+
+  /** Webhooks for an order that is not a booking payment go to these (e.g. CoursesService for course purchases). */
+  registerOrderHandler(handler: (rp: RzpPayment) => Promise<boolean>): void {
+    this.orderHandlers.push(handler);
+  }
 
   // ---------- used by bookings ----------
 
@@ -260,6 +267,7 @@ export class PaymentsService {
       if (!rp?.order_id) return;
       const row = await this.prisma.payment.findUnique({ where: { providerOrderId: rp.order_id } });
       if (!row) {
+        for (const handler of this.orderHandlers) if (await handler(rp)) return;
         this.log.warn(`webhook ${event} for an unknown order; ignored`);
         return;
       }

@@ -1,0 +1,140 @@
+[
+  {
+    "id": "ac-basic", "categoryId": "AC", "level": "BASIC",
+    "title": { "en": "AC service basics", "te": "AC సర్వీస్ ప్రాథమికాలు" },
+    "summary": { "en": "How a split AC works, cleaning, drains and the outdoor unit.", "te": "స్ప్లిట్ AC ఎలా పనిచేస్తుంది, శుభ్రం చేయడం, డ్రెయిన్‌లు, ఔట్‌డోర్ యూనిట్." },
+    "lessons": [
+      { "id": "how", "title": { "en": "How a split AC works", "te": "స్ప్లిట్ AC ఎలా పనిచేస్తుంది" } },
+      { "id": "clean", "title": { "en": "Cleaning filters and coils", "te": "ఫిల్టర్లు, కాయిల్స్ శుభ్రం చేయడం" } },
+      { "id": "drain", "title": { "en": "Water dripping: drain problems", "te": "నీళ్లు కారడం: డ్రెయిన్ సమస్యలు" } },
+      { "id": "outdoor", "title": { "en": "Checking the outdoor unit", "te": "ఔట్‌డోర్ యూనిట్ చెక్ చేయడం" } }
+    ],
+    "quiz": [
+      { "q": { "en": "How often should filters be cleaned at home?", "te": "ఇంట్లో ఫిల్టర్లను ఎంత తరచుగా శుభ్రం చేయాలి?" },
+        "options": [ { "en": "Every 2–4 weeks", "te": "ప్రతి 2–4 వారాలకు" }, { "en": "Once in 5 years", "te": "5 సంవత్సరాలకు ఒకసారి" }, { "en": "Never", "te": "ఎప్పుడూ వద్దు" }, { "en": "Only when new", "te": "కొత్తగా ఉన్నప్పుడు మాత్రమే" } ], "answer": 0 },
+      { "q": { "en": "Water drips from the indoor unit. Usual cause?", "te": "ఇండోర్ యూనిట్ నుండి నీళ్లు కారుతున్నాయి. సాధారణ కారణం?" },
+        "options": [ { "en": "Blocked drain pipe or tray", "te": "డ్రెయిన్ పైప్ లేదా ట్రే బ్లాక్" }, { "en": "Low remote battery", "te": "రిమోట్ బ్యాటరీ తక్కువ" }, { "en": "A big room", "te": "పెద్ద గది" }, { "en": "Too much power", "te": "కరెంట్ ఎక్కువ" } ], "answer": 0 },
+      { "q": { "en": "Before opening an AC, you:", "te": "AC తెరిచే ముందు ఏం చేయాలి?" },
+        "options": [ { "en": "Switch off the power at the MCB or plug", "te": "MCB లేదా ప్లగ్ వద్ద కరెంట్ ఆఫ్ చేయాలి" }, { "en": "Set it to 16 °C", "te": "16 °C కి పెట్టాలి" }, { "en": "Close the windows", "te": "కిటికీలు మూయాలి" }, { "en": "Nothing", "te": "ఏమీ అక్కర్లేదు" } ], "answer": 0 },
+      { "q": { "en": "The outdoor unit needs:", "te": "ఔట్‌డోర్ యూనిట్‌కు ఏం కావాలి?" },
+        "options": [ { "en": "Free space around it for air", "te": "గాలి కోసం చుట్టూ ఖాళీ స్థలం" }, { "en": "A cloth cover", "te": "బట్ట కవర్" }, { "en": "A closed cupboard", "te": "మూసిన అల్మారా" }, { "en": "To touch the wall", "te": "గోడకు ఆనించడం" } ], "answer": 0 },
+      { "q": { "en": "The compressor hums but does not start. Check first:", "te": "కంప్రెసర్ శబ్దం చేస్తుంది కానీ స్టార్ట్ కాదు. మొదట చెక్ చేయాల్సింది:" },
+        "options": [ { "en": "The run capacitor", "te": "రన్ కెపాసిటర్" }, { "en": "The remote", "te": "రిమోట్" }, { "en": "The filter colour", "te": "ఫిల్టర్ రంగు" }, { "en": "The drain pipe", "te": "డ్రెయిన్ పైప్" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "ac-safety", "categoryId": "AC", "level": "SAFETY",
+    "title": { "en": "AC safety", "te": "AC భద్రత" },
+    "summary": { "en": "Power, height, refrigerant gas and brazing, done safely.", "te": "కరెంట్, ఎత్తు, రిఫ్రిజిరెంట్ గ్యాస్, బ్రేజింగ్: సురక్షితంగా." },
+    "lessons": [
+      { "id": "power", "title": { "en": "Power on AC jobs", "te": "AC పనుల్లో కరెంట్" } },
+      { "id": "height", "title": { "en": "Working at height on outdoor units", "te": "ఔట్‌డోర్ యూనిట్ల దగ్గర ఎత్తులో పని" } },
+      { "id": "gas", "title": { "en": "Refrigerant gas safety", "te": "రిఫ్రిజిరెంట్ గ్యాస్ భద్రత" } },
+      { "id": "brazing", "title": { "en": "Brazing safely", "te": "సురక్షితంగా బ్రేజింగ్" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Fitting an outdoor unit on a high wall, you:", "te": "ఎత్తైన గోడకు ఔట్‌డోర్ యూనిట్ బిగించేటప్పుడు ఏం చేయాలి?" },
+        "options": [ { "en": "Use a safety harness and a steady ladder", "te": "సేఫ్టీ హార్నెస్, స్థిరమైన నిచ్చెన వాడాలి" }, { "en": "Stand on a chair", "te": "కుర్చీ మీద నిలబడాలి" }, { "en": "Lean out of the window", "te": "కిటికీ నుండి వంగాలి" }, { "en": "Work alone without support", "te": "ఆధారం లేకుండా ఒంటరిగా పని చేయాలి" } ], "answer": 0 },
+      { "q": { "en": "R32 gas is mildly flammable. So:", "te": "R32 గ్యాస్ కొంచెం మండుతుంది. అందుకే:" },
+        "options": [ { "en": "No flames or sparks nearby while venting", "te": "గ్యాస్ వదిలేటప్పుడు దగ్గర మంట, స్పార్క్ ఉండకూడదు" }, { "en": "Test leaks with a lighter", "te": "లైటర్‌తో లీక్ టెస్ట్ చేయాలి" }, { "en": "Work in a closed room", "te": "మూసిన గదిలో పని చేయాలి" }, { "en": "No care needed", "te": "జాగ్రత్త అవసరం లేదు" } ], "answer": 0 },
+      { "q": { "en": "When can you braze a pipe on an AC?", "te": "AC పైప్‌ను ఎప్పుడు బ్రేజ్ చేయవచ్చు?" },
+        "options": [ { "en": "Only after the gas is recovered", "te": "గ్యాస్ రికవర్ చేసిన తర్వాతే" }, { "en": "With the gas inside", "te": "గ్యాస్ లోపల ఉండగా" }, { "en": "While it is running", "te": "నడుస్తుండగా" }, { "en": "Any time", "te": "ఎప్పుడైనా" } ], "answer": 0 },
+      { "q": { "en": "Liquid refrigerant on skin can cause:", "te": "చర్మం మీద ద్రవ రిఫ్రిజిరెంట్ పడితే ఏమవుతుంది?" },
+        "options": [ { "en": "Frostbite: wear gloves and goggles", "te": "ఫ్రాస్ట్‌బైట్: గ్లౌజులు, గాగుల్స్ వేసుకోవాలి" }, { "en": "Nothing", "te": "ఏమీ కాదు" }, { "en": "A tan", "te": "చర్మం నల్లబడుతుంది" }, { "en": "Itching only", "te": "దురద మాత్రమే" } ], "answer": 0 },
+      { "q": { "en": "Before touching the outdoor unit's wiring:", "te": "ఔట్‌డోర్ యూనిట్ వైరింగ్ ముట్టుకునే ముందు:" },
+        "options": [ { "en": "Switch off the AC's MCB", "te": "AC MCB ఆఫ్ చేయాలి" }, { "en": "Switch off with the remote only", "te": "రిమోట్‌తో మాత్రమే ఆఫ్ చేయాలి" }, { "en": "Nothing", "te": "ఏమీ వద్దు" }, { "en": "Pour water on it", "te": "దాని మీద నీళ్లు పోయాలి" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "ac-advanced", "categoryId": "AC", "level": "ADVANCED",
+    "title": { "en": "Advanced AC: gas charging and inverter ACs", "te": "అడ్వాన్స్‌డ్ AC: గ్యాస్ ఛార్జింగ్, ఇన్వర్టర్ ACలు" },
+    "summary": { "en": "Vacuum, leak tests, charging by weight, error codes and recovery.", "te": "వాక్యూమ్, లీక్ టెస్టులు, బరువుతో ఛార్జింగ్, ఎర్రర్ కోడ్‌లు, రికవరీ." },
+    "lessons": [
+      { "id": "vacuum", "title": { "en": "Vacuum and leak testing", "te": "వాక్యూమ్, లీక్ టెస్టింగ్" } },
+      { "id": "charge", "title": { "en": "Charging gas by weight", "te": "బరువుతో గ్యాస్ ఛార్జింగ్" } },
+      { "id": "codes", "title": { "en": "Inverter AC error codes", "te": "ఇన్వర్టర్ AC ఎర్రర్ కోడ్‌లు" } },
+      { "id": "recover", "title": { "en": "Recovering refrigerant", "te": "రిఫ్రిజిరెంట్ రికవరీ" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Before charging gas after a repair, you:", "te": "రిపేర్ తర్వాత గ్యాస్ నింపే ముందు ఏం చేయాలి?" },
+        "options": [ { "en": "Pull a vacuum", "te": "వాక్యూమ్ చేయాలి" }, { "en": "Fill water", "te": "నీళ్లు నింపాలి" }, { "en": "Run it empty for an hour", "te": "గంటసేపు ఖాళీగా నడపాలి" }, { "en": "Nothing", "te": "ఏమీ అక్కర్లేదు" } ], "answer": 0 },
+      { "q": { "en": "The safe leak test is:", "te": "సురక్షితమైన లీక్ టెస్ట్:" },
+        "options": [ { "en": "Dry nitrogen and soap solution", "te": "డ్రై నైట్రోజన్, సబ్బు నీళ్లు" }, { "en": "Oxygen", "te": "ఆక్సిజన్" }, { "en": "A flame", "te": "మంట" }, { "en": "Smelling the pipes", "te": "పైప్‌లను వాసన చూడటం" } ], "answer": 0 },
+      { "q": { "en": "How much gas do you charge?", "te": "ఎంత గ్యాస్ నింపాలి?" },
+        "options": [ { "en": "The weight on the nameplate, with a scale", "te": "నేమ్‌ప్లేట్ మీది బరువు, స్కేల్‌తో" }, { "en": "Until the pipe is cold", "te": "పైప్ చల్లబడే వరకు" }, { "en": "A full cylinder", "te": "పూర్తి సిలిండర్" }, { "en": "Any amount", "te": "ఎంతైనా" } ], "answer": 0 },
+      { "q": { "en": "An inverter AC shows an error code. First step?", "te": "ఇన్వర్టర్ AC ఎర్రర్ కోడ్ చూపిస్తుంది. మొదటి అడుగు?" },
+        "options": [ { "en": "Look it up in the service manual and test that part", "te": "సర్వీస్ మాన్యువల్‌లో చూసి ఆ భాగాన్ని టెస్ట్ చేయాలి" }, { "en": "Change the PCB at once", "te": "వెంటనే PCB మార్చాలి" }, { "en": "Add more gas", "te": "ఇంకా గ్యాస్ నింపాలి" }, { "en": "Restart many times", "te": "చాలాసార్లు రీస్టార్ట్ చేయాలి" } ], "answer": 0 },
+      { "q": { "en": "Before changing a compressor, the refrigerant is:", "te": "కంప్రెసర్ మార్చే ముందు రిఫ్రిజిరెంట్‌ను:" },
+        "options": [ { "en": "Recovered into a cylinder", "te": "సిలిండర్‌లోకి రికవర్ చేయాలి" }, { "en": "Released into the air", "te": "గాలిలోకి వదలాలి" }, { "en": "Left inside", "te": "లోపలే ఉంచాలి" }, { "en": "Mixed with water", "te": "నీళ్లతో కలపాలి" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "ap-basic", "categoryId": "APPLIANCE", "level": "BASIC",
+    "title": { "en": "Appliance repair basics", "te": "అప్లయెన్స్ రిపేర్ ప్రాథమికాలు" },
+    "summary": { "en": "Washing machines, fridges, microwaves and geysers: the common faults.", "te": "వాషింగ్ మెషిన్లు, ఫ్రిజ్‌లు, మైక్రోవేవ్‌లు, గీజర్లు: సాధారణ లోపాలు." },
+    "lessons": [
+      { "id": "washer", "title": { "en": "Washing machines: drain and filters", "te": "వాషింగ్ మెషిన్లు: డ్రెయిన్, ఫిల్టర్లు" } },
+      { "id": "fridge", "title": { "en": "Fridges that do not cool", "te": "చల్లబరచని ఫ్రిజ్‌లు" } },
+      { "id": "microwave", "title": { "en": "Microwaves: safe checks", "te": "మైక్రోవేవ్‌లు: సురక్షిత చెక్‌లు" } },
+      { "id": "geyser", "title": { "en": "Geysers: no hot water", "te": "గీజర్లు: వేడి నీళ్లు రావడం లేదు" } }
+    ],
+    "quiz": [
+      { "q": { "en": "A front-loader does not drain. Check first:", "te": "ఫ్రంట్-లోడర్ నీళ్లు బయటకు పంపడం లేదు. మొదట చెక్ చేయాల్సింది:" },
+        "options": [ { "en": "The drain filter and hose", "te": "డ్రెయిన్ ఫిల్టర్, హోస్" }, { "en": "The detergent brand", "te": "డిటర్జెంట్ బ్రాండ్" }, { "en": "The door colour", "te": "డోర్ రంగు" }, { "en": "The room light", "te": "గది లైట్" } ], "answer": 0 },
+      { "q": { "en": "A fridge cools poorly and its back coil is dusty. You:", "te": "ఫ్రిజ్ సరిగ్గా చల్లబరచడం లేదు, వెనుక కాయిల్ దుమ్ముగా ఉంది. ఏం చేయాలి?" },
+        "options": [ { "en": "Unplug and clean the condenser coil", "te": "ప్లగ్ తీసి కండెన్సర్ కాయిల్ శుభ్రం చేయాలి" }, { "en": "Fill gas at once", "te": "వెంటనే గ్యాస్ నింపాలి" }, { "en": "Keep the door open", "te": "డోర్ తెరిచి ఉంచాలి" }, { "en": "Change the compressor", "te": "కంప్రెసర్ మార్చాలి" } ], "answer": 0 },
+      { "q": { "en": "Why never run a microwave empty?", "te": "మైక్రోవేవ్‌ను ఖాళీగా ఎందుకు నడపకూడదు?" },
+        "options": [ { "en": "It can damage the magnetron", "te": "మ్యాగ్నెట్రాన్ పాడవుతుంది" }, { "en": "It saves power", "te": "కరెంట్ ఆదా అవుతుంది" }, { "en": "The plate gets dirty", "te": "ప్లేట్ మురికి అవుతుంది" }, { "en": "The clock stops", "te": "గడియారం ఆగుతుంది" } ], "answer": 0 },
+      { "q": { "en": "A geyser's light is on but no hot water. Check:", "te": "గీజర్ లైట్ వెలుగుతుంది కానీ వేడి నీళ్లు రావడం లేదు. చెక్ చేయాల్సింది:" },
+        "options": [ { "en": "The heating element and thermostat", "te": "హీటింగ్ ఎలిమెంట్, థర్మోస్టాట్" }, { "en": "The paint", "te": "పెయింట్" }, { "en": "The wall screws", "te": "గోడ స్క్రూలు" }, { "en": "The tap washer", "te": "కుళాయి వాషర్" } ], "answer": 0 },
+      { "q": { "en": "Which tool checks if an element has continuity?", "te": "ఎలిమెంట్‌కు కంటిన్యుటీ ఉందో ఏ పనిముట్టు చూపిస్తుంది?" },
+        "options": [ { "en": "Multimeter", "te": "మల్టీమీటర్" }, { "en": "Thermometer", "te": "థర్మామీటర్" }, { "en": "Spirit level", "te": "స్పిరిట్ లెవెల్" }, { "en": "Tape", "te": "టేప్" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "ap-safety", "categoryId": "APPLIANCE", "level": "SAFETY",
+    "title": { "en": "Appliance safety", "te": "అప్లయెన్స్ భద్రత" },
+    "summary": { "en": "Unplugging, high voltage in microwaves, flammable fridge gas and heavy lifting.", "te": "ప్లగ్ తీయడం, మైక్రోవేవ్ హై వోల్టేజ్, మండే ఫ్రిజ్ గ్యాస్, బరువులు ఎత్తడం." },
+    "lessons": [
+      { "id": "unplug", "title": { "en": "Unplug before opening", "te": "తెరిచే ముందు ప్లగ్ తీయండి" } },
+      { "id": "hv", "title": { "en": "High voltage in microwaves", "te": "మైక్రోవేవ్‌లో హై వోల్టేజ్" } },
+      { "id": "gas", "title": { "en": "Flammable gas in new fridges", "te": "కొత్త ఫ్రిజ్‌లలో మండే గ్యాస్" } },
+      { "id": "lifting", "title": { "en": "Lifting heavy appliances", "te": "బరువైన అప్లయెన్సెస్ ఎత్తడం" } }
+    ],
+    "quiz": [
+      { "q": { "en": "Before opening any appliance:", "te": "ఏ అప్లయెన్స్ అయినా తెరిచే ముందు:" },
+        "options": [ { "en": "Unplug it", "te": "ప్లగ్ తీయాలి" }, { "en": "Switch it on", "te": "ఆన్ చేయాలి" }, { "en": "Wet it", "te": "తడపాలి" }, { "en": "Nothing", "te": "ఏమీ వద్దు" } ], "answer": 0 },
+      { "q": { "en": "A microwave's high-voltage capacitor:", "te": "మైక్రోవేవ్ హై-వోల్టేజ్ కెపాసిటర్:" },
+        "options": [ { "en": "Can hold a deadly charge after unplugging: discharge it safely", "te": "ప్లగ్ తీశాక కూడా ప్రాణాంతక చార్జ్ ఉంటుంది: సురక్షితంగా డిస్చార్జ్ చేయాలి" }, { "en": "Is always safe", "te": "ఎప్పుడూ సురక్షితం" }, { "en": "Only holds water", "te": "నీళ్లు మాత్రమే ఉంటాయి" }, { "en": "Can be touched freely", "te": "స్వేచ్ఛగా ముట్టుకోవచ్చు" } ], "answer": 0 },
+      { "q": { "en": "Many new fridges use R600a gas, which is:", "te": "చాలా కొత్త ఫ్రిజ్‌లు వాడే R600a గ్యాస్:" },
+        "options": [ { "en": "Flammable: no flames, good ventilation", "te": "మండేది: మంటలు వద్దు, గాలి ఆడాలి" }, { "en": "Just air", "te": "కేవలం గాలి" }, { "en": "Water vapour", "te": "నీటి ఆవిరి" }, { "en": "Safe near fire", "te": "మంట దగ్గర సురక్షితం" } ], "answer": 0 },
+      { "q": { "en": "Moving a heavy fridge, you:", "te": "బరువైన ఫ్రిజ్ కదిలించేటప్పుడు ఏం చేయాలి?" },
+        "options": [ { "en": "Get help and lift with your legs", "te": "సహాయం తీసుకుని, కాళ్ల బలంతో ఎత్తాలి" }, { "en": "Lift alone with your back", "te": "ఒంటరిగా నడుము బలంతో ఎత్తాలి" }, { "en": "Drag it on its door", "te": "డోర్ మీద ఈడ్చాలి" }, { "en": "Throw it", "te": "విసరాలి" } ], "answer": 0 },
+      { "q": { "en": "A washing machine body gives a mild shock. Likely cause?", "te": "వాషింగ్ మెషిన్ బాడీ కొంచెం షాక్ ఇస్తుంది. కారణం?" },
+        "options": [ { "en": "Missing earth connection", "te": "ఎర్త్ కనెక్షన్ లేకపోవడం" }, { "en": "Too much detergent", "te": "డిటర్జెంట్ ఎక్కువ" }, { "en": "Cold water", "te": "చల్లని నీళ్లు" }, { "en": "A full drum", "te": "నిండు డ్రమ్" } ], "answer": 0 }
+    ]
+  },
+  {
+    "id": "ap-advanced", "categoryId": "APPLIANCE", "level": "ADVANCED",
+    "title": { "en": "Advanced appliances: inverter motors and compressors", "te": "అడ్వాన్స్‌డ్ అప్లయెన్సెస్: ఇన్వర్టర్ మోటార్లు, కంప్రెసర్లు" },
+    "summary": { "en": "BLDC washers, compressor checks, PCBs and frost-free fridges.", "te": "BLDC వాషర్లు, కంప్రెసర్ చెక్‌లు, PCBలు, ఫ్రాస్ట్-ఫ్రీ ఫ్రిజ్‌లు." },
+    "lessons": [
+      { "id": "bldc", "title": { "en": "Inverter (BLDC) washing machines", "te": "ఇన్వర్టర్ (BLDC) వాషింగ్ మెషిన్లు" } },
+      { "id": "compressor", "title": { "en": "Compressor checks", "te": "కంప్రెసర్ చెక్‌లు" } },
+      { "id": "pcb", "title": { "en": "PCB faults and soldering", "te": "PCB లోపాలు, సోల్డరింగ్" } },
+      { "id": "defrost", "title": { "en": "Frost-free defrost systems", "te": "ఫ్రాస్ట్-ఫ్రీ డీఫ్రాస్ట్ సిస్టమ్‌లు" } }
+    ],
+    "quiz": [
+      { "q": { "en": "In a BLDC washer motor, the hall sensor tells the PCB:", "te": "BLDC వాషర్ మోటార్‌లో హాల్ సెన్సర్ PCBకి చెప్పేది:" },
+        "options": [ { "en": "The rotor's position and speed", "te": "రోటర్ స్థానం, స్పీడ్" }, { "en": "The water temperature", "te": "నీటి ఉష్ణోగ్రత" }, { "en": "The detergent level", "te": "డిటర్జెంట్ స్థాయి" }, { "en": "The room humidity", "te": "గది తేమ" } ], "answer": 0 },
+      { "q": { "en": "To check compressor windings you measure:", "te": "కంప్రెసర్ వైండింగ్‌లు చెక్ చేయడానికి కొలిచేది:" },
+        "options": [ { "en": "Resistance across C, S and R pins", "te": "C, S, R పిన్‌ల మధ్య రెసిస్టెన్స్" }, { "en": "Its weight", "te": "దాని బరువు" }, { "en": "Its colour", "te": "దాని రంగు" }, { "en": "Its noise", "te": "దాని శబ్దం" } ], "answer": 0 },
+      { "q": { "en": "The compressor clicks on and off but does not run. Check first:", "te": "కంప్రెసర్ క్లిక్ అవుతుంది కానీ నడవదు. మొదట చెక్ చేయాల్సింది:" },
+        "options": [ { "en": "PTC relay and overload protector", "te": "PTC రిలే, ఓవర్‌లోడ్ ప్రొటెక్టర్" }, { "en": "Door gasket", "te": "డోర్ గాస్కెట్" }, { "en": "Inside bulb", "te": "లోపలి బల్బ్" }, { "en": "Vegetable tray", "te": "కూరగాయల ట్రే" } ], "answer": 0 },
+      { "q": { "en": "Freezer full of ice, fridge part warm (frost-free). Likely fault?", "te": "ఫ్రీజర్ నిండా ఐస్, ఫ్రిజ్ భాగం వేడి (ఫ్రాస్ట్-ఫ్రీ). లోపం?" },
+        "options": [ { "en": "The defrost system", "te": "డీఫ్రాస్ట్ సిస్టమ్" }, { "en": "The door light", "te": "డోర్ లైట్" }, { "en": "Too little food", "te": "ఆహారం తక్కువ" }, { "en": "A new fridge", "te": "కొత్త ఫ్రిజ్" } ], "answer": 0 },
+      { "q": { "en": "Which tool measures a running compressor's current?", "te": "నడుస్తున్న కంప్రెసర్ కరెంట్‌ను ఏ పనిముట్టు కొలుస్తుంది?" },
+        "options": [ { "en": "Clamp meter", "te": "క్లాంప్ మీటర్" }, { "en": "Megger", "te": "మెగ్గర్" }, { "en": "Line tester", "te": "లైన్ టెస్టర్" }, { "en": "Earth tester", "te": "ఎర్త్ టెస్టర్" } ], "answer": 0 }
+    ]
+  }
+]

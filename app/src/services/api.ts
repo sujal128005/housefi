@@ -2,7 +2,7 @@
 // (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
 // build of the app uses it.
 import type {
-  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput,
+  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
   Greeting, Locality, NearPlace, PincodePlaces,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
@@ -351,6 +351,18 @@ export interface TechApi {
   removeCertificate(token: string, id: string): Promise<SkillCheck>;
   /** Sends the skill check for review; the review time starts now. */
   submitSkills(token: string): Promise<SkillCheck>;
+  /** Published courses with this technician's access and progress. */
+  courses(token: string): Promise<CoursesOverview>;
+  course(token: string, id: string): Promise<Course>;
+  /** Starts a free course (CONFLICT for an advanced one that has to be bought). */
+  enrollCourse(token: string, id: string): Promise<Course>;
+  /** Buys an advanced course (99 rupees) through the checkout; the course as the server then knows it. */
+  buyCourse(token: string, id: string): Promise<Course>;
+  lesson(token: string, courseId: string, lessonId: string): Promise<Lesson>;
+  /** Where the player is (the server counts only real-time watching). */
+  lessonProgress(token: string, courseId: string, lessonId: string, positionSec: number): Promise<{ readonly watchedSec: number; readonly completed: boolean }>;
+  courseQuiz(token: string, courseId: string): Promise<CourseQuiz>;
+  submitCourseQuiz(token: string, courseId: string, answers: Readonly<Record<string, string>>): Promise<CourseQuizResult>;
   /** The job currently offered to this technician, if any. */
   offer(token: string): Promise<JobOffer | null>;
   /** OFFER_EXPIRED when too late or the customer cancelled. */

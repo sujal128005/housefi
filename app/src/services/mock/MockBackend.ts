@@ -23,6 +23,7 @@ import type {
 import { payoutHint, payoutProblems, tidyPayout } from '../../domain/payout';
 import { quoteVisible } from '../../domain/types';
 import { mockGreeting, mockPlaces } from './places';
+import { createMockCourses } from './mockCourses';
 import { createMockSkills } from './mockSkills';
 import {
   ApiError, type AppNotification, type Backend, type ChatReply, type DemoOutcome, type DemoSettings, type KeyValueStore, type NewBooking,
@@ -1559,6 +1560,14 @@ export function createMockBackend(opts: MockOptions): Backend {
         s.tickets.push({ id: id('tkt'), bookingId: b.id, by: tech.id, issue, note: note.slice(0, 500), at: t });
         return storeJob(list, index, b);
       },
+
+      ...createMockCourses({
+        now,
+        who: async (token) => {
+          const tech = techFor(await request('READ'), token);
+          return { id: tech.id, rating: tech.rating };
+        },
+      }),
 
       ...createMockSkills({
         now,
