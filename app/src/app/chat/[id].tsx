@@ -5,7 +5,7 @@
 // clears itself a day later. ?as=tech opens it from the technician app.
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Image, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TextInput, View, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AssignedTechnician, Job } from '../../domain/types';
 import { formatClock, formatDate } from '../../i18n/format';
@@ -40,7 +40,7 @@ export default function ChatScreen() {
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null);
   const [place, setPlace] = useState(false);
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ScrollViewInstance>(null);
 
   useFocusEffect(useCallback(() => {
     if (!token || !id) return undefined;

@@ -17,7 +17,7 @@ import { Appear, Celebrate, Pulse } from '../ui/motion';
 import { PAY_METHODS } from '../ui/payMethods';
 import { feedback } from '../services/feedback';
 import { idempotencyKeys, outcomeUnknown } from '../state/idempotency';
-import { takePayIntent } from '../state/payIntent';
+import { hasPayIntent, takePayIntent } from '../state/payIntent';
 
 type Phase = 'CHOOSE' | 'PROCESSING' | 'PAID' | 'PENDING' | 'CASH' | 'FAILED';
 
@@ -124,10 +124,13 @@ export default function Pay() {
   const autoStarted = useRef(false);
   const ready = !!b;
   // Only Confirm & pay inside the app may start the payment by itself (a link with auto=1 cannot).
-  const [autoAllowed] = useState(() => params.auto === '1' && takePayIntent(params.id));
+  // The mark is checked here and used up only when the payment starts: if the screen is opened twice in quick
+  // succession, the copy that stays still pays, and only once.
+  const [autoAllowed] = useState(() => params.auto === '1' && hasPayIntent(params.id));
   useEffect(() => {
     if (!autoAllowed || autoStarted.current || !ready) return;
     autoStarted.current = true;
+    if (!takePayIntent(params.id)) return;
     void pay();
     // pay() only reads state that is fixed by the time the booking has loaded.
     // eslint-disable-next-line react-hooks/exhaustive-deps

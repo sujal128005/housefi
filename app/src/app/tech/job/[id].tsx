@@ -3,7 +3,7 @@
 // Customer details, directions, a masked call and "report a problem" are always at hand.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, TextInput, useWindowDimensions, View, type TextInputInstance } from 'react-native';
 import { categoryById, serviceById } from '../../../data/catalog';
 import { DEMO_TIMING, isActive, START_CODE_ATTEMPTS } from '../../../domain/rules';
 import { quoteVisible, type Job, type TechIssue } from '../../../domain/types';
@@ -69,7 +69,7 @@ export default function JobScreen() {
   const [issue, setIssue] = useState<TechIssue | null>(null);
   const [note, setNote] = useState('');
   const [confirm, setConfirm] = useState<'COMPLETE' | 'CASH' | 'REPORT' | null>(null);
-  const codeInput = useRef<TextInput>(null);
+  const codeInput = useRef<TextInputInstance>(null);
 
   useEffect(() => {
     setLoadError(null);
