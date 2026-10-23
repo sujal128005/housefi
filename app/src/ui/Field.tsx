@@ -1,5 +1,5 @@
 import { forwardRef, useState } from 'react';
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { StyleSheet, TextInput, View, type TextInputProps, type TextInputInstance } from 'react-native';
 import { useI18n } from '../i18n/I18n';
 import { fontFamily } from '../theme/fonts';
 import { colors, radius, space } from '../theme/tokens';
@@ -16,7 +16,7 @@ export interface FieldProps extends Omit<TextInputProps, 'style'> {
   readonly large?: boolean;
 }
 
-export const Field = forwardRef<TextInput, FieldProps>(function Field({ label, error, hint, optional, prefix, large, onFocus, onBlur, ...input }, ref) {
+export const Field = forwardRef<TextInputInstance, FieldProps>(function Field({ label, error, hint, optional, prefix, large, onFocus, onBlur, ...input }, ref) {
   const { locale, t } = useI18n();
   const [focused, setFocused] = useState(false);
   const border = error ? colors.danger : focused ? colors.blue : colors.line;

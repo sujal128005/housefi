@@ -115,11 +115,20 @@ main().catch((e) => {
     // The device may be gone.
   }
   const running = quiet(['shell', 'pidof', PKG]) ? 'running' : 'not running';
-  const crash = quiet(['logcat', '-d', '-v', 'brief']).split(/\r?\n/).filter((l) => /FATAL|AndroidRuntime|ReactNativeJS.*Error/.test(l)).slice(-5).join(' / ');
-  const reason = `${String(e.message ?? e).slice(0, 300)}; app ${running}; screen: ${screen.slice(0, 400) || '(empty)'}; device errors: ${crash.slice(0, 600) || '(none)'}`;
+  // The check's own screen reads (uiautomator) also log as AndroidRuntime: leave them out, or they hide the crash.
+  const log = quiet(['logcat', '-d', '-v', 'threadtime']);
+  const crashBuffer = quiet(['logcat', '-d', '-b', 'crash', '-v', 'threadtime']);
+  const crash = `${crashBuffer}\n${log}`.split(/\r?\n/)
+    .filter((l) => /FATAL|AndroidRuntime|ReactNativeJS.*Error|libc|DEBUG\s|has died|SIGSEGV|SIGABRT/.test(l) && !/uiautomator|RuntimeInit uid 2000|Using default boot image|lock profiling|Shutting down VM/.test(l))
+    .slice(0, 8).join(' / ');
+  const reason = `${String(e.message ?? e).slice(0, 300)}; app ${running}; screen: ${screen.slice(0, 400) || '(empty)'}; device errors: ${crash.slice(0, 900) || '(none)'}`;
   try {
     mkdirSync(out, { recursive: true });
     writeFileSync(`${out}/failure.txt`, `${reason}\n`);
+    // The whole device log and the crash buffer, uploaded with the screenshots: a native crash (no Java
+    // "FATAL EXCEPTION") only shows up here.
+    writeFileSync(`${out}/logcat.txt`, log);
+    writeFileSync(`${out}/crash.txt`, crashBuffer || '(crash buffer empty)\n');
   } catch {
     // Best effort.
   }

@@ -131,14 +131,14 @@ export function SearchPicker(props: Props) {
                   <Txt variant="caption" color="inkMuted">{t('picker.addSub')}</Txt>
                 </View>
               </Tap>
-            ) : null}
+            ) : undefined}
             ListEmptyComponent={props.loadFailed && !props.loading ? (
               <View style={styles.failed} testID={`${props.testID}-load-failed`}>
                 <Icon name="cloud-offline-outline" size={28} color="inkMuted" />
                 <Txt variant="callout" color="inkMuted" align="center">{props.onAdd ? t('picker.loadErrorType') : t('picker.loadError')}</Txt>
                 {props.onRetry ? <Button label={t('common.retry')} size="sm" variant="secondary" icon="refresh" onPress={props.onRetry} testID={`${props.testID}-retry`} /> : null}
               </View>
-            ) : canAdd ? null : <Txt variant="callout" color="inkMuted" align="center" style={styles.empty}>{props.loading ? t('common.loading') : t('picker.none')}</Txt>}
+            ) : canAdd ? undefined : <Txt variant="callout" color="inkMuted" align="center" style={styles.empty}>{props.loading ? t('common.loading') : t('picker.none')}</Txt>}
             renderItem={({ item }) => {
               const on = chosen.includes(item.value);
               return (

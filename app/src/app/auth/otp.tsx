@@ -3,7 +3,7 @@
 // "Demo SMS" card instead of sending a text message.
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, StyleSheet, TextInput, View, type TextInputInstance } from 'react-native';
 import { techHref } from '../../domain/techReview';
 import { formatDuration, formatPhone } from '../../i18n/format';
 import { useI18n } from '../../i18n/I18n';
@@ -34,7 +34,7 @@ export default function Otp() {
   const [error, setError] = useState<unknown>(null);
   const [blocked, setBlocked] = useState(false);
   const [left, setLeft] = useState(challenge?.resendAfterSec ?? 0);
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   const shake = useRef(new Animated.Value(0)).current;
   const [reading, setReading] = useState(false);
   const [verified, setVerified] = useState(false);

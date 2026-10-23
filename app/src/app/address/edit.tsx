@@ -2,7 +2,7 @@
 // ?lat&lng&street&city&pincode pre-fill it from the phone's location.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, type TextInputInstance } from 'react-native';
 import { validateAddress, type AddressErrors } from '../../domain/rules';
 import type { AddressInput, AddressLabel } from '../../domain/types';
 import { useI18n } from '../../i18n/I18n';
@@ -42,10 +42,10 @@ export default function AddressEdit() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const street = useRef<TextInput>(null);
-  const landmark = useRef<TextInput>(null);
-  const city = useRef<TextInput>(null);
-  const pincode = useRef<TextInput>(null);
+  const street = useRef<TextInputInstance>(null);
+  const landmark = useRef<TextInputInstance>(null);
+  const city = useRef<TextInputInstance>(null);
+  const pincode = useRef<TextInputInstance>(null);
   const fromGps = form.lat !== undefined;
 
   useEffect(() => {

@@ -2,7 +2,7 @@
 // or the person asks for a person, it asks what it is about (topic, booking, what happened) and hands over to a live
 // chat with the Housefi team, who answer from Housefi HQ. "Call customer care" stays available throughout.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Animated, Linking, ScrollView, StyleSheet, TextInput, View, type ScrollViewInstance } from 'react-native';
 import { Art3D } from '../illustrations/Art3D';
 import { useI18n } from '../i18n/I18n';
 import type { ChatAction, ChatReply, SupportConversation, SupportTopic } from '../services/api';
@@ -49,7 +49,7 @@ export default function Support() {
   const [bookingChips, setBookingChips] = useState<readonly { id: string; code: string }[]>([]);
   const [sending, setSending] = useState(false);
   const care = useCareCall(session.token);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const nextId = useRef(1);
 
   useEffect(() => {

@@ -2,7 +2,7 @@
 // slides (what Housefi is, who comes, how pricing works), then language selection.
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Art3D, type ArtName } from '../illustrations/Art3D';
 import { useI18n, type StringKey } from '../i18n/I18n';
@@ -30,7 +30,7 @@ export default function Welcome() {
   const insets = useSafeAreaInsets();
   const [page, setPage] = useState(0);
   const [pageH, setPageH] = useState(0);
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ScrollViewInstance>(null);
   const artSize = Math.min(layout.content, height * 0.34, 280);
   const last = page === PAGES - 1;
 

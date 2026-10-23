@@ -1,8 +1,8 @@
 diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
-index 21382f8..ddf7295 100644
+index 62a1808..e860383 100644
 --- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
 +++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/CameraViewModule.kt
-@@ -169,6 +169,8 @@ class CameraViewModule : Module() {
+@@ -186,6 +186,8 @@ class CameraViewModule : Module() {
  
        try {
          val options = GmsBarcodeScannerOptions.Builder().apply {
@@ -12,10 +12,10 @@ index 21382f8..ddf7295 100644
              setBarcodeFormats(
                settings.barcodeTypes.first().mapToBarcode(),
 diff --git a/node_modules/expo-camera/ios/CameraViewModule.swift b/node_modules/expo-camera/ios/CameraViewModule.swift
-index e199463..50c774c 100644
+index 51baba6..e9cafc0 100644
 --- a/node_modules/expo-camera/ios/CameraViewModule.swift
 +++ b/node_modules/expo-camera/ios/CameraViewModule.swift
-@@ -396,6 +396,8 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+@@ -405,6 +405,8 @@ public final class CameraViewModule: Module, ScannerResultHandler {
      let symbologies = options?.toSymbology() ?? []
      let controller = DataScannerViewController(
        recognizedDataTypes: [.barcode(symbologies: symbologies)],
