@@ -1956,6 +1956,7 @@ components:
         warrantyOf: { type: [string, 'null'], description: This booking is a free warranty revisit of that booking (its code) }
         warrantyUntil: { type: [integer, 'null'], description: Until when a free revisit can be asked for (completed jobs) }
         warrantyClaim: { oneOf: [{ type: object, required: [id, code], properties: { id: { type: string }, code: { type: string } } }, { type: 'null' }] }
+        fairPay: { oneOf: [{ $ref: '#/components/schemas/FairPay' }, { type: 'null' }], description: Where the customer's money goes; null before the visit fee is paid }
     TechProfileInput:
       type: object
       required: [name, gender, experienceYears, skills, pincode, vehicle]
@@ -2301,6 +2302,21 @@ components:
         createdAt: { $ref: '#/components/schemas/EpochMs' }
         expiresAt: { $ref: '#/components/schemas/EpochMs' }
     TechIssue: { type: string, enum: [CUSTOMER_UNAVAILABLE, WRONG_ADDRESS, UNSAFE, CANNOT_COMPLETE, PAYMENT_PROBLEM, OTHER] }
+    FairPay:
+      type: object
+      description: >-
+        Fair-pay meter, in rupees. total = technician + parts + housefi. The technician's part uses the same rules as
+        their earnings (visit share + labour share); parts are paid back to the technician in full; a coupon is paid
+        by Housefi (housefi can be below 0). No tax line (no GST charged).
+      required: [total, technician, parts, housefi, coupon, labourSharePercent, withBill]
+      properties:
+        total: { type: integer, description: Visit fee + bill after any coupon }
+        technician: { type: integer }
+        parts: { type: integer }
+        housefi: { type: integer }
+        coupon: { type: integer }
+        labourSharePercent: { type: integer }
+        withBill: { type: boolean, description: False while only the visit fee is paid }
     Job:
       type: object
       required: [id, code, serviceId, categoryId, problem, customerName, address, maskedPhone, time, status, quote, extraQuote, visitPayment,
@@ -2331,6 +2347,7 @@ components:
         practice: { type: boolean, description: Always false from the real backend }
         demo: { type: boolean }
         warrantyOf: { type: [string, 'null'], description: A free warranty revisit of that booking (fix at no charge, or quote for a new problem) }
+        fairPay: { oneOf: [{ $ref: '#/components/schemas/FairPay' }, { type: 'null' }], description: The same split the customer sees }
     QuoteInput:
       type: object
       required: [which, diagnosis, lines]

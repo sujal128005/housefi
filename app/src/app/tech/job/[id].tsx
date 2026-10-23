@@ -25,6 +25,7 @@ import {
   type IconName,
 } from '../../../ui';
 import { PriceCheckPill, QuoteLines, QuoteSplit } from '../../../ui/BookingParts';
+import { FairPayMeter } from '../../../ui/FairPayMeter';
 import { Celebrate, Pulse, RideIn, useReducedMotion } from '../../../ui/motion';
 import { PhotoThumb } from '../../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../../ui/present';
@@ -287,6 +288,7 @@ export default function JobScreen() {
           {j.rating ? <Banner tone={j.rating.satisfied ? 'success' : 'warning'} icon="star" text={t('tj.rated', { stars: j.rating.stars })} /> : null}
         </Card>
       ) : null}
+      {['PAYMENT_DUE', 'COMPLETED'].includes(j.status) ? <FairPayMeter split={j.fairPay} viewer="technician" /> : null}
 
       <ErrorBanner error={error} />
 

@@ -146,7 +146,7 @@ export class BookingCore {
     if (this.isOverdueUnpaid(row)) await this.expireOne(id);
     const b = await this.prisma.booking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE });
     const trips = await this.tripLocations([b]);
-    return toBookingDto(b, this.cipher, this.media, this.maskedPhone(), trips.get(b.id) ?? null);
+    return toBookingDto(b, this.cipher, this.media, this.maskedPhone(), trips.get(b.id) ?? null, this.shares());
   }
 
   async list(customerId: string, scope: 'active' | 'past' | 'all'): Promise<BookingDto[]> {
@@ -164,7 +164,7 @@ export class BookingCore {
       include: BOOKING_INCLUDE,
     });
     const trips = await this.tripLocations(rows);
-    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher, this.media, this.maskedPhone(), trips.get(r.id) ?? null)));
+    return Promise.all(rows.map((r) => toBookingDto(r, this.cipher, this.media, this.maskedPhone(), trips.get(r.id) ?? null, this.shares())));
   }
 
   /** The technician's latest point for bookings on the way (EN_ROUTE), when it is recent. */

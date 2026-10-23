@@ -1461,6 +1461,19 @@ export const en = {
   'passport.noTrades': "No proven trades yet.",
   'passport.courses': "Housefi courses completed",
   'passport.certificates': "Certificates checked by Housefi",
+  'fair.title': "Where your {amount} goes",
+  'fair.titleTech': "Where the customer's {amount} goes",
+  'fair.technician': "Your technician",
+  'fair.you': "You",
+  'fair.technicianNote': "Visit share and {percent}% of the labour",
+  'fair.technicianVisit': "Their share of the visit fee",
+  'fair.parts': "Parts and materials",
+  'fair.partsNote': "Paid back to the technician in full",
+  'fair.housefi': "Housefi",
+  'fair.housefiNote': "Support, 15-day warranty, safe payments, the app",
+  'fair.coupon': "The {amount} coupon discount was paid by Housefi, not the technician.",
+  'fair.housefiAdded': "Housefi added {amount} of its own to cover the coupon.",
+  'fair.noTax': "No tax is charged on this bill.",
 } as const;
 
 export type StringKey = keyof typeof en;

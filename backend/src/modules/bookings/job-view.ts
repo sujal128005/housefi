@@ -1,5 +1,6 @@
 // Booking rows -> openapi.yaml Job: the same booking as the assigned technician sees it.
 import type { BookingStatus, CancelReason, CategoryId, CloseReason, Prisma } from '@prisma/client';
+import { fairPay, type FairPayDto } from '../earnings/fair-pay';
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import type { AddressDto } from '../addresses/addresses.service';
 import { ACTIVE_STATUSES } from './booking-status';
@@ -45,6 +46,8 @@ export interface JobDto {
   readonly demo: boolean;
   /** A free warranty revisit of that earlier booking (its code): fix it at no charge, or quote for a new problem. */
   readonly warrantyOf: string | null;
+  /** Fair-pay meter: the same split the customer sees. */
+  readonly fairPay: FairPayDto | null;
 }
 
 export interface JobViewOptions {
@@ -116,5 +119,6 @@ export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOpti
     practice: false,
     demo: b.isDemo,
     warrantyOf: b.warrantyOf?.code ?? null,
+    fairPay: fairPay(opts, b),
   };
 }
