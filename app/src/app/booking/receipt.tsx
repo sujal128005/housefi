@@ -11,6 +11,7 @@ import { useSession } from '../../state/AppState';
 import { colors, radius, space } from '../../theme/tokens';
 import { Banner, Button, Card, Divider, ErrorView, Header, Screen, Skeleton, Txt, useToast } from '../../ui';
 import { QuoteLines } from '../../ui/BookingParts';
+import { FairPayMeter } from '../../ui/FairPayMeter';
 import { InvoiceButton } from '../../ui/GrowthParts';
 import { Pop } from '../../ui/motion';
 import { addressLine } from '../../ui/present';
@@ -91,6 +92,7 @@ export default function Receipt() {
               <Txt variant="title2">{formatRupees(paidTotal)}</Txt>
             </View>
           </Card>
+          <FairPayMeter split={b.fairPay} viewer="customer" />
           <InvoiceButton booking={b} />
           {isDemo ? <Banner tone="demo" text={t('receipt.demo')} /> : null}
         </>

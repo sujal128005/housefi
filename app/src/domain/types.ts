@@ -291,6 +291,8 @@ export interface Booking {
   readonly warrantyUntil?: number | null;
   /** The free revisit already asked for. */
   readonly warrantyClaim?: { readonly id: string; readonly code: string } | null;
+  /** Fair-pay meter: where the customer's money goes (from the server; null before the visit fee is paid). */
+  readonly fairPay?: FairPay | null;
 }
 
 export interface Customer {
@@ -679,6 +681,22 @@ export type OfferRejectReason = 'TOO_FAR' | 'BUSY' | 'NOT_MY_SKILL' | 'OTHER';
 export type TechIssue = 'CUSTOMER_UNAVAILABLE' | 'WRONG_ADDRESS' | 'UNSAFE' | 'CANNOT_COMPLETE' | 'PAYMENT_PROBLEM' | 'OTHER';
 
 /** A booking as the assigned technician sees it. */
+/** Where the customer's money goes, in rupees: total = technician + parts + housefi. */
+export interface FairPay {
+  readonly total: number;
+  /** The technician's part of the visit fee and of the labour. */
+  readonly technician: number;
+  /** Parts and materials, paid back to the technician in full. */
+  readonly parts: number;
+  /** What Housefi keeps; below 0 when Housefi paid a coupon beyond its share. */
+  readonly housefi: number;
+  /** A coupon's discount, paid by Housefi. */
+  readonly coupon: number;
+  readonly labourSharePercent: number;
+  /** False while only the visit fee is paid. */
+  readonly withBill: boolean;
+}
+
 export interface Job {
   readonly id: string;
   readonly code: string;
@@ -712,6 +730,8 @@ export interface Job {
   readonly demo: boolean;
   /** A free warranty revisit of that earlier booking (its code): fix it at no charge, or quote for a new problem. */
   readonly warrantyOf?: string | null;
+  /** Fair-pay meter: the same split the customer sees. */
+  readonly fairPay?: FairPay | null;
 }
 
 /** A part on Housefi's price list (standard price for the trade). */

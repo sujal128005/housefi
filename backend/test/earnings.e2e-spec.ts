@@ -107,6 +107,30 @@ describe('earnings (e2e)', () => {
     await t?.close();
   });
 
+  describe('Fair-pay meter', () => {
+    const seen = async () => ({
+      customer: (await api().get(`/v1/bookings/${id}`).set(as(customer)).expect(200)).body.fairPay,
+      tech: (await api().get(`/v1/tech/jobs/${id}`).set(as(tech.token)).expect(200)).body.fairPay,
+    });
+
+    it('shows customer and technician the same split, and the technician part is what the ledger records', async () => {
+      // Visit fee only: ₹30 to the technician, ₹19 to Housefi.
+      expect(await seen()).toEqual({
+        customer: { total: 49, technician: 30, parts: 0, housefi: 19, coupon: 0, labourSharePercent: 80, withBill: false },
+        tech: { total: 49, technician: 30, parts: 0, housefi: 19, coupon: 0, labourSharePercent: 80, withBill: false },
+      });
+      // Bill due (₹120 labour + ₹200 parts): technician ₹30 + ₹96, parts ₹200, Housefi ₹19 + ₹24.
+      await billDue();
+      const due = { total: 369, technician: 126, parts: 200, housefi: 43, coupon: 0, labourSharePercent: 80, withBill: true };
+      expect(await seen()).toEqual({ customer: due, tech: due });
+      await api().post(`/v1/bookings/${id}/payments`).set(as(customer)).set('Idempotency-Key', randomUUID()).send({ kind: 'FINAL', method: 'CASH' }).expect(200);
+      await act('confirm-cash').expect(200);
+      expect((await seen()).customer).toEqual(due);
+      const credited = (await ledger()).filter((l) => l.type !== 'CASH_COLLECTED').reduce((sum, l) => sum + Number(l.amountPaise), 0) / 100;
+      expect(credited).toBe(due.technician + due.parts);
+    });
+  });
+
   describe('what a closed job writes to the ledger', () => {
     it('paid in cash: the credits, and the cash the technician kept as a debit', async () => {
       await paidInCash();

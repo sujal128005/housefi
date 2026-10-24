@@ -1,5 +1,7 @@
 // Booking rows -> openapi.yaml Booking, as the customer sees it.
 import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Rating, Technician, TechnicianSkill, Upload, User } from '@prisma/client';
+import { fairPay, type FairPayDto } from '../earnings/fair-pay';
+import type { Shares } from '../earnings/earnings-rules';
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import { paiseToRupees } from '../../common/money';
 import type { AddressDto } from '../addresses/addresses.service';
@@ -156,6 +158,8 @@ export interface BookingDto {
   readonly warrantyUntil: number | null;
   /** The free revisit asked for, if any. */
   readonly warrantyClaim: { readonly id: string; readonly code: string } | null;
+  /** Fair-pay meter: where the customer's money goes (null before the visit fee is paid). */
+  readonly fairPay: FairPayDto | null;
 }
 
 export interface TripLocationDto {
@@ -218,7 +222,7 @@ function visibleQuote(quotes: QuoteRow[], which: 'MAIN' | 'EXTRA'): QuoteDto | n
 
 export const EMPTY_ADDRESS: AddressDto = { id: '', label: 'OTHER', house: '', street: '', landmark: '', city: '', pincode: '' };
 
-export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: PhotoSigner, maskedPhone = '', trip: TripLocationDto | null = null): Promise<BookingDto> {
+export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: PhotoSigner, maskedPhone = '', trip: TripLocationDto | null = null, shares: Shares | null = null): Promise<BookingDto> {
   const visit = latest(b.payments, 'VISIT');
   if (!visit) throw new Error(`booking ${b.id} has no visit payment`);
   const final = latest(b.payments, 'FINAL');
@@ -258,5 +262,6 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
     warrantyOf: b.warrantyOf?.code ?? null,
     warrantyUntil: warrantyUntil(b),
     warrantyClaim: b.warrantyClaim ? { id: b.warrantyClaim.id, code: b.warrantyClaim.code } : null,
+    fairPay: shares ? fairPay(shares, b) : null,
   };
 }

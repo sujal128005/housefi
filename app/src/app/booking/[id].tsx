@@ -20,6 +20,7 @@ import {
   Banner, Button, Card, Chip, ConfirmSheet, Divider, ErrorBanner, ErrorView, Header, Icon, Screen, Sheet, Skeleton, Tap, Txt, useToast, type IconName,
 } from '../../ui';
 import { ArrivalOtpCard, BillCard, ProgressStepper, QuoteCard, SafetyRow, TechnicianCard } from '../../ui/BookingParts';
+import { FairPayMeter } from '../../ui/FairPayMeter';
 import { CouponBox, InvoiceButton, WarrantyBanner, WarrantyCard } from '../../ui/GrowthParts';
 import { Appear, Celebrate, Pulse } from '../../ui/motion';
 import { PhotoThumb } from '../../ui/PhotoThumb';
@@ -279,6 +280,7 @@ export default function BookingHub() {
 
       <WarrantyBanner booking={b} />
       {['PAYMENT_DUE', 'COMPLETED'].includes(b.status) ? <BillCard booking={b} /> : null}
+      {['PAYMENT_DUE', 'COMPLETED'].includes(b.status) ? <FairPayMeter split={b.fairPay} viewer="customer" /> : null}
       {b.status === 'PAYMENT_DUE' ? <CouponBox booking={b} onChanged={setBooking} /> : null}
       {b.status === 'PAYMENT_DUE' ? (
         <View style={styles.stack}>
