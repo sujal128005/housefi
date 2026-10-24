@@ -132,6 +132,13 @@ migration folder; commit it. The server applies migrations itself on start.
 `CLOUDFLARE_AI_VISION_MODEL`). **Turn AI off**: `AI_PROVIDER=rules` (rule-based chat and
 "pick a service" fallback; the app keeps working).
 
+**Free AI backups**: `AI_BACKUPS=groq,cerebras` (`GROQ_API_KEY`, `CEREBRAS_API_KEY`; models in `GROQ_CHAT_MODEL`,
+`GROQ_VISION_MODEL`, `CEREBRAS_CHAT_MODEL`). `src/modules/ai/open-models.ts` asks Cloudflare, then the backups in order
+(Cerebras: chat only), each try `AI_ATTEMPT_TIMEOUT_MS`, all together `AI_TIMEOUT_MS`; a model that just failed goes to
+the back of the line for `AI_COOLDOWN_MS`; the rules last. Claude (if main) falls back to them too. Another
+OpenAI-compatible free service = one more runner there plus its settings in `env.ts`. Do not add Gemini's or Mistral's
+free plans: they may use customer messages and photos for training.
+
 **Switch AI to another company** (e.g. OpenAI or Google):
 1. New file `backend/src/modules/ai/<company>.ts` with two classes implementing `ChatAssistant` (`chat.ts`) and
    `PhotoClassifier` (`models.ts`). Copy the shape of `claude.ts`: keep `ChatMemory`, send safety messages
@@ -202,8 +209,8 @@ start. "Start over" on the page signs both phones out and shows the welcome scre
 **Ship a backend change**: merge the PR → on the server: `cd /opt/housefi/backend && git pull && dc up -d --build`
 (`dc` shorthand in `docs/DEPLOY.md` step 6; migrations run first; a failed one keeps the old API running).
 
-**Ship an app change**: raise `version` in `app/app.json` → `npx eas build -p android --profile production` and
-`-p ios` → `npx eas submit` → store review. Test first with `--profile preview` (APK).
+**Ship an app change**: raise `version` in `app/app.json` → `npx eas-cli@latest build -p android --profile production`
+and `-p ios` → `npx eas-cli@latest submit` → store review (`npx eas …` does not work: the package is `eas-cli`). Test first with `--profile preview` (APK).
 
 **Website change** (other repository): edit, `npm run check` (lint, typecheck, tests, build), PR into `main`; it
 publishes itself after merge.

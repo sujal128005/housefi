@@ -60,7 +60,8 @@ import { GuideService } from './guide/guide.service';
     {
       provide: GUIDE_MODEL,
       inject: [APP_CONFIG, ClaudeGuideModel, CloudflareGuideModel],
-      useFactory: (c: Env, claude: ClaudeGuideModel, cloudflare: CloudflareGuideModel) => (c.AI_PROVIDER === 'cloudflare' ? cloudflare : claude),
+      // The free models (Cloudflare and AI_BACKUPS) unless Claude is the main model.
+      useFactory: (c: Env, claude: ClaudeGuideModel, cloudflare: CloudflareGuideModel) => (c.AI_PROVIDER !== 'anthropic' && cloudflare.available ? cloudflare : claude),
     },
   ],
   exports: [AdminAuthService],

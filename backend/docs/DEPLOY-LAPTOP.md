@@ -129,6 +129,16 @@ Then `deploylaptop start` (it restarts the API with the new settings). The free 
 and whenever a model is slow or fails, the chat falls back to the rules by itself. Cloudflare does not use what is
 sent for training. Back up `.env.production` in Bitwarden again.
 
+**Free backups when Cloudflare is slow or down: Groq and Cerebras** (optional, recommended)
+1. Groq: sign up at **console.groq.com** (free, no card) → **API Keys** → **Create API Key** → save it in Bitwarden.
+   Optional: **Settings → Data Controls** → turn on **Zero Data Retention**.
+2. Cerebras: sign up at **cloud.cerebras.ai** (free) → **API Keys** → create a key → save it in Bitwarden.
+3. In `.env.production`: `AI_BACKUPS=groq,cerebras`, `GROQ_API_KEY=<the Groq key>`, `CEREBRAS_API_KEY=<the Cerebras key>`.
+
+Then `deploy\laptop update`. Each question goes to Cloudflare first; if it fails, hangs (7 s) or answers badly, Groq
+answers, then Cerebras (chat only: it cannot read photos), and only then the rules. A service that just failed waits at
+the back of the line for a minute, so customers do not wait on it. Neither keeps or trains on what is sent by default.
+
 ## 9. Housefi HQ (the super admin portal)
 
 The portal is a website at a **secret address** on housefi.tech, made by the setup below, kept only in

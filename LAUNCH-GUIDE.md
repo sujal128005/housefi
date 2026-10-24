@@ -73,7 +73,7 @@ On your laptop (Windows, Mac or Linux) with Node.js 22 installed:
 cd housefi/app
 npm install
 npx eas login                      # your Expo account (sujal128005)
-npx eas build -p android --profile preview      # an APK to install on test phones
+npx eas-cli@latest build -p android --profile preview      # an APK to install on test phones
 ```
 
 EAS builds in the cloud (about 15–20 min) and gives a download link. Install it on your phones, sign in with a team
@@ -100,20 +100,20 @@ number, and do one full booking with the real server. Fix anything, then build f
    - Account deletion URL: a page on housefi.tech that says "In the app: Account → Delete account; or write to
      <your support email> from your registered number".
    - Government ID: say the app scans the Aadhaar QR for technician verification and keeps only the last 4 digits.
-5. **Build the store file:** `npx eas build -p android --profile production` (creates an `.aab`).
+5. **Build the store file:** `npx eas-cli@latest build -p android --profile production` (creates an `.aab`).
 6. **Upload:** Testing → Closed testing (or Internal testing first) → Create release → upload the `.aab`.
    Then Setup → App signing → copy the **SHA-1** for the Google Maps key restriction (Part 2, row 9).
 7. **Production:** after testing, Production → Create release → same `.aab` → Send for review (usually 1–7 days).
-8. Later updates: `npx eas build -p android --profile production`, then `npx eas submit -p android` uploads it
+8. Later updates: `npx eas-cli@latest build -p android --profile production`, then `npx eas-cli@latest submit -p android` uploads it
    (needs a Google service-account key once; EAS walks you through it).
 
 ## Part 6. Apple App Store (iPhone)
 
 1. **Account:** developer.apple.com/programs → enrol ($99 a year). Organisation needs the D-U-N-S number; personal
    is faster. Approval 1–2 days.
-2. **Build:** `npx eas build -p ios --profile production`. EAS asks to sign in with your Apple ID and creates the
+2. **Build:** `npx eas-cli@latest build -p ios --profile production`. EAS asks to sign in with your Apple ID and creates the
    certificates and push keys for you (say yes to everything). No Mac needed.
-3. **Upload:** `npx eas submit -p ios` → it appears in App Store Connect → TestFlight. Test on iPhones via TestFlight.
+3. **Upload:** `npx eas-cli@latest submit -p ios` → it appears in App Store Connect → TestFlight. Test on iPhones via TestFlight.
 4. **App Store Connect** (appstoreconnect.apple.com) → the Housefi app:
    - Screenshots for 6.9" and 6.5" iPhones (from a test iPhone or the simulator), description, keywords,
      support URL (housefi.tech), privacy policy URL.
