@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
+import { seedParts } from '../src/modules/parts/parts.service';
 import { ANTHROPIC_CLIENT } from '../src/modules/ai/claude';
 import { SARVAM_FETCH, SARVAM_STT_URL } from '../src/modules/ai/sarvam';
 import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, type TestApp } from './helpers';
@@ -80,6 +81,7 @@ describe('AI with models (e2e)', () => {
   beforeEach(async () => {
     await resetDatabase(t.prisma);
     await seedCatalog(t.prisma);
+    await seedParts(t.prisma);
     t.rateLimits.clear();
     claude.sent.length = 0;
     claude.replies.length = 0;
@@ -181,6 +183,66 @@ describe('AI with models (e2e)', () => {
       const photoId = await uploaded('photos', jpegWithGps(), 'image/jpeg', other);
       await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId }).expect(404);
       expect(claude.sent).toHaveLength(0);
+    });
+  });
+
+  describe('quote checker', () => {
+    it('reads a photographed quote into lines (known ids only), then compares with fixed rules', async () => {
+      const photoId = await uploaded('photos', jpegWithGps(), 'image/jpeg');
+      const cartridge = (await t.prisma.part.findFirstOrThrow({ where: { nameEn: 'Tap cartridge' } })).id;
+      claude.replies.push({
+        readable: true,
+        serviceId: 'plumb-tap',
+        lines: [
+          { name: 'Labour', kind: 'LABOUR', qty: 1, amount: 600, partId: null },
+          { name: 'Cartridge', kind: 'MATERIAL', qty: 1, amount: 450, partId: cartridge },
+        ],
+      });
+      const read = (await api().post('/v1/ai/read-quote').set(as(customer)).send({ photoId }).expect(200)).body;
+      expect(read).toEqual({
+        readable: true,
+        serviceId: 'plumb-tap',
+        lines: [
+          { name: 'Labour', kind: 'LABOUR', qty: 1, amount: 600, partId: null },
+          { name: 'Cartridge', kind: 'MATERIAL', qty: 1, amount: 450, partId: cartridge },
+        ],
+      });
+      const [image, text] = claude.sent[0]!.body.messages[0].content;
+      expect(Buffer.from(image.source.data, 'base64').equals(Buffer.from(t.store.stored(photoId)!))).toBe(true);
+      expect(text.text).toContain('Tap cartridge');
+      // The model is given names, never Housefi's prices.
+      expect(text.text).not.toMatch(/25000|"price/);
+
+      // ₹1,050 for a tap repair (usually ₹198–₹645): high, ₹405 more than usual; the cartridge ₹200 over the price list.
+      const check = (await api().post('/v1/ai/check-quote').set(as(customer)).send({ serviceId: read.serviceId, lines: read.lines }).expect(200)).body;
+      expect(check).toEqual({
+        serviceId: 'plumb-tap', total: 1050, usualMin: 198, usualMax: 645, visitFee: 49, verdict: 'HIGH', over: 405,
+        lines: [
+          { name: 'Labour', kind: 'LABOUR', qty: 1, amount: 600, partId: null, listPrice: null, overList: 0 },
+          { name: 'Cartridge', kind: 'MATERIAL', qty: 1, amount: 450, partId: cartridge, listPrice: 250, overList: 200 },
+        ],
+      });
+
+      // A failure or a non-quote photo: the customer types the lines instead.
+      claude.replies.push(500);
+      expect((await api().post('/v1/ai/read-quote').set(as(customer)).send({ photoId }).expect(200)).body).toEqual({ readable: false, serviceId: null, lines: [] });
+      claude.replies.push({ readable: false, serviceId: null, lines: [] });
+      expect((await api().post('/v1/ai/read-quote').set(as(customer)).send({ photoId }).expect(200)).body.readable).toBe(false);
+    });
+
+    it("never reads someone else's photo, and checks input strictly", async () => {
+      const other = (await signIn(t, '9876543211')).accessToken;
+      const photoId = await uploaded('photos', jpegWithGps(), 'image/jpeg', other);
+      await api().post('/v1/ai/read-quote').set(as(customer)).send({ photoId }).expect(404);
+      expect(claude.sent).toHaveLength(0);
+      const ok = { name: 'Labour', kind: 'LABOUR', qty: 1, amount: 300 };
+      await api().post('/v1/ai/check-quote').set(as(customer)).send({ serviceId: 'not-a-service', lines: [ok] }).expect(422);
+      await api().post('/v1/ai/check-quote').set(as(customer)).send({ serviceId: 'plumb-tap', lines: [] }).expect(422);
+      await api().post('/v1/ai/check-quote').set(as(customer)).send({ serviceId: 'plumb-tap', lines: [{ ...ok, amount: -5 }] }).expect(422);
+      await api().post('/v1/ai/check-quote').set(as(customer)).send({ serviceId: 'plumb-tap', lines: Array(21).fill(ok) }).expect(422);
+      const tech = await createTechnician(t);
+      await api().post('/v1/ai/check-quote').set(as(tech.token)).send({ serviceId: 'plumb-tap', lines: [ok] }).expect(404);
+      await api().post('/v1/ai/check-quote').send({ serviceId: 'plumb-tap', lines: [ok] }).expect(401);
     });
   });
 

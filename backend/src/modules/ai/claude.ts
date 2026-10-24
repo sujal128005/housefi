@@ -24,6 +24,7 @@ import { MAX_BYTES } from '../uploads/uploads.service';
 import { type ChatAssistant, type ChatReplyDto, chatBooking, RuleBasedChat } from './chat';
 import { answeredByRules, type ChatAnswer, chatReply, wantsPerson } from './chat-rules';
 import { NoModelPhotoClassifier, PHOTO_ALTERNATIVES, type PhotoClassifier, type PhotoSuggestionDto } from './models';
+import { NOT_READ, QUOTE_SYSTEM, quoteAnswer, quoteCatalog, quoteOutput, type QuoteReadDto, type QuoteReader } from './quote-check';
 
 /** The configured client, or null when AI_PROVIDER is "rules". Tests provide a client with a fake fetch. */
 export const ANTHROPIC_CLIENT = Symbol('ANTHROPIC_CLIENT');
@@ -319,6 +320,54 @@ export class ClaudePhotoClassifier implements PhotoClassifier {
     const entries = await photoCatalog(this.prisma);
     this.catalog = { at: now, entries };
     return entries;
+  }
+}
+
+/** Reads a photographed repair quote into lines (quote-check.ts); the rules compare the prices. */
+@Injectable()
+export class ClaudeQuoteReader implements QuoteReader {
+  private readonly log = new Logger(ClaudeQuoteReader.name);
+
+  constructor(
+    @Inject(ANTHROPIC_CLIENT) private readonly client: Anthropic | null,
+    private readonly prisma: PrismaService,
+    @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+    @InjectConfig() private readonly config: Env,
+  ) {}
+
+  async read(input: { photoId: string; customerId: string }): Promise<QuoteReadDto> {
+    if (!this.client) return NOT_READ;
+    try {
+      const photo = await ownPhoto(this.prisma, this.store, input, MAX_VISION_BYTES);
+      if (!photo) return NOT_READ;
+      const catalog = await quoteCatalog(this.prisma);
+      const serviceIds = catalog.services.map((s) => s.id);
+      const partIds = catalog.parts.map((p) => p.id);
+      if (serviceIds.length === 0) return NOT_READ;
+      const res = await this.client.beta.messages.parse({
+        ...withFallback(),
+        model: this.config.AI_VISION_MODEL,
+        max_tokens: 4000,
+        system: QUOTE_SYSTEM,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: photo.mediaType, data: Buffer.from(photo.bytes).toString('base64') } },
+              { type: 'text', text: `<catalog>${JSON.stringify(catalog.services)}</catalog>
+<parts>${JSON.stringify(catalog.parts)}</parts>` },
+            ],
+          },
+        ],
+        output_config: { effort: 'low', format: betaZodOutputFormat(quoteOutput(serviceIds, partIds)) },
+      });
+      const out = res.stop_reason === 'refusal' ? null : res.parsed_output;
+      if (!out) throw new Error(`no answer (${res.stop_reason ?? 'unknown'})`);
+      return quoteAnswer(out, serviceIds, partIds);
+    } catch (err) {
+      this.log.warn(`quote reader unavailable, the customer types the lines (${errorKind(err)})`);
+      return NOT_READ;
+    }
   }
 }
 

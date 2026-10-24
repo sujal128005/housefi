@@ -684,6 +684,34 @@ paths:
             schema: { type: object, required: [photoId], properties: { photoId: { type: string } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PhotoSuggestion' } } } }
+  /ai/read-quote:
+    post:
+      tags: [ai]
+      summary: "Quote checker, step 1: a vision model reads a photographed repair quote (any company's) into lines"
+      description: >-
+        The model only reads; it never judges prices. readable false (no model, a failure, or not a quote): the customer
+        types the lines instead. Rate limit 10 per hour. Nothing is stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [photoId], properties: { photoId: { type: string } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/QuoteRead' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /ai/check-quote:
+    post:
+      tags: [ai]
+      summary: "Quote checker, step 2: the confirmed lines against Housefi's usual price and price list (fixed rules)"
+      description: >-
+        FAIR up to Housefi's usual maximum for the service (visit fee included); A_BIT_HIGH up to 1.5x that; HIGH above.
+        Listed parts are compared per piece with 10% leeway. Rate limit 30 per hour.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/QuoteCheckInput' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/QuoteCheck' } } } }
+        '422': { $ref: '#/components/responses/Error' }
   /ai/transcribe:
     post:
       tags: [ai]
@@ -2463,6 +2491,50 @@ components:
         id: { type: string, description: photoId / audioId to send in NewBooking or AI calls }
         uploadUrl: { type: string, description: Pre-signed S3 PUT URL }
         expiresAt: { $ref: '#/components/schemas/EpochMs' }
+    QuoteCheckLine:
+      type: object
+      required: [name, kind, qty, amount, partId]
+      properties:
+        name: { type: string, maxLength: 60 }
+        kind: { type: string, enum: [LABOUR, MATERIAL] }
+        qty: { type: integer, minimum: 1, maximum: 99 }
+        amount: { type: integer, minimum: 1, maximum: 200000, description: The line total in rupees }
+        partId: { type: [string, 'null'], description: A part from Housefi's price list (materials) }
+    QuoteRead:
+      type: object
+      required: [readable, serviceId, lines]
+      properties:
+        readable: { type: boolean }
+        serviceId: { type: [string, 'null'] }
+        lines: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/QuoteCheckLine' } }
+    QuoteCheckInput:
+      type: object
+      additionalProperties: false
+      required: [serviceId, lines]
+      properties:
+        serviceId: { type: string }
+        lines: { type: array, minItems: 1, maxItems: 20, items: { $ref: '#/components/schemas/QuoteCheckLine' } }
+    QuoteCheck:
+      type: object
+      required: [serviceId, total, usualMin, usualMax, visitFee, verdict, over, lines]
+      properties:
+        serviceId: { type: string }
+        total: { type: integer }
+        usualMin: { type: integer, description: "Housefi's usual price for the service, visit fee included" }
+        usualMax: { type: integer }
+        visitFee: { type: integer }
+        verdict: { type: string, enum: [FAIR, A_BIT_HIGH, HIGH] }
+        over: { type: integer, description: Rupees above usualMax (0 when FAIR) }
+        lines:
+          type: array
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/QuoteCheckLine' }
+              - type: object
+                required: [listPrice, overList]
+                properties:
+                  listPrice: { type: [integer, 'null'], description: "Housefi's price list, per piece" }
+                  overList: { type: integer, description: Rupees above the price list (0 within 10%) }
     PhotoSuggestion:
       type: object
       required: [serviceId, confidence, alternatives]

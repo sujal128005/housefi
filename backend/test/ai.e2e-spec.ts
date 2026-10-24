@@ -119,6 +119,13 @@ describe('AI endpoints (e2e)', () => {
       await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId: 'ph_123' }).expect(404);
     });
 
+    it('the quote checker without a model: the customer types the lines, the rules still compare', async () => {
+      const photoId = await uploaded('photos', jpegWithGps(), 'image/jpeg');
+      expect((await api().post('/v1/ai/read-quote').set(as(customer)).send({ photoId }).expect(200)).body).toEqual({ readable: false, serviceId: null, lines: [] });
+      const typed = { serviceId: 'plumb-tap', lines: [{ name: 'Labour', kind: 'LABOUR', qty: 1, amount: 400 }] };
+      expect((await api().post('/v1/ai/check-quote').set(as(customer)).send(typed).expect(200)).body).toMatchObject({ total: 400, verdict: 'FAIR', over: 0, usualMax: 645 });
+    });
+
     it('transcribe returns no text until speech-to-text is chosen', async () => {
       const audioId = await uploaded('audio', m4a(6), 'audio/m4a');
       expect((await api().post('/v1/ai/transcribe').set(as(customer)).send({ audioId, serviceId: 'plumb-tap', locale: 'te' }).expect(200)).body).toEqual({ text: '' });

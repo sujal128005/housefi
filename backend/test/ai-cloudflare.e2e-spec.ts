@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { CLOUDFLARE_AI_FETCH, CLOUDFLARE_AI_URL } from '../src/modules/ai/cloudflare';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
+import { seedParts } from '../src/modules/parts/parts.service';
 import { buildTestApp, createTechnician, requireTestDatabase, resetDatabase, signIn, type TestApp } from './helpers';
 import { jpegWithGps } from './media-fixtures';
 
@@ -57,6 +58,7 @@ describe('AI on Cloudflare Workers AI (e2e)', () => {
   beforeEach(async () => {
     await resetDatabase(t.prisma);
     await seedCatalog(t.prisma);
+    await seedParts(t.prisma);
     t.rateLimits.clear();
     cf.sent.length = 0;
     cf.replies.length = 0;
@@ -166,6 +168,39 @@ describe('AI on Cloudflare Workers AI (e2e)', () => {
       const photoId = await uploadedPhoto(other);
       await api().post('/v1/ai/classify-photo').set(as(customer)).send({ photoId }).expect(404);
       expect(cf.sent).toHaveLength(0);
+    });
+  });
+
+  describe('quote checker', () => {
+    it('reads a quote with the vision model, keeping known ids only; a failure lets the customer type it', async () => {
+      const photoId = await uploadedPhoto();
+      const cartridge = (await t.prisma.part.findFirstOrThrow({ where: { nameEn: 'Tap cartridge' } })).id;
+      cf.replies.push({
+        readable: true,
+        serviceId: 'plumb-tap',
+        lines: [
+          { name: 'Service charge', kind: 'LABOUR', qty: 1, amount: 300, partId: null },
+          { name: 'Cartridge', kind: 'MATERIAL', qty: 1, amount: 260, partId: cartridge },
+          { name: 'Mystery part', kind: 'MATERIAL', qty: 1, amount: 90, partId: 'not-a-part' },
+        ],
+      });
+      const read = (await api().post('/v1/ai/read-quote').set(as(customer)).send({ photoId }).expect(200)).body;
+      expect(read).toEqual({
+        readable: true,
+        serviceId: 'plumb-tap',
+        lines: [
+          { name: 'Service charge', kind: 'LABOUR', qty: 1, amount: 300, partId: null },
+          { name: 'Cartridge', kind: 'MATERIAL', qty: 1, amount: 260, partId: cartridge },
+          { name: 'Mystery part', kind: 'MATERIAL', qty: 1, amount: 90, partId: null },
+        ],
+      });
+      const call = cf.sent[0]!;
+      expect(call.url).toBe(`${CLOUDFLARE_AI_URL}/${ACCOUNT}/ai/run/@cf/mistralai/mistral-small-3.1-24b-instruct`);
+      expect(call.body.guided_json.properties.lines).toBeDefined();
+      expect(call.body.messages[1].content[1].text).toContain('Tap cartridge');
+
+      cf.replies.push(500);
+      expect((await api().post('/v1/ai/read-quote').set(as(customer)).send({ photoId }).expect(200)).body).toEqual({ readable: false, serviceId: null, lines: [] });
     });
   });
 });
