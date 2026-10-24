@@ -217,8 +217,28 @@ export const envSchema = z
     CLOUDFLARE_AI_CHAT_MODEL: z.string().default('@cf/meta/llama-3.3-70b-instruct-fp8-fast'),
     // Mistral Small 3.1 answers a photo in about a second; Llama 4 Scout took 30 s and missed AI_TIMEOUT_MS (October 2026).
     CLOUDFLARE_AI_VISION_MODEL: z.string().default('@cf/mistralai/mistral-small-3.1-24b-instruct'),
-    /** Per model call; past it the rules answer instead. */
+    /**
+     * Free backups, tried in this order when the main model is slow, down or off-format: a comma list of "groq",
+     * "cerebras" and "cloudflare" (open-models.ts). Groq reads chat and photos; Cerebras answers chat only.
+     */
+    AI_BACKUPS: z
+      .string()
+      .default('')
+      .transform((v) => v.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean))
+      .pipe(z.array(z.enum(['groq', 'cerebras', 'cloudflare']))),
+    /** Groq (free plan, keeps no requests by default): an API key from console.groq.com. */
+    GROQ_API_KEY: z.string().optional(),
+    GROQ_CHAT_MODEL: z.string().default('llama-3.3-70b-versatile'),
+    GROQ_VISION_MODEL: z.string().default('qwen/qwen3.8-27b'),
+    /** Cerebras (free plan, keeps no requests): an API key from cloud.cerebras.ai. Chat only. */
+    CEREBRAS_API_KEY: z.string().optional(),
+    CEREBRAS_CHAT_MODEL: z.string().default('gpt-oss-120b'),
+    /** The whole question, all models together; past it the rules answer instead. */
     AI_TIMEOUT_MS: int(15000, 2000, 60000),
+    /** One model's try (the next one gets the rest of AI_TIMEOUT_MS). */
+    AI_ATTEMPT_TIMEOUT_MS: int(7000, 1000, 60000),
+    /** A model that just failed waits at the back of the line this long. */
+    AI_COOLDOWN_MS: int(60000, 0, 3_600_000),
     /** Voice notes to text: "none" (the app keeps the audio) or "sarvam" (Sarvam AI, Telugu and English). */
     SPEECH_TO_TEXT_PROVIDER: z.enum(['none', 'sarvam']).default('none'),
     SARVAM_API_KEY: z.string().optional(),
@@ -321,10 +341,12 @@ export const envSchema = z
       ctx.addIssue({ code: 'custom', path: ['DEMO_OTP_CODE'], message: 'too easy to guess (repeated or sequential digits)' });
     }
     if (e.AI_PROVIDER === 'anthropic') require('ANTHROPIC_API_KEY', 'when AI_PROVIDER=anthropic');
-    if (e.AI_PROVIDER === 'cloudflare') {
-      require('CLOUDFLARE_ACCOUNT_ID', 'when AI_PROVIDER=cloudflare');
-      require('CLOUDFLARE_AI_TOKEN', 'when AI_PROVIDER=cloudflare');
+    if (e.AI_PROVIDER === 'cloudflare' || e.AI_BACKUPS.includes('cloudflare')) {
+      require('CLOUDFLARE_ACCOUNT_ID', 'when AI_PROVIDER=cloudflare or AI_BACKUPS has cloudflare');
+      require('CLOUDFLARE_AI_TOKEN', 'when AI_PROVIDER=cloudflare or AI_BACKUPS has cloudflare');
     }
+    if (e.AI_BACKUPS.includes('groq')) require('GROQ_API_KEY', 'when AI_BACKUPS has groq');
+    if (e.AI_BACKUPS.includes('cerebras')) require('CEREBRAS_API_KEY', 'when AI_BACKUPS has cerebras');
     if (e.SPEECH_TO_TEXT_PROVIDER === 'sarvam') require('SARVAM_API_KEY', 'when SPEECH_TO_TEXT_PROVIDER=sarvam');
     if (e.TELEPHONY_PROVIDER === 'exotel') {
       for (const k of ['EXOTEL_SID', 'EXOTEL_API_KEY', 'EXOTEL_API_TOKEN', 'EXOTEL_CALLER_ID', 'EXOTEL_OFFER_FLOW_ID', 'EXOTEL_WEBHOOK_SECRET'] as const) {

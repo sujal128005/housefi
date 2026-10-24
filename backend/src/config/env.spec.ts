@@ -177,9 +177,15 @@ describe('hardening rules', () => {
 
   it('needs the Cloudflare account id and token for AI_PROVIDER=cloudflare', () => {
     expect(problemsOf({ ...base, AI_PROVIDER: 'cloudflare' })).toEqual([
-      'CLOUDFLARE_ACCOUNT_ID: required when AI_PROVIDER=cloudflare',
-      'CLOUDFLARE_AI_TOKEN: required when AI_PROVIDER=cloudflare',
+      'CLOUDFLARE_ACCOUNT_ID: required when AI_PROVIDER=cloudflare or AI_BACKUPS has cloudflare',
+      'CLOUDFLARE_AI_TOKEN: required when AI_PROVIDER=cloudflare or AI_BACKUPS has cloudflare',
     ]);
+  });
+
+  it('needs a key for each free backup, and knows only groq, cerebras and cloudflare', () => {
+    expect(problemsOf({ ...base, AI_BACKUPS: 'groq,cerebras' })).toEqual(['GROQ_API_KEY: required when AI_BACKUPS has groq', 'CEREBRAS_API_KEY: required when AI_BACKUPS has cerebras']);
+    expect(problemsOf({ ...base, AI_BACKUPS: ' Groq , cerebras ', GROQ_API_KEY: 'gsk', CEREBRAS_API_KEY: 'csk' })).toEqual([]);
+    expect(problemsOf({ ...base, AI_BACKUPS: 'gemini' })).toHaveLength(1);
     expect(problemsOf({ ...base, AI_PROVIDER: 'cloudflare', CLOUDFLARE_ACCOUNT_ID: 'not-an-id', CLOUDFLARE_AI_TOKEN: 'cf-token' })).toHaveLength(1);
     const env = parseEnv({ ...base, AI_PROVIDER: 'cloudflare', CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32), CLOUDFLARE_AI_TOKEN: 'cf-token' });
     expect(env.CLOUDFLARE_AI_CHAT_MODEL).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');

@@ -86,6 +86,7 @@ Fill in:
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Spaces key from step 1. |
 | `EXPO_ACCESS_TOKEN` | Only if "enhanced push security" is on in the Expo project. |
 | `ANTHROPIC_API_KEY`, then `AI_PROVIDER=anthropic` | console.anthropic.com → API keys. Set a monthly spend limit there. |
+| `AI_BACKUPS=groq,cerebras`, `GROQ_API_KEY`, `CEREBRAS_API_KEY` | Free backups tried in order when the main AI is slow, down or off-format (Groq: chat and photos; Cerebras: chat only); neither keeps or trains on requests by default. Keys: console.groq.com → API Keys; cloud.cerebras.ai → API Keys. |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN`, then `AI_PROVIDER=cloudflare` | Free alternative to Claude: open models on Cloudflare Workers AI (daily free allowance; inputs not used for training). Account ID: Cloudflare dashboard → Account home → ⋯ next to the account → Copy account ID. Token: My Profile → API Tokens → Create Token → template **Workers AI**. |
 | `SARVAM_API_KEY`, then `SPEECH_TO_TEXT_PROVIDER=sarvam` | dashboard.sarvam.ai → API keys (free signup credits). Model `saaras:v4` by default (`SARVAM_STT_MODEL`). |
 | `UIDAI_QR_CERT_PEM_B64` | UIDAI's Secure QR certificate (uidai.gov.in → Ecosystem → Aadhaar Secure QR code): `base64 -w0 uidai.cer` (convert to PEM first if it is DER: `openssl x509 -inform der -in uidai.cer -out uidai.pem`). |

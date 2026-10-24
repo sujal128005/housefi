@@ -24,6 +24,7 @@ import { MAX_BYTES } from '../uploads/uploads.service';
 import { type ChatAssistant, type ChatReplyDto, chatBooking, RuleBasedChat } from './chat';
 import { answeredByRules, type ChatAnswer, chatReply, wantsPerson } from './chat-rules';
 import { NoModelPhotoClassifier, PHOTO_ALTERNATIVES, type PhotoClassifier, type PhotoSuggestionDto } from './models';
+import { FREE_CHAT, FREE_PHOTO_CLASSIFIER, FREE_QUOTE_READER } from './open-models';
 import { NOT_READ, QUOTE_SYSTEM, quoteAnswer, quoteCatalog, quoteOutput, type QuoteReadDto, type QuoteReader } from './quote-check';
 
 /** The configured client, or null when AI_PROVIDER is "rules". Tests provide a client with a fake fetch. */
@@ -167,6 +168,7 @@ export class ClaudeChat implements ChatAssistant {
     private readonly core: BookingCore,
     private readonly memory: ChatMemory,
     @InjectConfig() private readonly config: Env,
+    @Inject(FREE_CHAT) private readonly backup: ChatAssistant,
   ) {}
 
   async reply(input: { customerId: string; message: string; locale: Locale; conversationId: string | null }): Promise<ChatReplyDto> {
@@ -195,8 +197,9 @@ export class ClaudeChat implements ChatAssistant {
       ]);
       return { ...answer, conversationId };
     } catch (err) {
-      this.log.warn(`chat model unavailable, answering with the rules (${errorKind(err)})`);
-      return { ...policyAnswer, conversationId };
+      // The free models next (they answer with the rules when none of them can).
+      this.log.warn(`chat model unavailable, asking the free models (${errorKind(err)})`);
+      return this.backup.reply({ ...input, conversationId }).catch(() => ({ ...policyAnswer, conversationId }));
     }
   }
 }
@@ -269,6 +272,7 @@ export class ClaudePhotoClassifier implements PhotoClassifier {
   constructor(
     @Inject(ANTHROPIC_CLIENT) private readonly client: Anthropic | null,
     private readonly fallback: NoModelPhotoClassifier,
+    @Inject(FREE_PHOTO_CLASSIFIER) private readonly backup: PhotoClassifier,
     private readonly prisma: PrismaService,
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
     @InjectConfig() private readonly config: Env,
@@ -309,8 +313,8 @@ export class ClaudePhotoClassifier implements PhotoClassifier {
       if (!out) throw new Error(`no answer (${res.stop_reason ?? 'unknown'})`);
       return photoAnswer(out, ids, (await fallback()).alternatives);
     } catch (err) {
-      this.log.warn(`photo model unavailable, offering alternatives (${errorKind(err)})`);
-      return fallback();
+      this.log.warn(`photo model unavailable, asking the free models (${errorKind(err)})`);
+      return this.backup.classify(input).catch(fallback);
     }
   }
 
@@ -333,6 +337,7 @@ export class ClaudeQuoteReader implements QuoteReader {
     private readonly prisma: PrismaService,
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
     @InjectConfig() private readonly config: Env,
+    @Inject(FREE_QUOTE_READER) private readonly backup: QuoteReader,
   ) {}
 
   async read(input: { photoId: string; customerId: string }): Promise<QuoteReadDto> {
@@ -365,8 +370,8 @@ export class ClaudeQuoteReader implements QuoteReader {
       if (!out) throw new Error(`no answer (${res.stop_reason ?? 'unknown'})`);
       return quoteAnswer(out, serviceIds, partIds);
     } catch (err) {
-      this.log.warn(`quote reader unavailable, the customer types the lines (${errorKind(err)})`);
-      return NOT_READ;
+      this.log.warn(`quote reader unavailable, asking the free models (${errorKind(err)})`);
+      return this.backup.read(input).catch(() => NOT_READ);
     }
   }
 }

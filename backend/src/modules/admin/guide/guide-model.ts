@@ -102,6 +102,7 @@ const Decision = z.object({
   answer: z.string().nullable().optional(),
 });
 const DecisionSchema = z.toJSONSchema(Decision);
+const DescriptionSchema = z.toJSONSchema(z.object({ description: z.string() }));
 
 @Injectable()
 export class CloudflareGuideModel implements GuideModel {
@@ -113,7 +114,7 @@ export class CloudflareGuideModel implements GuideModel {
   ) {}
 
   get available(): boolean {
-    return this.ai.enabled;
+    return this.ai.can('chat');
   }
 
   async answer(run: GuideRun): Promise<string> {
@@ -129,8 +130,8 @@ export class CloudflareGuideModel implements GuideModel {
     for (let step = 0; step <= run.maxSteps; step++) {
       const last = step === run.maxSteps;
       if (last) messages.push({ role: 'user', content: 'Answer the admin now with what you have: {"tool": null, "answer": "..."}' });
-      const raw = await this.ai.run(this.config.CLOUDFLARE_AI_CHAT_MODEL, { messages, response_format: { type: 'json_schema', json_schema: DecisionSchema }, max_tokens: 1500, temperature: 0.2 });
-      const d = Decision.parse(raw);
+      // The free models one after another (open-models.ts): Cloudflare, then the backups.
+      const d = await this.ai.ask('chat', { messages, schema: DecisionSchema, maxTokens: 1500, temperature: 0.2 }, (raw) => Decision.parse(raw));
       if (!d.tool || last) {
         const text = (d.answer ?? '').trim();
         if (!text) throw new Error('no answer');
@@ -145,15 +146,16 @@ export class CloudflareGuideModel implements GuideModel {
   /** Open text models do not see images: the vision model describes it first (text and codes in it too). */
   private async describe(photo: GuidePhoto): Promise<string> {
     try {
-      const raw = await this.ai.run(this.config.CLOUDFLARE_AI_VISION_MODEL, {
+      const description = await this.ai.ask('vision', {
         messages: [
           { role: 'system', content: 'Describe this image for an operations admin of a home-repair company. Copy any visible text exactly (booking codes like HF-12345, names, amounts, error messages). Plain text, at most 120 words. Answer only with JSON {"description": "..."}.' },
           { role: 'user', content: [{ type: 'image_url', image_url: { url: `data:${photo.mediaType};base64,${photo.base64}` } }] },
         ],
-        max_tokens: 400,
+        schema: DescriptionSchema,
+        maxTokens: 400,
         temperature: 0,
-      });
-      return z.object({ description: z.string() }).parse(raw).description.slice(0, 1500);
+      }, (raw) => z.object({ description: z.string() }).parse(raw).description);
+      return description.slice(0, 1500);
     } catch (err) {
       this.log.warn(`photo description unavailable (${err instanceof Error ? err.name : 'unknown'})`);
       return '(the photo could not be read)';
