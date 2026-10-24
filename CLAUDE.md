@@ -132,9 +132,9 @@ migration folder; commit it. The server applies migrations itself on start.
 `CLOUDFLARE_AI_VISION_MODEL`). **Turn AI off**: `AI_PROVIDER=rules` (rule-based chat and
 "pick a service" fallback; the app keeps working).
 
-**Free AI backups**: `AI_BACKUPS=groq,cerebras` (`GROQ_API_KEY`, `CEREBRAS_API_KEY`; models in `GROQ_CHAT_MODEL`,
-`GROQ_VISION_MODEL`, `CEREBRAS_CHAT_MODEL`). `src/modules/ai/open-models.ts` asks Cloudflare, then the backups in order
-(Cerebras: chat only), each try `AI_ATTEMPT_TIMEOUT_MS`, all together `AI_TIMEOUT_MS`; a model that just failed goes to
+**Free AI backups**: `AI_BACKUPS=groq,ollama` (`GROQ_API_KEY`, `OLLAMA_API_KEY`; models in `GROQ_CHAT_MODEL`,
+`GROQ_VISION_MODEL`, `OLLAMA_CHAT_MODEL`, `OLLAMA_VISION_MODEL`; `cerebras` also works but needs a $5 top-up).
+`src/modules/ai/open-models.ts` asks Cloudflare, then the backups in order (Ollama: chat unless a vision model is set), each try `AI_ATTEMPT_TIMEOUT_MS`, all together `AI_TIMEOUT_MS`; a model that just failed goes to
 the back of the line for `AI_COOLDOWN_MS`; the rules last. Claude (if main) falls back to them too. Another
 OpenAI-compatible free service = one more runner there plus its settings in `env.ts`. Do not add Gemini's or Mistral's
 free plans: they may use customer messages and photos for training.

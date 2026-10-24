@@ -1,9 +1,9 @@
-// The free AI backups (AI_BACKUPS): when Cloudflare fails, hangs or answers off-format, Groq answers, then Cerebras
-// (chat only); a model that just failed waits at the back of the line; with nothing left the rules answer. Fake
-// services only: nothing reaches Cloudflare, Groq or Cerebras.
+// The free AI backups (AI_BACKUPS): when Cloudflare fails, hangs or answers off-format, Groq answers, then Ollama and
+// Cerebras (chat only); a model that just failed waits at the back of the line; with nothing left the rules answer. Fake
+// services only: nothing reaches Cloudflare, Groq, Ollama or Cerebras.
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { CEREBRAS_URL, CLOUDFLARE_AI_FETCH, GROQ_URL } from '../src/modules/ai/open-models';
+import { CEREBRAS_URL, CLOUDFLARE_AI_FETCH, GROQ_URL, OLLAMA_URL } from '../src/modules/ai/open-models';
 import { seedCatalog } from '../src/modules/catalog/catalog.seed';
 import { buildTestApp, requireTestDatabase, resetDatabase, signIn, type TestApp } from './helpers';
 import { jpegWithGps } from './media-fixtures';
@@ -11,12 +11,12 @@ import { jpegWithGps } from './media-fixtures';
 const HOME = { label: 'HOME', house: 'Flat 4B, Lake View', street: 'Road No. 12, Banjara Hills', landmark: '', city: 'Hyderabad', pincode: '500034', lat: 17.4126, lng: 78.4482 };
 const ACCOUNT = '0123456789abcdef0123456789abcdef';
 type Reply = object | number | 'hang';
-type Service = 'cloudflare' | 'groq' | 'cerebras';
+type Service = 'cloudflare' | 'groq' | 'ollama' | 'cerebras';
 
 /** One fake per service: an object becomes the model's JSON answer, a number an HTTP error, 'hang' never answers. */
 class FakeModels {
   readonly sent: { service: Service; body: ReturnType<typeof JSON.parse>; auth: string | null }[] = [];
-  readonly replies: Record<Service, Reply[]> = { cloudflare: [], groq: [], cerebras: [] };
+  readonly replies: Record<Service, Reply[]> = { cloudflare: [], groq: [], ollama: [], cerebras: [] };
 
   reset(): void {
     this.sent.length = 0;
@@ -29,7 +29,7 @@ class FakeModels {
 
   readonly fetch = async (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const u = String(url);
-    const service: Service = u === GROQ_URL ? 'groq' : u === CEREBRAS_URL ? 'cerebras' : 'cloudflare';
+    const service: Service = u === GROQ_URL ? 'groq' : u === OLLAMA_URL ? 'ollama' : u === CEREBRAS_URL ? 'cerebras' : 'cloudflare';
     this.sent.push({ service, body: JSON.parse(String(init?.body)), auth: new Headers(init?.headers).get('authorization') });
     const next = this.replies[service].shift() ?? 500;
     if (next === 'hang') {
@@ -57,7 +57,7 @@ describe('free AI backups (e2e)', () => {
     t = await buildTestApp({
       env: {
         AI_PROVIDER: 'cloudflare', CLOUDFLARE_ACCOUNT_ID: ACCOUNT, CLOUDFLARE_AI_TOKEN: 'cf-test-token',
-        AI_BACKUPS: 'groq, cerebras', GROQ_API_KEY: 'gsk-test', CEREBRAS_API_KEY: 'csk-test',
+        AI_BACKUPS: 'groq, ollama, cerebras', GROQ_API_KEY: 'gsk-test', OLLAMA_API_KEY: 'ollama-test', CEREBRAS_API_KEY: 'csk-test',
         AI_ATTEMPT_TIMEOUT_MS: '1000', AI_TIMEOUT_MS: '6000', AI_COOLDOWN_MS: '60000',
       },
       overrides: [[CLOUDFLARE_AI_FETCH, models.fetch]],
@@ -105,29 +105,41 @@ describe('free AI backups (e2e)', () => {
     expect(models.asked()).toEqual(['cloudflare']);
   });
 
-  it('moves on from a hanging or off-format answer, then to Cerebras, and to the rules last', async () => {
+  it('moves on from a hanging or off-format answer, then to Ollama and Cerebras, and to the rules last', async () => {
     models.replies.cloudflare.push('hang');
     models.replies.groq.push({ wrong: 'shape' });
-    models.replies.cerebras.push(answer('From Cerebras.'));
+    models.replies.ollama.push(answer('From Ollama.'));
     const started = Date.now();
-    expect((await chat().expect(200)).body.text).toBe('From Cerebras.');
+    expect((await chat().expect(200)).body.text).toBe('From Ollama.');
     expect(Date.now() - started).toBeLessThan(4000);
-    expect(models.asked()).toEqual(['cloudflare', 'groq', 'cerebras']);
-    expect(models.sent[2]).toMatchObject({ auth: 'Bearer csk-test', body: { model: 'gpt-oss-120b' } });
+    expect(models.asked()).toEqual(['cloudflare', 'groq', 'ollama']);
+    expect(models.sent[2]).toMatchObject({ auth: 'Bearer ollama-test', body: { model: 'gpt-oss:120b', response_format: { type: 'json_object' } } });
+
+    // Ollama busy too: Cerebras answers.
+    t.clock.advance(61_000);
+    models.sent.length = 0;
+    models.replies.cloudflare.push(500);
+    models.replies.groq.push(500);
+    models.replies.ollama.push(503);
+    models.replies.cerebras.push(answer('From Cerebras.'));
+    expect((await chat().expect(200)).body.text).toBe('From Cerebras.');
+    expect(models.asked()).toEqual(['cloudflare', 'groq', 'ollama', 'cerebras']);
+    expect(models.sent[3]).toMatchObject({ auth: 'Bearer csk-test', body: { model: 'gpt-oss-120b' } });
 
     // Every model fails: the rules answer, right away for the next customer too.
     t.clock.advance(61_000);
     models.sent.length = 0;
     models.replies.cloudflare.push(503);
     models.replies.groq.push(429);
+    models.replies.ollama.push(500);
     models.replies.cerebras.push(500);
     const ruled = (await chat().expect(200)).body;
     expect(ruled.text).toEqual(expect.any(String));
     expect(ruled.text.length).toBeGreaterThan(0);
-    expect(models.asked()).toEqual(['cloudflare', 'groq', 'cerebras']);
+    expect(models.asked()).toEqual(['cloudflare', 'groq', 'ollama', 'cerebras']);
   });
 
-  it('reads photos with Groq when Cloudflare fails; Cerebras is never sent a photo', async () => {
+  it('reads photos with Groq when Cloudflare fails; Ollama (without a vision model) and Cerebras are never sent a photo', async () => {
     const bytes = jpegWithGps();
     const { id: photoId } = (await api().post('/v1/uploads/photos').set(as(customer)).send({ contentType: 'image/jpeg', bytes: bytes.length }).expect(200)).body;
     t.store.upload(photoId, bytes, 'image/jpeg');
