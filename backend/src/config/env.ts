@@ -272,6 +272,12 @@ export const envSchema = z
     QUOTE_MIN_RUPEES: int(100, 1),
     TECH_VISIT_SHARE_RUPEES: int(30, 0),
     TECH_LABOUR_SHARE_PERCENT: int(80, 0, 100),
+    /** Apprentice mode: what Housefi pays an apprentice for a job they helped on (from Housefi's share). */
+    APPRENTICE_SHARE_RUPEES: int(100, 0),
+    /** Helped jobs in a trade before the app suggests taking the skill exam for it. */
+    APPRENTICE_JOBS_TARGET: int(5, 1),
+    /** Apprentices one mentor can teach at a time. */
+    MENTOR_MAX_APPRENTICES: int(2, 1, 10),
     OFFER_TIMEOUT_SEC: int(45, 5),
     /** Offers also go to online technicians this close to the customer, whatever their PIN code (0 = PIN codes only). */
     DISPATCH_RADIUS_KM: int(10, 0, 50),

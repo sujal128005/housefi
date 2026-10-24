@@ -105,6 +105,8 @@ describe('bookings (e2e)', () => {
         warrantyUntil: null,
         warrantyClaim: null,
         fairPay: null,
+        allowTrainee: false,
+        trainee: null,
       });
     });
 

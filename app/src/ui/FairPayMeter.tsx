@@ -9,7 +9,7 @@ import { Icon } from './Icon';
 import { Card } from './Surfaces';
 import { Txt } from './Txt';
 
-const TONES = { technician: colors.success, parts: colors.cyan, housefi: colors.navy } as const;
+const TONES = { technician: colors.success, parts: colors.cyan, trainee: colors.amber, housefi: colors.navy } as const;
 
 export function FairPayMeter({ split: f, viewer }: { readonly split: FairPay | null | undefined; readonly viewer: 'customer' | 'technician' }) {
   const { t } = useI18n();
@@ -21,6 +21,7 @@ export function FairPayMeter({ split: f, viewer }: { readonly split: FairPay | n
       note: f.withBill ? t('fair.technicianNote', { percent: f.labourSharePercent }) : t('fair.technicianVisit'),
     },
     ...(f.parts > 0 ? [{ key: 'parts' as const, amount: f.parts, label: t('fair.parts'), note: viewer === 'technician' ? t('fair.partsNoteYou') : t('fair.partsNote') }] : []),
+    ...((f.trainee ?? 0) > 0 ? [{ key: 'trainee' as const, amount: f.trainee ?? 0, label: t('fair.trainee'), note: t('fair.traineeNote') }] : []),
     { key: 'housefi', amount: housefi, label: t('fair.housefi'), note: t('fair.housefiNote') },
   ];
   const sum = parts.reduce((s, p) => s + p.amount, 0) || 1;

@@ -15,6 +15,7 @@ const TOASTS: Partial<Record<NotificationKind, 'success' | 'notify' | 'warning' 
   QUOTE_APPROVED: 'success', QUOTE_REVISION: 'notify', QUOTE_DECLINED: 'warning', EXTRA_APPROVED: 'success', EXTRA_DECLINED: 'warning',
   PAYMENT_RECEIVED: 'cash', JOB_CANCELLED: 'warning', PROFILE_APPROVED: 'success', PROFILE_NEEDS_CORRECTION: 'warning',
   JOB_TOMORROW: 'notify', JOB_DAY_PLAN: 'notify',
+  APPRENTICE_REQUEST: 'notify', APPRENTICE_ACCEPTED: 'success', TRAINEE_JOB: 'notify', TRAINEE_REMOVED: 'warning',
 };
 
 export function TechAlerts() {

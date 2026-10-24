@@ -6,7 +6,7 @@ import {
   type CouponResult, type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
-  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson, QuoteCheckResult, QuoteRead,
+  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson, QuoteCheckResult, QuoteRead, ApprenticeOverview, ApprenticePerson,
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
@@ -105,6 +105,7 @@ const decodeNotification = (json: unknown): AppNotification => record<AppNotific
 const decodeEarnings = (json: unknown): Earnings => record<Earnings>(json, 'earnings', ['today', 'total', 'entries']);
 const decodePayoutAccount = (json: unknown): PayoutAccount => record<PayoutAccount>(json, 'payout account', ['rail', 'holderName', 'hint', 'updatedAt']);
 const decodeNothing = (): void => undefined;
+const decodeApprentice = (json: unknown): ApprenticeOverview => record<ApprenticeOverview>(json, 'apprentice', ['shareRupees', 'jobsTarget', 'learner', 'mentor']);
 const decodeSkillCheck = (json: unknown): SkillCheck => record<SkillCheck>(json, 'skill check', ['level', 'required', 'canSubmit', 'trades', 'video', 'certificates', 'rules']);
 const decodeCourses = (json: unknown): CoursesOverview => record<CoursesOverview>(json, 'courses', ['courses', 'rating', 'freeFromRating', 'price']);
 const decodeCourse = (json: unknown): Course => record<Course>(json, 'course', ['id', 'level', 'access', 'enrolled', 'lessonList', 'quiz', 'certificate']);
@@ -259,7 +260,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
       const photos = await uploadPhotos(handle, input.problem.photos, 'PROBLEM');
       const vn = input.problem.voiceNote;
       const voiceNote = vn ? { durationSec: Math.max(1, Math.round(vn.durationSec)), transcript: vn.transcript, ...(vn.audioId ? { audioId: vn.audioId } : {}) } : null;
-      const body = { serviceId: input.serviceId, problem: { issueIds: input.problem.issueIds, notes: input.problem.notes, voiceNote, photos }, addressId: input.addressId, time: input.time, preferWomenRated: input.preferWomenRated, ...(input.repeatOf ? { repeatOf: input.repeatOf } : {}) };
+      const body = { serviceId: input.serviceId, problem: { issueIds: input.problem.issueIds, notes: input.problem.notes, voiceNote, photos }, addressId: input.addressId, time: input.time, preferWomenRated: input.preferWomenRated, ...(input.allowTrainee ? { allowTrainee: true } : {}), ...(input.repeatOf ? { repeatOf: input.repeatOf } : {}) };
       return call(handle, 'POST', apiPath`/bookings`, decodeBooking, body, idempotencyKey);
     },
     async pay(handle, bookingId, kind, method, idempotencyKey): Promise<PaymentResult> {
@@ -286,6 +287,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     get: (handle, id) => call(handle, 'GET', apiPath`/bookings/${id}`, decodeBooking),
     list: (handle) => call(handle, 'GET', apiPath`/bookings?scope=${'all'}`, (j) => list(j, decodeBooking, 'bookings')),
     cancel: (handle, id, reason) => call(handle, 'POST', apiPath`/bookings/${id}/cancel`, decodeBooking, { reason }),
+    declineTrainee: (handle, id) => call(handle, 'POST', apiPath`/bookings/${id}/trainee/decline`, decodeBooking),
     reschedule: (handle, id, time) => call(handle, 'POST', apiPath`/bookings/${id}/reschedule`, decodeBooking, { time }),
     decideQuote: (handle, id, which, answer) => call(handle, 'POST', apiPath`/bookings/${id}/quotes/${which}/answer`, decodeBooking, { answer }),
     rate: (handle, id, r) => call(handle, 'POST', apiPath`/bookings/${id}/rating`, decodeBooking, { satisfied: r.satisfied, stars: r.stars, tags: r.tags, comment: r.comment, byWoman: r.byWoman === true }),
@@ -383,6 +385,18 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     idCard: (handle) => call(handle, 'GET', apiPath`/tech/id-card`, decodeTechIdCard),
     passport: (handle) => call(handle, 'GET', apiPath`/tech/passport`, decodeMyPassport),
     setPassportPublic: (handle, on) => call(handle, 'PUT', apiPath`/tech/passport`, decodeMyPassport, { public: on }),
+    apprentice: (handle) => call(handle, 'GET', apiPath`/tech/apprentice`, decodeApprentice),
+    mentors: (handle, categoryId) => call(handle, 'GET', apiPath`/tech/apprentice/mentors?categoryId=${categoryId}`, (j) => {
+      if (!Array.isArray(j)) throw new DecodeError('mentors: expected a list');
+      return j.map((x) => record<ApprenticePerson>(x, 'mentor', ['id', 'name', 'techCode']));
+    }),
+    requestMentor: (handle, mentorId, categoryId) => call(handle, 'POST', apiPath`/tech/apprentice/requests`, decodeApprentice, { mentorId, categoryId }),
+    answerApprentice: (handle, linkId, accept) => call(handle, 'POST', apiPath`/tech/apprentice/requests/${linkId}/answer`, decodeApprentice, { accept }),
+    endApprenticeship: (handle, linkId) => call(handle, 'POST', apiPath`/tech/apprentice/links/${linkId}/end`, decodeApprentice),
+    setMentoring: (handle, open) => call(handle, 'PUT', apiPath`/tech/apprentice/mentoring`, decodeApprentice, { open }),
+    addTrainee: (handle, jobId, apprenticeId) => call(handle, 'POST', apiPath`/tech/jobs/${jobId}/trainee`, decodeJob, { apprenticeId }),
+    removeTrainee: (handle, jobId) => call(handle, 'DELETE', apiPath`/tech/jobs/${jobId}/trainee`, decodeJob),
+    confirmTrainee: (handle, jobId, helped) => call(handle, 'POST', apiPath`/tech/jobs/${jobId}/trainee/confirm`, decodeJob, { helped }),
     requestIdentityCorrection: (handle, kind, note) => call(handle, 'POST', apiPath`/tech/identity-corrections`, decodeProfile, { kind, note }),
     setOnline: (handle, online) => call(handle, 'POST', apiPath`/tech/availability`, decodeProfile, { online }),
     skills: (handle) => call(handle, 'GET', apiPath`/tech/skills`, decodeSkillCheck),

@@ -2,7 +2,7 @@
 // (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
 // build of the app uses it.
 import type {
-  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, MyPassport, QuoteCheckLine, QuoteCheckResult, QuoteRead, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
+  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, ApprenticeOverview, ApprenticePerson, MyPassport, QuoteCheckLine, QuoteCheckResult, QuoteRead, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
   Greeting, Locality, NearPlace, PincodePlaces,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
@@ -114,6 +114,8 @@ export interface NewBooking {
   readonly addressId: string;
   readonly time: VisitTime;
   readonly preferWomenRated: boolean;
+  /** Apprentice mode: a trainee may come along with the technician. */
+  readonly allowTrainee?: boolean;
   /** "Book the same technician again": the customer's earlier finished booking; its technician is asked first. */
   readonly repeatOf?: string;
 }
@@ -145,6 +147,8 @@ export interface BookingApi {
   get(token: string, id: string): Promise<Booking>;
   list(token: string): Promise<readonly Booking[]>;
   cancel(token: string, id: string, reason: CancelReason | null): Promise<Booking>;
+  /** Apprentice mode: "not today", no trainee on this visit (until the technician arrives). */
+  declineTrainee(token: string, id: string): Promise<Booking>;
   reschedule(token: string, id: string, time: VisitTime): Promise<Booking>;
   /**
    * Answer the repair quote (MAIN) or the extra work found during the repair (EXTRA). REVISION asks the technician for
@@ -184,6 +188,7 @@ export type NotificationKind =
   // reminders and account notices
   | 'PAY_REMINDER' | 'BOOKING_REMINDER' | 'JOB_REMINDER' | 'QUOTE_REMINDER' | 'RATE_REMINDER' | 'PROFILE_SUSPENDED'
   | 'PROFILE_REINSTATED' | 'PROFILE_REJECTED'
+  | 'APPRENTICE_REQUEST' | 'APPRENTICE_ACCEPTED' | 'TRAINEE_JOB' | 'TRAINEE_REMOVED'
   // the day's schedule: the evening before a visit (both sides), the technician's morning plan
   | 'BOOKING_TOMORROW' | 'JOB_TOMORROW' | 'JOB_DAY_PLAN'
   // a chat message from the other side (shown by the chat bubble, not in the inbox)
@@ -336,6 +341,19 @@ export interface TechApi {
   passport(token: string): Promise<MyPassport>;
   /** Shows or hides the Skill Passport on the public QR page. */
   setPassportPublic(token: string, on: boolean): Promise<MyPassport>;
+  /** Apprentice mode: what the technician can learn or teach, their mentor or apprentices, and trainee jobs. */
+  apprentice(token: string): Promise<ApprenticeOverview>;
+  /** Mentors open to teaching this trade nearby, with room. */
+  mentors(token: string, categoryId: CategoryId): Promise<readonly ApprenticePerson[]>;
+  requestMentor(token: string, mentorId: string, categoryId: CategoryId): Promise<ApprenticeOverview>;
+  answerApprentice(token: string, linkId: string, accept: boolean): Promise<ApprenticeOverview>;
+  endApprenticeship(token: string, linkId: string): Promise<ApprenticeOverview>;
+  setMentoring(token: string, open: boolean): Promise<ApprenticeOverview>;
+  /** Brings an active apprentice on a job whose customer agreed (before arriving). */
+  addTrainee(token: string, jobId: string, apprenticeId: string): Promise<Job>;
+  removeTrainee(token: string, jobId: string): Promise<Job>;
+  /** After the job: did the trainee help? Yes pays them (from Housefi). */
+  confirmTrainee(token: string, jobId: string, helped: boolean): Promise<Job>;
   /** Asks support to correct the legal name or photo (the technician cannot change them directly). */
   requestIdentityCorrection(token: string, kind: 'NAME' | 'PHOTO', note: string): Promise<TechProfile>;
   /** Online = ready to receive job offers. Only verified technicians can go online. */

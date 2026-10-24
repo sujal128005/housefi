@@ -5,6 +5,7 @@ import type { Shares } from '../earnings/earnings-rules';
 import type { FieldCipher } from '../../common/crypto/field-cipher';
 import { paiseToRupees } from '../../common/money';
 import type { AddressDto } from '../addresses/addresses.service';
+import { displayName } from '../identity/identity-codes';
 import { latestQuote, type QuoteDto, type QuoteRow, toQuoteDto } from './quote-view';
 
 export type BookingRow = Booking & {
@@ -12,6 +13,8 @@ export type BookingRow = Booking & {
   payments: Payment[];
   technician: (Technician & { user: User; skills: TechnicianSkill[] }) | null;
   preferredTechnician: (Technician & { user: User }) | null;
+  /** Included by BOOKING_INCLUDE (apprentice mode). */
+  trainee?: (Technician & { user: User }) | null;
   quotes: QuoteRow[];
   rating: Rating | null;
   uploads: Upload[];
@@ -25,6 +28,7 @@ export const BOOKING_INCLUDE = {
   payments: { orderBy: { createdAt: 'asc' } },
   technician: { include: { user: true, skills: true } },
   preferredTechnician: { include: { user: true } },
+  trainee: { include: { user: true } },
   quotes: { include: { lines: true }, orderBy: [{ which: 'asc' }, { version: 'asc' }] },
   rating: true,
   uploads: { where: { state: 'READY' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
@@ -107,6 +111,28 @@ export interface TechnicianDto {
   readonly fictional: false;
 }
 
+/** openapi.yaml Trainee: the technician's apprentice on this job, as the customer sees them. */
+export interface TraineeDto {
+  readonly id: string;
+  /** First name and last initial. */
+  readonly name: string;
+  readonly gender: 'M' | 'F';
+  readonly techCode: string;
+  /** Short-lived signed URL of the APPROVED photo only. */
+  readonly photo: string | null;
+}
+
+export async function traineeDto(t: Technician & { user: User }, cipher: FieldCipher, media: PhotoSigner): Promise<TraineeDto> {
+  const name = t.user.nameEnc ? await cipher.decrypt('users.name', t.user.nameEnc) : '';
+  return {
+    id: t.userId,
+    name: displayName(name),
+    gender: t.gender,
+    techCode: t.techCode ?? '',
+    photo: t.photoUploadId && t.photoStatus === 'APPROVED' ? await media.photoUrl(t.photoUploadId) : null,
+  };
+}
+
 export interface PaymentDto {
   readonly kind: 'VISIT' | 'FINAL';
   readonly amount: number;
@@ -160,6 +186,10 @@ export interface BookingDto {
   readonly warrantyClaim: { readonly id: string; readonly code: string } | null;
   /** Fair-pay meter: where the customer's money goes (null before the visit fee is paid). */
   readonly fairPay: FairPayDto | null;
+  /** Apprentice mode: the customer agreed that a trainee may come along. */
+  readonly allowTrainee: boolean;
+  /** The technician's apprentice on this visit, if they bring one. */
+  readonly trainee: TraineeDto | null;
 }
 
 export interface TripLocationDto {
@@ -263,5 +293,7 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
     warrantyUntil: warrantyUntil(b),
     warrantyClaim: b.warrantyClaim ? { id: b.warrantyClaim.id, code: b.warrantyClaim.code } : null,
     fairPay: shares ? fairPay(shares, b) : null,
+    allowTrainee: b.allowTrainee,
+    trainee: b.trainee ? await traineeDto(b.trainee, cipher, media) : null,
   };
 }

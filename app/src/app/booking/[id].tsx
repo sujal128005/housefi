@@ -17,10 +17,11 @@ import { useBackend } from '../../services/ServicesProvider';
 import { useSession } from '../../state/AppState';
 import { colors, GUTTER, radius, space } from '../../theme/tokens';
 import {
-  Banner, Button, Card, Chip, ConfirmSheet, Divider, ErrorBanner, ErrorView, Header, Icon, Screen, Sheet, Skeleton, Tap, Txt, useToast, type IconName,
+  Banner, Button, Card, Chip, ConfirmSheet, Divider, ErrorBanner, ErrorView, Header, Icon, Pill, Screen, Sheet, Skeleton, Tap, Txt, useToast, type IconName,
 } from '../../ui';
 import { ArrivalOtpCard, BillCard, ProgressStepper, QuoteCard, SafetyRow, TechnicianCard } from '../../ui/BookingParts';
 import { FairPayMeter } from '../../ui/FairPayMeter';
+import { TechPhoto } from '../../ui/TechIdentity';
 import { CouponBox, InvoiceButton, WarrantyBanner, WarrantyCard } from '../../ui/GrowthParts';
 import { Appear, Celebrate, Pulse } from '../../ui/motion';
 import { PhotoThumb } from '../../ui/PhotoThumb';
@@ -251,6 +252,24 @@ export default function BookingHub() {
       {showOtp ? <ArrivalOtpCard code={b.arrivalOtp} highlight={b.status === 'ARRIVED'} /> : null}
 
       {b.technician && !['CANCELLED', 'UNFULFILLED'].includes(b.status) ? <TechnicianCard tech={b.technician} booking={b} /> : null}
+      {b.trainee && b.technician && !['CANCELLED', 'UNFULFILLED', 'COMPLETED', 'CLOSED_NO_REPAIR'].includes(b.status) ? (
+        <Card style={styles.trainee} testID="hub-trainee">
+          <View style={styles.traineeRow}>
+            <TechPhoto photo={b.trainee.photo} gender={b.trainee.gender} size={52} />
+            <View style={styles.flex}>
+              <Txt variant="caption" color="inkMuted">{t('trainee.with')}</Txt>
+              <Txt variant="bodyStrong">{b.trainee.name}</Txt>
+              <Txt variant="caption" color="navy" lang="en">{b.trainee.techCode}</Txt>
+            </View>
+            <Pill tone="success" icon="shield-checkmark" label={t('trainee.idChecked')} />
+          </View>
+          <Txt variant="footnote" color="inkMuted">{t('trainee.body')}</Txt>
+          {['ASSIGNED', 'EN_ROUTE'].includes(b.status) ? (
+            <Button label={t('trainee.notToday')} variant="outline" size="md" disabled={busy}
+              onPress={() => void act(() => backend.bookings.declineTrainee(session.token, b.id), t('trainee.declined'))} testID="hub-trainee-decline" />
+          ) : null}
+        </Card>
+      ) : null}
 
       {b.status === 'QUOTE_SHARED' && b.quote ? (
         <Appear>
@@ -438,6 +457,8 @@ function DemoOption({ icon, label, onPress, testID }: { readonly icon: IconName;
 }
 
 const styles = StyleSheet.create({
+  trainee: { gap: space.md },
+  traineeRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   flex: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   stack: { gap: space.sm },

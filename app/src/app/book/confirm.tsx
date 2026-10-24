@@ -29,7 +29,7 @@ export default function ConfirmStep() {
   /** Labels about simulated backend outcomes show only with the demo backend. */
   const isDemo = useIsDemo();
   const session = useSession();
-  const { draft, setPreferWomenRated, setMethod } = useDraft();
+  const { draft, setPreferWomenRated, setAllowTrainee, setMethod } = useDraft();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const created = useRef<string | null>(null);
@@ -69,7 +69,7 @@ export default function ConfirmStep() {
         if (existing.status !== 'AWAITING_PAYMENT') bookingId = null;
       }
       if (!bookingId) {
-        const input = { serviceId: svc.id, problem: p, addressId, time, preferWomenRated: draft.preferWomenRated, ...(draft.repeat ? { repeatOf: draft.repeat.bookingId } : {}) };
+        const input = { serviceId: svc.id, problem: p, addressId, time, preferWomenRated: draft.preferWomenRated, allowTrainee: draft.allowTrainee, ...(draft.repeat ? { repeatOf: draft.repeat.bookingId } : {}) };
         const b = await backend.bookings.create(session.token, input, createKeys.keyFor(JSON.stringify(input)));
         createKeys.settle();
         // The customer left while the booking was being created: withdraw it at once, and stay where they went.
@@ -151,6 +151,19 @@ export default function ConfirmStep() {
           <Txt variant="footnote" color="inkMuted">{t('confirm.womenSub')}</Txt>
         </View>
         <Switch value={draft.preferWomenRated} onValueChange={setPreferWomenRated} trackColor={{ true: colors.blue, false: colors.lineStrong }} thumbColor={colors.surface} />
+      </Tap>
+
+      <Tap onPress={() => setAllowTrainee(!draft.allowTrainee)} style={[styles.pref, draft.allowTrainee && styles.prefOn]} testID="pref-trainee"
+        accessibilityRole="switch" accessibilityState={{ checked: draft.allowTrainee }} accessibilityLabel={t('confirm.trainee')} scale={0.99}>
+        <Art3D name="tech_hero" size={52} />
+        <View style={styles.flex}>
+          <View style={styles.prefTitle}>
+            <Txt variant="bodyStrong" style={styles.shrink}>{t('confirm.trainee')}</Txt>
+            <Pill label={t('common.optional')} tone="neutral" />
+          </View>
+          <Txt variant="footnote" color="inkMuted">{t('confirm.traineeSub')}</Txt>
+        </View>
+        <Switch value={draft.allowTrainee} onValueChange={setAllowTrainee} trackColor={{ true: colors.blue, false: colors.lineStrong }} thumbColor={colors.surface} />
       </Tap>
 
       <Card style={styles.card}>

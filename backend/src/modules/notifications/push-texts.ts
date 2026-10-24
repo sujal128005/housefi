@@ -45,6 +45,10 @@ const EN: Texts = {
   PROFILE_REJECTED: { title: 'Registration not approved', body: 'Contact Housefi support for details.' },
   SUPPORT_REPLY: { title: 'Housefi team replied', body: 'Open Help to read the reply.' },
   ANNOUNCEMENT: { title: '{title}', body: '{body}' },
+  APPRENTICE_REQUEST: { title: 'Someone wants to learn from you', body: '{name} asked to be your apprentice. Open Apprentice mode to answer.' },
+  APPRENTICE_ACCEPTED: { title: 'You have a mentor', body: '{name} accepted you as their apprentice.' },
+  TRAINEE_JOB: { title: 'Join a job as apprentice', body: 'Your mentor added you to job {code}. Open Apprentice mode for the time and place.' },
+  TRAINEE_REMOVED: { title: 'Apprentice job changed', body: 'You are no longer on job {code}.' },
 };
 
 const TE: Texts = {
@@ -81,6 +85,10 @@ const TE: Texts = {
   PROFILE_REJECTED: { title: 'రిజిస్ట్రేషన్ ఆమోదించబడలేదు', body: 'వివరాల కోసం Housefi సపోర్ట్‌ను సంప్రదించండి.' },
   SUPPORT_REPLY: { title: 'Housefi టీమ్ జవాబిచ్చింది', body: 'జవాబు చదవడానికి సహాయం తెరవండి.' },
   ANNOUNCEMENT: { title: '{titleTe}', body: '{bodyTe}' },
+  APPRENTICE_REQUEST: { title: 'మీ దగ్గర నేర్చుకోవాలనుకుంటున్నారు', body: '{name} మీ అప్రెంటిస్‌గా ఉండాలని అడిగారు. జవాబు ఇవ్వడానికి అప్రెంటిస్ మోడ్ తెరవండి.' },
+  APPRENTICE_ACCEPTED: { title: 'మీకు మెంటర్ దొరికారు', body: '{name} మిమ్మల్ని అప్రెంటిస్‌గా ఒప్పుకున్నారు.' },
+  TRAINEE_JOB: { title: 'అప్రెంటిస్‌గా పనికి రండి', body: 'మీ మెంటర్ మిమ్మల్ని {code} పనికి జోడించారు. సమయం, చోటు కోసం అప్రెంటిస్ మోడ్ తెరవండి.' },
+  TRAINEE_REMOVED: { title: 'అప్రెంటిస్ పని మారింది', body: 'మీరు ఇక {code} పనిలో లేరు.' },
 };
 
 /** Used when a value the main text needs is missing (no location yet, so no ETA). */

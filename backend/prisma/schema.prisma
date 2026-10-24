@@ -343,6 +343,13 @@ model Booking {
   windowStartHour       Int?                                   @map("window_start_hour") @db.SmallInt
   windowEndHour         Int?                                   @map("window_end_hour") @db.SmallInt
   preferWomenRated      Boolean                                @default(false) @map("prefer_women_rated")
+  /// Apprentice mode: the customer agreed that a trainee may come along with the technician (supervised, ID-checked).
+  allowTrainee          Boolean                                @default(false) @map("allow_trainee")
+  /// The technician's apprentice on this job (added by the technician before arriving; the customer can say no).
+  traineeId             String?                                @map("trainee_id") @db.Uuid
+  traineeAddedAt        DateTime?                              @map("trainee_added_at") @db.Timestamptz(6)
+  /// The technician's answer after the job: the trainee came and helped (credits the apprentice share) or not.
+  traineeHelped         Boolean?                               @map("trainee_helped")
   /// Made by a team demo account: simulated payments, demo technicians only, no payouts.
   isDemo                Boolean                                @default(false) @map("is_demo")
   status                BookingStatus
@@ -380,6 +387,7 @@ model Booking {
   customer            User                @relation(fields: [customerId], references: [id])
   technician          Technician?         @relation("BookingTechnician", fields: [technicianId], references: [userId])
   preferredTechnician Technician?         @relation("BookingPreferredTechnician", fields: [preferredTechnicianId], references: [userId], onDelete: SetNull)
+  trainee             Technician?         @relation("BookingTrainee", fields: [traineeId], references: [userId], onDelete: SetNull)
   events              BookingEvent[]
   payments            Payment[]
   offers              JobOffer[]
@@ -403,6 +411,7 @@ model Booking {
   @@index([technicianId, status])
   @@index([status, windowDate])
   @@index([categoryId, pincode, windowDate, windowStartHour])
+  @@index([traineeId])
   @@map("bookings")
 }
 
@@ -612,6 +621,8 @@ model Technician {
   /// Skill Passport: the technician chose to show their career (trades and how they were proven, courses, jobs,
   /// rating, member since) on their public QR page. Off until they switch it on.
   passportPublic     Boolean                                @default(false) @map("passport_public")
+  /// Apprentice mode: an experienced technician offers to teach apprentices (off until switched on).
+  mentorOpen         Boolean                                @default(false) @map("mentor_open")
   skillSubmittedAt   DateTime?                              @map("skill_submitted_at") @db.Timestamptz(6)
   /// 4-digit PIN for accepting jobs by phone (keypad phones), stored only as an HMAC.
   ivrPinHash         Bytes?                                 @map("ivr_pin_hash")
@@ -630,6 +641,9 @@ model Technician {
   skills            TechnicianSkill[]
   bookings          Booking[]                @relation("BookingTechnician")
   preferredIn       Booking[]                @relation("BookingPreferredTechnician")
+  traineeIn         Booking[]                @relation("BookingTrainee")
+  apprenticeLinks   ApprenticeLink[]         @relation("ApprenticeLinkApprentice")
+  mentorLinks       ApprenticeLink[]         @relation("ApprenticeLinkMentor")
   offers            JobOffer[]
   ledger            EarningsLedger[]
   payouts           Payout[]
@@ -646,6 +660,38 @@ model Technician {
   @@index([pincode, online, verification])
   @@index([verification, submittedAt])
   @@map("technicians")
+}
+
+// ---------- apprentice mode ----------
+
+enum ApprenticeLinkState {
+  /// The apprentice asked; the mentor has not answered.
+  REQUESTED
+  ACTIVE
+  DECLINED
+  /// Either side ended it, or the apprentice passed the trade.
+  ENDED
+
+  @@map("apprentice_link_state")
+}
+
+/// An apprentice learning one trade with one mentor. At most one open (REQUESTED or ACTIVE) link per apprentice.
+model ApprenticeLink {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  apprenticeId String              @map("apprentice_id") @db.Uuid
+  mentorId     String              @map("mentor_id") @db.Uuid
+  categoryId   CategoryId          @map("category_id")
+  state        ApprenticeLinkState @default(REQUESTED)
+  createdAt    DateTime            @map("created_at") @db.Timestamptz(6)
+  respondedAt  DateTime?           @map("responded_at") @db.Timestamptz(6)
+  endedAt      DateTime?           @map("ended_at") @db.Timestamptz(6)
+
+  apprentice Technician @relation("ApprenticeLinkApprentice", fields: [apprenticeId], references: [userId], onDelete: Cascade)
+  mentor     Technician @relation("ApprenticeLinkMentor", fields: [mentorId], references: [userId], onDelete: Cascade)
+
+  @@index([apprenticeId, state])
+  @@index([mentorId, state])
+  @@map("apprentice_links")
 }
 
 // ---------- skill check (after the Aadhaar scan) and certifications ----------
@@ -1168,6 +1214,8 @@ enum LedgerType {
   VISIT_SHARE
   LABOUR_SHARE
   MATERIAL_REIMBURSE
+  /// Apprentice mode: an apprentice helped on the job (paid by Housefi, not by the customer or the technician).
+  APPRENTICE_SHARE
   CASH_COLLECTED
   ADJUSTMENT
   PAYOUT
@@ -1265,6 +1313,11 @@ enum NotificationKind {
   SUPPORT_REPLY
   /// A message from Housefi HQ to all customers or all technicians (params: title, body, titleTe, bodyTe).
   ANNOUNCEMENT
+  /// Apprentice mode: to the mentor (someone asks to learn), to the apprentice (accepted; added to a job; taken off one).
+  APPRENTICE_REQUEST
+  APPRENTICE_ACCEPTED
+  TRAINEE_JOB
+  TRAINEE_REMOVED
 
   @@map("notification_kind")
 }
