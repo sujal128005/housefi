@@ -114,6 +114,7 @@ export class BookingsService {
               voiceDurationSec: audio?.durationSec ?? input.problem.voiceNote?.durationSec ?? null,
               ...windowFields(input.time),
               preferWomenRated: input.preferWomenRated,
+              allowTrainee: input.allowTrainee ?? false,
               preferredTechnicianId,
               isDemo,
               status: 'AWAITING_PAYMENT',

@@ -81,10 +81,15 @@ export class BookingCore {
     await this.audit.record({ actorType: actor.type, actorId: actor.id, action: 'booking.status', entity: 'booking', entityId: b.id, before: { status: b.status }, after: { status: to, ...meta } }, tx);
     await recordJobClose(tx, b, to, this.shares(), this.now());
     await this.notifier.enqueue(tx, await transitionNotices(tx, b, after, actor));
+    // Apprentice mode: a trainee comes only with the technician who added them; a new search takes them off the job.
+    if (to === 'MATCHING' && b.traineeId) {
+      await tx.booking.update({ where: { id: b.id }, data: { traineeId: null, traineeAddedAt: null } });
+      await this.notifier.enqueue(tx, [{ userId: b.traineeId, kind: 'TRAINEE_REMOVED', bookingId: b.id, params: { code: b.code } }]);
+    }
   }
 
   private shares() {
-    return { visitShareRupees: this.config.TECH_VISIT_SHARE_RUPEES, labourSharePercent: this.config.TECH_LABOUR_SHARE_PERCENT };
+    return { visitShareRupees: this.config.TECH_VISIT_SHARE_RUPEES, labourSharePercent: this.config.TECH_LABOUR_SHARE_PERCENT, apprenticeShareRupees: this.config.APPRENTICE_SHARE_RUPEES };
   }
 
   async event(tx: Prisma.TransactionClient, bookingId: string, status: BookingStatus, actor: Actor, meta: Prisma.InputJsonObject = {}): Promise<void> {

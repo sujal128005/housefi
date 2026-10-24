@@ -15,6 +15,8 @@ export interface FairPayDto {
   readonly parts: number;
   /** What Housefi keeps (support, warranty, payments, the app). Below 0 when Housefi paid a coupon beyond its share. */
   readonly housefi: number;
+  /** Apprentice mode: the trainee's pay for helping, paid by Housefi out of its part (0 without a trainee). */
+  readonly trainee: number;
   /** A coupon's discount, paid by Housefi (not by the technician). */
   readonly coupon: number;
   readonly labourSharePercent: number;
@@ -22,7 +24,7 @@ export interface FairPayDto {
   readonly withBill: boolean;
 }
 
-type Row = Pick<Booking, 'status'> & { readonly payments: readonly Payment[]; readonly quotes: readonly Quote[]; readonly events: readonly { readonly status: Booking['status'] }[] };
+type Row = Pick<Booking, 'status' | 'traineeId' | 'traineeHelped'> & { readonly payments: readonly Payment[]; readonly quotes: readonly Quote[]; readonly events: readonly { readonly status: Booking['status'] }[] };
 
 const latest = (payments: readonly Payment[], kind: Payment['kind']) =>
   [...payments].filter((p) => p.kind === kind).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
@@ -42,11 +44,14 @@ export function fairPay(shares: Shares, b: Row): FairPayDto | null {
   const total = rupees(visit.amountPaise + (withBill ? final.amountPaise : 0n));
   const technician = rupees(part('VISIT_SHARE') + part('LABOUR_SHARE'));
   const parts = rupees(part('MATERIAL_REIMBURSE'));
+  // A trainee on the job is paid unless the technician said they did not help, or the job ended without a repair.
+  const trainee = b.traineeId && b.traineeHelped !== false && withBill ? (shares.apprenticeShareRupees ?? 0) : 0;
   return {
     total,
     technician,
     parts,
-    housefi: total - technician - parts,
+    housefi: total - technician - parts - trainee,
+    trainee,
     coupon: withBill ? rupees(final.discountPaise) : 0,
     labourSharePercent: shares.labourSharePercent,
     withBill,

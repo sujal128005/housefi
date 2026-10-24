@@ -40,6 +40,8 @@ export const NewBooking = z
     addressId: z.string().max(64),
     time: VisitTime,
     preferWomenRated: z.boolean(),
+    /** Apprentice mode: a trainee may come along with the technician (supervised, ID-checked, no extra cost). */
+    allowTrainee: z.boolean().optional(),
     /** "Book the same technician again": the customer's earlier, finished booking whose technician is asked first. */
     repeatOf: z.uuid().optional(),
   })

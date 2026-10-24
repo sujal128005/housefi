@@ -891,6 +891,116 @@ paths:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AadhaarResult' } } } }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /tech/apprentice:
+    get:
+      tags: [technician, apprentice]
+      summary: "Apprentice mode: what the technician can learn or teach, their mentor or apprentices, and trainee jobs (no-store)"
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApprenticeOverview' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /tech/apprentice/mentors:
+    get:
+      tags: [technician, apprentice]
+      summary: Mentors open to teaching this trade in the same district, with room for an apprentice
+      parameters:
+        - { name: categoryId, in: query, required: true, schema: { $ref: '#/components/schemas/CategoryId' } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ApprenticePerson' } } } } }
+  /tech/apprentice/requests:
+    post:
+      tags: [technician, apprentice]
+      summary: Ask a mentor to teach a trade not passed yet (one open request or apprenticeship at a time; 409 otherwise)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [mentorId, categoryId], properties: { mentorId: { type: string }, categoryId: { $ref: '#/components/schemas/CategoryId' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApprenticeOverview' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/apprentice/requests/{linkId}/answer:
+    post:
+      tags: [technician, apprentice]
+      summary: The mentor accepts or declines (409 when they already teach MENTOR_MAX_APPRENTICES)
+      parameters:
+        - { name: linkId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [accept], properties: { accept: { type: boolean } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApprenticeOverview' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/apprentice/links/{linkId}/end:
+    post:
+      tags: [technician, apprentice]
+      summary: Either side ends the apprenticeship (or takes back a request); upcoming jobs together lose the trainee
+      parameters:
+        - { name: linkId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApprenticeOverview' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /tech/apprentice/mentoring:
+    put:
+      tags: [technician, apprentice]
+      summary: Offer (or stop offering) to teach apprentices; 409 when not qualified (a passed trade, skilled level, rating 4+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [open], properties: { open: { type: boolean } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/ApprenticeOverview' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/jobs/{jobId}/trainee:
+    post:
+      tags: [technician, apprentice]
+      summary: Bring an active apprentice (same trade) on a job whose customer agreed, before arriving
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [apprenticeId], properties: { apprenticeId: { type: string } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [technician, apprentice]
+      summary: Take the trainee off the job (before arriving)
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /tech/jobs/{jobId}/trainee/confirm:
+    post:
+      tags: [technician, apprentice]
+      summary: After the job, did the trainee help? Yes on a completed repair credits APPRENTICE_SHARE_RUPEES (paid by Housefi), once
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [helped], properties: { helped: { type: boolean } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /bookings/{bookingId}/trainee/decline:
+    post:
+      tags: [bookings, apprentice]
+      summary: "Not today: no trainee on this visit (until the technician arrives)"
+      parameters:
+        - { name: bookingId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
+        '409': { $ref: '#/components/responses/Error' }
   /tech/passport:
     get:
       tags: [technician, identity]
@@ -1734,6 +1844,7 @@ components:
         addressId: { type: string }
         time: { $ref: '#/components/schemas/VisitTime' }
         preferWomenRated: { type: boolean }
+        allowTrainee: { type: boolean, description: "Apprentice mode: a trainee may come along (supervised, ID-checked, no extra cost). Default false" }
         repeatOf: { type: string, format: uuid, description: "Book the same technician again: the customer's own earlier booking (completed, or closed without a repair) whose technician is offered the job first. If they decline or miss it, the search goes on as usual." }
     PaymentMethod: { type: string, enum: [UPI, CARD, NETBANKING, CASH] }
     Payment:
@@ -1985,6 +2096,8 @@ components:
         warrantyUntil: { type: [integer, 'null'], description: Until when a free revisit can be asked for (completed jobs) }
         warrantyClaim: { oneOf: [{ type: object, required: [id, code], properties: { id: { type: string }, code: { type: string } } }, { type: 'null' }] }
         fairPay: { oneOf: [{ $ref: '#/components/schemas/FairPay' }, { type: 'null' }], description: Where the customer's money goes; null before the visit fee is paid }
+        allowTrainee: { type: boolean }
+        trainee: { oneOf: [{ $ref: '#/components/schemas/Trainee' }, { type: 'null' }], description: "The technician's apprentice on this visit" }
     TechProfileInput:
       type: object
       required: [name, gender, experienceYears, skills, pincode, vehicle]
@@ -2333,18 +2446,90 @@ components:
     FairPay:
       type: object
       description: >-
-        Fair-pay meter, in rupees. total = technician + parts + housefi. The technician's part uses the same rules as
-        their earnings (visit share + labour share); parts are paid back to the technician in full; a coupon is paid
-        by Housefi (housefi can be below 0). No tax line (no GST charged).
-      required: [total, technician, parts, housefi, coupon, labourSharePercent, withBill]
+        Fair-pay meter, in rupees. total = technician + parts + housefi + trainee. The technician's part uses the same
+        rules as their earnings (visit share + labour share); parts are paid back to the technician in full; a coupon
+        and a trainee's pay come from Housefi's part (housefi can be below 0). No tax line (no GST charged).
+      required: [total, technician, parts, housefi, trainee, coupon, labourSharePercent, withBill]
       properties:
         total: { type: integer, description: Visit fee + bill after any coupon }
         technician: { type: integer }
         parts: { type: integer }
         housefi: { type: integer }
+        trainee: { type: integer, description: "Apprentice mode: the trainee's pay, from Housefi's part (0 without one)" }
         coupon: { type: integer }
         labourSharePercent: { type: integer }
         withBill: { type: boolean, description: False while only the visit fee is paid }
+    Trainee:
+      type: object
+      required: [id, name, gender, techCode, photo]
+      properties:
+        id: { type: string }
+        name: { type: string, description: First name and last initial }
+        gender: { type: string, enum: [M, F] }
+        techCode: { type: string }
+        photo: { type: [string, 'null'] }
+    ApprenticePerson:
+      type: object
+      required: [id, name, photo, techCode, rating, jobsDone, level, phone]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        photo: { type: [string, 'null'] }
+        techCode: { type: string }
+        rating: { type: [number, 'null'] }
+        jobsDone: { type: integer }
+        level: { oneOf: [{ $ref: '#/components/schemas/SkillLevel' }, { type: 'null' }] }
+        phone: { type: [string, 'null'], description: Only once the apprenticeship is active }
+    ApprenticeLink:
+      type: object
+      required: [id, categoryId, state, at, other]
+      properties:
+        id: { type: string }
+        categoryId: { $ref: '#/components/schemas/CategoryId' }
+        state: { type: string, enum: [REQUESTED, ACTIVE, DECLINED, ENDED] }
+        at: { $ref: '#/components/schemas/EpochMs' }
+        other: { $ref: '#/components/schemas/ApprenticePerson' }
+    TraineeJob:
+      type: object
+      required: [id, code, serviceId, categoryId, status, time, address, mentor, helped, earning]
+      properties:
+        id: { type: string }
+        code: { type: string }
+        serviceId: { type: string }
+        categoryId: { $ref: '#/components/schemas/CategoryId' }
+        status: { type: string }
+        time: { type: object }
+        address: { type: [object, 'null'], description: While the job is on (and a day after) }
+        mentor: { type: object, required: [name, phone], properties: { name: { type: string }, phone: { type: string } } }
+        helped: { type: [boolean, 'null'] }
+        earning: { type: integer }
+    ApprenticeOverview:
+      type: object
+      required: [shareRupees, jobsTarget, learner, mentor]
+      properties:
+        shareRupees: { type: integer }
+        jobsTarget: { type: integer, description: Helped jobs in a trade before the skill exam is suggested }
+        learner:
+          type: object
+          required: [eligible, block, trades, link, helped, jobs]
+          properties:
+            eligible: { type: boolean }
+            block: { type: [string, 'null'], description: "IDENTITY, NOT_ACTIVE or NO_TRADE when not eligible" }
+            trades: { type: array, items: { $ref: '#/components/schemas/CategoryId' }, description: Trades not passed yet }
+            link: { oneOf: [{ $ref: '#/components/schemas/ApprenticeLink' }, { type: 'null' }] }
+            helped:
+              type: array
+              items: { type: object, required: [categoryId, jobs], properties: { categoryId: { $ref: '#/components/schemas/CategoryId' }, jobs: { type: integer } } }
+            jobs: { type: array, items: { $ref: '#/components/schemas/TraineeJob' } }
+        mentor:
+          type: object
+          required: [trades, open, max, requests, apprentices]
+          properties:
+            trades: { type: array, items: { $ref: '#/components/schemas/CategoryId' }, description: Trades they may teach }
+            open: { type: boolean }
+            max: { type: integer }
+            requests: { type: array, items: { $ref: '#/components/schemas/ApprenticeLink' } }
+            apprentices: { type: array, items: { $ref: '#/components/schemas/ApprenticeLink' } }
     Job:
       type: object
       required: [id, code, serviceId, categoryId, problem, customerName, address, maskedPhone, time, status, quote, extraQuote, visitPayment,
@@ -2376,6 +2561,13 @@ components:
         demo: { type: boolean }
         warrantyOf: { type: [string, 'null'], description: A free warranty revisit of that booking (fix at no charge, or quote for a new problem) }
         fairPay: { oneOf: [{ $ref: '#/components/schemas/FairPay' }, { type: 'null' }], description: The same split the customer sees }
+        allowTrainee: { type: boolean }
+        trainee:
+          oneOf:
+            - allOf:
+                - { $ref: '#/components/schemas/Trainee' }
+                - { type: object, required: [helped], properties: { helped: { type: [boolean, 'null'], description: "The technician's answer after the job" } } }
+            - { type: 'null' }
     QuoteInput:
       type: object
       required: [which, diagnosis, lines]
@@ -2596,7 +2788,7 @@ components:
                  NO_TECHNICIAN, JOB_OFFER, QUOTE_APPROVED, QUOTE_REVISION, QUOTE_DECLINED, EXTRA_APPROVED, EXTRA_DECLINED, PAYMENT_RECEIVED,
                  JOB_CANCELLED, PROFILE_APPROVED, PROFILE_NEEDS_CORRECTION, PAY_REMINDER, BOOKING_REMINDER, JOB_REMINDER, QUOTE_REMINDER,
                  RATE_REMINDER, PROFILE_SUSPENDED, PROFILE_REINSTATED, PROFILE_REJECTED, BOOKING_TOMORROW, JOB_TOMORROW, JOB_DAY_PLAN,
-                 CHAT_MESSAGE, SUPPORT_REPLY, ANNOUNCEMENT]
+                 CHAT_MESSAGE, SUPPORT_REPLY, ANNOUNCEMENT, APPRENTICE_REQUEST, APPRENTICE_ACCEPTED, TRAINEE_JOB, TRAINEE_REMOVED]
           description: >-
             Reminders: PAY_REMINDER {code, minutes} 10 min before an unpaid booking expires; BOOKING_REMINDER / JOB_REMINDER
             {code, startHour} an hour before a scheduled visit; BOOKING_TOMORROW / JOB_TOMORROW {code, startHour, endHour}

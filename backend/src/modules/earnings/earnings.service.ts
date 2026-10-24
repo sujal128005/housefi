@@ -12,7 +12,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** The earnings screen lists this many of the latest jobs. */
 export const EARNINGS_ENTRIES_LIMIT = 50;
 /** What a job earns (credits); cash collected and payouts are what is netted against them. */
-const JOB_CREDITS = Prisma.sql`('VISIT_SHARE', 'LABOUR_SHARE', 'MATERIAL_REIMBURSE')`;
+const JOB_CREDITS = Prisma.sql`('VISIT_SHARE', 'LABOUR_SHARE', 'MATERIAL_REIMBURSE', 'APPRENTICE_SHARE')`;
 
 /** openapi.yaml Earnings. Whole rupees. */
 export interface EarningsDto {

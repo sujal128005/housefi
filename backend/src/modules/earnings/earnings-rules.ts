@@ -6,6 +6,8 @@ import { istDate, windowStartMs } from '../slots/slot-rules';
 export interface Shares {
   readonly visitShareRupees: number;
   readonly labourSharePercent: number;
+  /** Apprentice mode: what Housefi pays an apprentice who helped (not part of the technician's credits). */
+  readonly apprenticeShareRupees?: number;
 }
 
 export interface ApprovedAmounts {
