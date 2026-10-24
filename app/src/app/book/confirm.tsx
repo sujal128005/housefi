@@ -155,7 +155,7 @@ export default function ConfirmStep() {
 
       <Tap onPress={() => setAllowTrainee(!draft.allowTrainee)} style={[styles.pref, draft.allowTrainee && styles.prefOn]} testID="pref-trainee"
         accessibilityRole="switch" accessibilityState={{ checked: draft.allowTrainee }} accessibilityLabel={t('confirm.trainee')} scale={0.99}>
-        <Art3D name="handshake" size={52} />
+        <Art3D name="tech_hero" size={52} />
         <View style={styles.flex}>
           <View style={styles.prefTitle}>
             <Txt variant="bodyStrong" style={styles.shrink}>{t('confirm.trainee')}</Txt>

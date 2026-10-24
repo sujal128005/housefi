@@ -64,7 +64,7 @@ export default function Apprentice() {
 
   return (
     <Screen testID="tech-apprentice" header={<Header title={t('appr.title')} onBack={() => router.back()} />}>
-      <View style={styles.hero}><Art3D name="handshake" size={96} float /></View>
+      <View style={styles.hero}><Art3D name="tech_hero" size={96} float /></View>
       <Txt variant="callout" color="inkMuted" align="center">{t('appr.intro', { amount: formatRupees(o.shareRupees) })}</Txt>
       <ErrorBanner error={error} />
 
