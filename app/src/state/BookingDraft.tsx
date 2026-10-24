@@ -4,7 +4,7 @@
 // session ended keeps it.
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useAppState } from './AppState';
-import type { PaymentMethod, Photo, ProblemDescription, VisitTime, VoiceNote } from '../domain/types';
+import type { PaymentMethod, Photo, ProblemDescription, VisitTime, VisitWindow, VoiceNote } from '../domain/types';
 
 export const MAX_PHOTOS = 4;
 
@@ -16,6 +16,8 @@ export interface Draft {
   readonly preferWomenRated: boolean;
   /** Apprentice mode: a trainee may come along. */
   readonly allowTrainee: boolean;
+  /** Society repair day: this flat joins the building's day (its window and its lower visit fee). */
+  readonly society: { readonly code: string; readonly name: string; readonly visitFee: number } | null;
   readonly method: PaymentMethod;
   /** "Book the same technician again": the earlier booking and its technician's name (asked first). */
   readonly repeat: { readonly bookingId: string; readonly name: string } | null;
@@ -35,6 +37,7 @@ interface DraftActions {
   readonly setTime: (t: VisitTime | null) => void;
   readonly setPreferWomenRated: (v: boolean) => void;
   readonly setAllowTrainee: (v: boolean) => void;
+  readonly startSociety: (s: { readonly serviceId: string; readonly code: string; readonly name: string; readonly visitFee: number; readonly window: VisitWindow }) => void;
   readonly setMethod: (m: PaymentMethod) => void;
   /** After a booking is placed: keeps the address and payment method for the next one. */
   readonly clear: () => void;
@@ -47,7 +50,7 @@ interface DraftValue extends DraftActions {
 }
 
 const EMPTY_PROBLEM: ProblemDescription = { issueIds: [], notes: '', voiceNote: null, photos: [] };
-const EMPTY: Draft = { serviceId: null, problem: EMPTY_PROBLEM, addressId: null, time: null, preferWomenRated: false, allowTrainee: false, method: 'UPI', repeat: null };
+const EMPTY: Draft = { serviceId: null, problem: EMPTY_PROBLEM, addressId: null, time: null, preferWomenRated: false, allowTrainee: false, society: null, method: 'UPI', repeat: null };
 
 const Ctx = createContext<DraftValue | null>(null);
 
@@ -87,6 +90,8 @@ export function BookingDraftProvider({ children }: { readonly children: ReactNod
       setTime: (time) => setDraft((d) => ({ ...d, time })),
       setPreferWomenRated: (preferWomenRated) => setDraft((d) => ({ ...d, preferWomenRated })),
       setAllowTrainee: (allowTrainee) => setDraft((d) => ({ ...d, allowTrainee })),
+      startSociety: ({ serviceId, code, name, visitFee, window }) =>
+        setDraft((d) => ({ ...EMPTY, serviceId, addressId: d.addressId, method: d.method, society: { code, name, visitFee }, time: { mode: 'SCHEDULED', window } })),
       setMethod: (method) => setDraft((d) => ({ ...d, method })),
       clear: () => setDraft((d) => ({ ...EMPTY, addressId: d.addressId, method: d.method })),
       reset: () => setDraft(EMPTY),

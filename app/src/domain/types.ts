@@ -297,6 +297,8 @@ export interface Booking {
   readonly allowTrainee?: boolean;
   /** The technician's apprentice on this visit. */
   readonly trainee?: Trainee | null;
+  /** Society repair day: the building's shared day this flat belongs to. */
+  readonly society?: SocietyRef | null;
 }
 
 export interface Customer {
@@ -716,6 +718,35 @@ export interface QuoteCheckResult {
   readonly lines: readonly (QuoteCheckLine & { readonly listPrice: number | null; readonly overList: number })[];
 }
 
+export type SocietyDayState = 'OPEN' | 'CONFIRMED' | 'ASSIGNED' | 'CANCELLED';
+
+export interface SocietyRef {
+  readonly code: string;
+  readonly name: string;
+  readonly state: SocietyDayState;
+}
+
+/** Society repair day: one technician for the whole building on one day, a lower visit fee per flat. */
+export interface SocietyDay {
+  readonly code: string;
+  readonly name: string;
+  readonly categoryId: CategoryId;
+  readonly area: { readonly locality: string; readonly city: string; readonly pincode: string };
+  readonly time: { readonly mode: 'SCHEDULED'; readonly window: VisitWindow };
+  readonly state: SocietyDayState;
+  /** Flats with the visit fee paid. */
+  readonly flats: number;
+  readonly joined: number;
+  readonly minFlats: number;
+  readonly maxFlats: number;
+  readonly visitFee: number;
+  readonly usualVisitFee: number;
+  readonly cutoffAt: number;
+  readonly organiser: boolean;
+  readonly myBookingId: string | null;
+  readonly technician: { readonly name: string } | null;
+}
+
 /** Apprentice mode: the technician's apprentice on a visit. */
 export interface Trainee {
   readonly id: string;
@@ -837,6 +868,8 @@ export interface Job {
   readonly allowTrainee?: boolean;
   /** The technician's apprentice on this job; helped: the technician's answer after the job. */
   readonly trainee?: (Trainee & { readonly helped: boolean | null }) | null;
+  /** Society repair day: one of the building's flats (the same technician does them all). */
+  readonly society?: SocietyRef | null;
 }
 
 /** A part on Housefi's price list (standard price for the trade). */

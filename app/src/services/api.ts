@@ -2,7 +2,7 @@
 // (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
 // build of the app uses it.
 import type {
-  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, ApprenticeOverview, ApprenticePerson, MyPassport, QuoteCheckLine, QuoteCheckResult, QuoteRead, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
+  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, ApprenticeOverview, ApprenticePerson, MyPassport, SocietyDay, VisitWindow, QuoteCheckLine, QuoteCheckResult, QuoteRead, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
   Greeting, Locality, NearPlace, PincodePlaces,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
@@ -116,6 +116,8 @@ export interface NewBooking {
   readonly preferWomenRated: boolean;
   /** Apprentice mode: a trainee may come along with the technician. */
   readonly allowTrainee?: boolean;
+  /** Society repair day: the code of the building's day this flat joins. */
+  readonly societyCode?: string;
   /** "Book the same technician again": the customer's earlier finished booking; its technician is asked first. */
   readonly repeatOf?: string;
 }
@@ -149,6 +151,12 @@ export interface BookingApi {
   cancel(token: string, id: string, reason: CancelReason | null): Promise<Booking>;
   /** Apprentice mode: "not today", no trainee on this visit (until the technician arrives). */
   declineTrainee(token: string, id: string): Promise<Booking>;
+  /** Society repair day: plans a day for the building (the organiser's address gives the area). */
+  planSociety(token: string, input: { readonly name: string; readonly categoryId: CategoryId; readonly addressId: string; readonly window: VisitWindow }): Promise<SocietyDay>;
+  /** A society day by its code (NOT_FOUND for an unknown code). */
+  society(token: string, code: string): Promise<SocietyDay>;
+  /** Days the customer planned or joined. */
+  mySocieties(token: string): Promise<readonly SocietyDay[]>;
   reschedule(token: string, id: string, time: VisitTime): Promise<Booking>;
   /**
    * Answer the repair quote (MAIN) or the extra work found during the repair (EXTRA). REVISION asks the technician for

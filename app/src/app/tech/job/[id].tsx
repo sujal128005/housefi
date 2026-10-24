@@ -291,6 +291,7 @@ export default function JobScreen() {
       ) : null}
       {['PAYMENT_DUE', 'COMPLETED'].includes(j.status) ? <FairPayMeter split={j.fairPay} viewer="technician" /> : null}
 
+      {j.society ? <Banner tone="info" icon="business-outline" text={t('tj.society', { name: j.society.name })} testID="tj-society" /> : null}
       <TraineePanel job={j} onChange={setJob} />
 
       <ErrorBanner error={error} />

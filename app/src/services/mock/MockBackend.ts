@@ -1174,6 +1174,17 @@ export function createMockBackend(opts: MockOptions): Backend {
         return store(list, index, nb);
       },
 
+      // Society repair day: the test double has none (the live server runs them).
+      async planSociety() {
+        throw new ApiError('CONFLICT');
+      },
+      async society() {
+        throw new ApiError('NOT_FOUND');
+      },
+      async mySocieties() {
+        return [];
+      },
+
       async declineTrainee(token, bookingId) {
         await request('WRITE');
         const { list, index, b } = await touch(token, bookingId);

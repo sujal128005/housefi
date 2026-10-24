@@ -324,7 +324,8 @@ export class PaymentsService {
         if (waiting && paidBefore === 0) {
           // VISIT: the booking is confirmed and the search starts. FINAL: completed (the transition writes the earnings).
           if (p.kind === 'VISIT') {
-            await this.core.transition(tx, b, 'MATCHING', { matchingStartedAt: now }, SYSTEM, { paymentId: p.id });
+            // A society flat waits for its day to be confirmed (society.worker): no search of its own yet.
+            await this.core.transition(tx, b, 'MATCHING', { matchingStartedAt: b.societyDayId ? null : now }, SYSTEM, { paymentId: p.id });
             return { ...done, outcome, changed: true, startedMatching: true };
           }
           await this.core.transition(tx, b, 'COMPLETED', {}, SYSTEM, { paymentId: p.id });

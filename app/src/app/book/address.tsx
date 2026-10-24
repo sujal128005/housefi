@@ -37,7 +37,7 @@ export default function AddressStep() {
     <Screen
       testID="book-address"
       header={<StepHeader step={2} />}
-      footer={<Button label={t('address.use')} trailingIcon="arrow-forward" disabled={!chosen} onPress={() => router.push('/book/when')} testID="address-next" />}
+      footer={<Button label={t('address.use')} trailingIcon="arrow-forward" disabled={!chosen} onPress={() => router.push(draft.society ? '/book/confirm' : '/book/when')} testID="address-next" />}
     >
       <View style={styles.head}>
         <View style={styles.flex}>

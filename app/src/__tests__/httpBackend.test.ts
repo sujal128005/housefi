@@ -387,6 +387,24 @@ describe('live client: apprentice mode', () => {
   });
 });
 
+describe('live client: society repair day', () => {
+  const DAY = { code: 'K7Q2MX', name: 'Lotus Residency', categoryId: 'PLUMBING', area: { locality: 'Banjara Hills', city: 'Hyderabad', pincode: '500034' }, time: { mode: 'SCHEDULED', window: { date: '2026-10-22', startHour: 10, endHour: 12 } }, state: 'OPEN', flats: 1, joined: 2, minFlats: 4, maxFlats: 20, visitFee: 25, usualVisitFee: 49, cutoffAt: 1, organiser: true, myBookingId: null, technician: null };
+
+  it('plans a day, reads it by code (upper case), and books a flat with the code', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['POST /society-days'] = () => json(201, DAY);
+    const window = { date: '2026-10-22', startHour: 10, endHour: 12 };
+    expect((await t.backend.bookings.planSociety(s.token, { name: 'Lotus Residency', categoryId: 'PLUMBING', addressId: 'ad1', window })).code).toBe('K7Q2MX');
+    expect(t.calls.at(-1)).toMatchObject({ method: 'POST', url: '/society-days', body: { name: 'Lotus Residency', categoryId: 'PLUMBING', addressId: 'ad1', window } });
+    t.routes['GET /society-days/K7Q2MX'] = () => json(200, DAY);
+    expect((await t.backend.bookings.society(s.token, ' k7q2mx ')).flats).toBe(1);
+    const input = { serviceId: 'plumb-tap', addressId: 'ad1', time: { mode: 'SCHEDULED' as const, window }, preferWomenRated: false, problem: { issueIds: ['tap-leak'], notes: '', voiceNote: null, photos: [] }, societyCode: 'K7Q2MX' };
+    await t.backend.bookings.create(s.token, input, 'idem-society-1');
+    expect(t.calls.filter((c) => c.url === '/bookings').at(-1)?.body).toMatchObject({ societyCode: 'K7Q2MX', time: { mode: 'SCHEDULED', window } });
+  });
+});
+
 describe('live client: payout details', () => {
   it('reads "not added yet" as null, and saves the details with PUT', async () => {
     const t = setup();

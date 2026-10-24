@@ -56,6 +56,8 @@ export default function ConfirmStep() {
   const extras = [p.voiceNote ? t('summary.voice') : null, p.photos.length > 0 ? `${t('summary.photos')} ${p.photos.length}` : null].filter(Boolean).join(' · ');
   const problemText = [issues.join(', '), p.voiceNote?.transcript ?? '', p.notes.trim()].filter((x) => x.length > 0).join(' · ') || extras;
   const time = draft.time;
+  // A society flat pays the day's lower visit fee.
+  const visitFee = draft.society?.visitFee ?? svc.visitFee;
   const addressId = draft.addressId;
   const slotTaken = isApiError(error, 'SLOT_UNAVAILABLE') || isApiError(error, 'INSTANT_UNAVAILABLE');
 
@@ -69,7 +71,7 @@ export default function ConfirmStep() {
         if (existing.status !== 'AWAITING_PAYMENT') bookingId = null;
       }
       if (!bookingId) {
-        const input = { serviceId: svc.id, problem: p, addressId, time, preferWomenRated: draft.preferWomenRated, allowTrainee: draft.allowTrainee, ...(draft.repeat ? { repeatOf: draft.repeat.bookingId } : {}) };
+        const input = { serviceId: svc.id, problem: p, addressId, time, preferWomenRated: draft.preferWomenRated, allowTrainee: draft.allowTrainee, ...(draft.society ? { societyCode: draft.society.code } : {}), ...(draft.repeat ? { repeatOf: draft.repeat.bookingId } : {}) };
         const b = await backend.bookings.create(session.token, input, createKeys.keyFor(JSON.stringify(input)));
         createKeys.settle();
         // The customer left while the booking was being created: withdraw it at once, and stay where they went.
@@ -110,9 +112,9 @@ export default function ConfirmStep() {
           <View style={styles.footer}>
             <View>
               <Txt variant="caption" color="inkMuted">{t('confirm.payNow')}</Txt>
-              <Txt variant="title2">{formatRupees(svc.visitFee)}</Txt>
+              <Txt variant="title2">{formatRupees(visitFee)}</Txt>
             </View>
-            <Button label={t('confirm.pay', { amount: formatRupees(svc.visitFee) })} icon="lock-closed" onPress={() => void pay()} loading={busy} disabled={slotTaken} style={styles.flex} testID="review-confirm" />
+            <Button label={t('confirm.pay', { amount: formatRupees(visitFee) })} icon="lock-closed" onPress={() => void pay()} loading={busy} disabled={slotTaken} style={styles.flex} testID="review-confirm" />
           </View>
         </>
       }
@@ -133,12 +135,13 @@ export default function ConfirmStep() {
           <Txt variant="callout">{address ? `${t(`address.label.${address.label}`)} · ${addressLine(address)}, ${address.city}` : '…'}</Txt>
         </Row>
         <Divider />
-        <Row icon="calendar-outline" label={t('review.when')} onEdit={() => router.navigate('/book/when')} testID="review-edit-time">
+        <Row icon="calendar-outline" label={t('review.when')} onEdit={draft.society ? undefined : () => router.navigate('/book/when')} testID="review-edit-time">
           <Txt variant="callout" testID="review-when">{visitTimeText(time, locale, t)}</Txt>
         </Row>
       </Card>
 
       {draft.repeat ? <Banner tone="info" icon="person-circle-outline" text={t('confirm.repeat', { name: draft.repeat.name })} testID="confirm-repeat" /> : null}
+      {draft.society ? <Banner tone="success" icon="business-outline" text={t('confirm.society', { name: draft.society.name, fee: formatRupees(draft.society.visitFee) })} testID="confirm-society" /> : null}
 
       <Tap onPress={() => setPreferWomenRated(!draft.preferWomenRated)} style={[styles.pref, draft.preferWomenRated && styles.prefOn]} testID="pref-women"
         accessibilityRole="switch" accessibilityState={{ checked: draft.preferWomenRated }} accessibilityLabel={t('confirm.women')} scale={0.99}>
@@ -171,7 +174,7 @@ export default function ConfirmStep() {
           <Txt variant="title3" heading style={styles.flex}>{t('review.price')}</Txt>
           {isDemo ? <Pill label={t('review.demoPrices')} tone="demo" icon="flask" /> : null}
         </View>
-        <PriceLine label={t('confirm.visitFee')} value={formatRupees(svc.visitFee)} strong />
+        <PriceLine label={t('confirm.visitFee')} value={formatRupees(visitFee)} strong />
         <PriceLine label={t('confirm.repair')} value={t('confirm.repairValue', { min: formatRupees(QUOTE_MIN) })} muted />
         <View style={styles.notes}>
           <Good art="check" text={t('confirm.n1')} />
@@ -200,7 +203,7 @@ export default function ConfirmStep() {
   );
 }
 
-function Row({ icon, label, onEdit, children, testID }: { readonly icon: IconName; readonly label: string; readonly onEdit: () => void; readonly children: ReactNode; readonly testID?: string }) {
+function Row({ icon, label, onEdit, children, testID }: { readonly icon: IconName; readonly label: string; readonly onEdit: (() => void) | undefined; readonly children: ReactNode; readonly testID?: string }) {
   const { t } = useI18n();
   return (
     <View style={styles.row}>
@@ -209,9 +212,12 @@ function Row({ icon, label, onEdit, children, testID }: { readonly icon: IconNam
         <Txt variant="caption" color="inkMuted">{label}</Txt>
         {children}
       </View>
-      <Tap onPress={onEdit} style={styles.edit} accessibilityLabel={`${t('common.edit')} ${label}`} testID={testID}>
-        <Txt variant="label" color="blue">{t('common.edit')}</Txt>
-      </Tap>
+      {/* A society flat's time is the day's: not editable. */}
+      {onEdit ? (
+        <Tap onPress={onEdit} style={styles.edit} accessibilityLabel={`${t('common.edit')} ${label}`} testID={testID}>
+          <Txt variant="label" color="blue">{t('common.edit')}</Txt>
+        </Tap>
+      ) : null}
     </View>
   );
 }

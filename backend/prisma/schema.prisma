@@ -69,6 +69,7 @@ model User {
   tickets        SupportTicket[]
   coordinated    Technician[]    @relation("TechnicianCoordinator")
   supportThreads SupportThread[]
+  societyDays    SocietyDay[]    @relation("SocietyDayOrganiser")
 
   @@unique([role, phoneHash])
   @@map("users")
@@ -350,6 +351,8 @@ model Booking {
   traineeAddedAt        DateTime?                              @map("trainee_added_at") @db.Timestamptz(6)
   /// The technician's answer after the job: the trainee came and helped (credits the apprentice share) or not.
   traineeHelped         Boolean?                               @map("trainee_helped")
+  /// Society repair day: this flat's booking belongs to a building's shared day (one technician, a lower visit fee).
+  societyDayId          String?                                @map("society_day_id") @db.Uuid
   /// Made by a team demo account: simulated payments, demo technicians only, no payouts.
   isDemo                Boolean                                @default(false) @map("is_demo")
   status                BookingStatus
@@ -388,6 +391,7 @@ model Booking {
   technician          Technician?         @relation("BookingTechnician", fields: [technicianId], references: [userId])
   preferredTechnician Technician?         @relation("BookingPreferredTechnician", fields: [preferredTechnicianId], references: [userId], onDelete: SetNull)
   trainee             Technician?         @relation("BookingTrainee", fields: [traineeId], references: [userId], onDelete: SetNull)
+  societyDay          SocietyDay?         @relation("SocietyDayFlats", fields: [societyDayId], references: [id])
   events              BookingEvent[]
   payments            Payment[]
   offers              JobOffer[]
@@ -412,6 +416,7 @@ model Booking {
   @@index([status, windowDate])
   @@index([categoryId, pincode, windowDate, windowStartHour])
   @@index([traineeId])
+  @@index([societyDayId])
   @@map("bookings")
 }
 
@@ -642,6 +647,7 @@ model Technician {
   bookings          Booking[]                @relation("BookingTechnician")
   preferredIn       Booking[]                @relation("BookingPreferredTechnician")
   traineeIn         Booking[]                @relation("BookingTrainee")
+  societyDays       SocietyDay[]             @relation("SocietyDayTechnician")
   apprenticeLinks   ApprenticeLink[]         @relation("ApprenticeLinkApprentice")
   mentorLinks       ApprenticeLink[]         @relation("ApprenticeLinkMentor")
   offers            JobOffer[]
@@ -660,6 +666,54 @@ model Technician {
   @@index([pincode, online, verification])
   @@index([verification, submittedAt])
   @@map("technicians")
+}
+
+// ---------- society repair day ----------
+
+enum SocietyDayState {
+  /// Collecting flats until the cutoff (the evening before).
+  OPEN
+  /// Enough flats paid by the cutoff: the first flat is offered to technicians.
+  CONFIRMED
+  /// A technician accepted: every paid flat is theirs.
+  ASSIGNED
+  /// Too few flats by the cutoff, or no technician: every flat cancelled and refunded.
+  CANCELLED
+
+  @@map("society_day_state")
+}
+
+/// An apartment society books one technician for the whole building on one day; each flat pays a lower visit fee.
+model SocietyDay {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Shared in the society's group so neighbours can join (6 characters, no look-alike letters).
+  code            String          @unique
+  organiserId     String          @map("organiser_id") @db.Uuid
+  /// The society or building name the organiser typed.
+  name            String
+  categoryId      CategoryId      @map("category_id")
+  city            String
+  locality        String
+  pincode         String          @db.Char(6)
+  windowDate      DateTime        @map("window_date") @db.Date
+  windowStartHour Int             @map("window_start_hour") @db.SmallInt
+  windowEndHour   Int             @map("window_end_hour") @db.SmallInt
+  state           SocietyDayState @default(OPEN)
+  /// The flat offered to technicians once confirmed; accepting it takes every paid flat.
+  leadBookingId   String?         @unique @map("lead_booking_id") @db.Uuid
+  technicianId    String?         @map("technician_id") @db.Uuid
+  /// Made by a team demo account (only demo accounts can join it).
+  isDemo          Boolean         @default(false) @map("is_demo")
+  createdAt       DateTime        @map("created_at") @db.Timestamptz(6)
+  decidedAt       DateTime?       @map("decided_at") @db.Timestamptz(6)
+
+  organiser  User        @relation("SocietyDayOrganiser", fields: [organiserId], references: [id], onDelete: Cascade)
+  technician Technician? @relation("SocietyDayTechnician", fields: [technicianId], references: [userId], onDelete: SetNull)
+  flats      Booking[]   @relation("SocietyDayFlats")
+
+  @@index([state, windowDate])
+  @@index([organiserId])
+  @@map("society_days")
 }
 
 // ---------- apprentice mode ----------

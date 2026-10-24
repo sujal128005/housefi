@@ -6,10 +6,13 @@ import { FieldCipher } from '../../common/crypto/field-cipher';
 import { digestsEqual } from '../../common/crypto/hashing';
 import { AppError } from '../../common/errors/app-error';
 import { PrismaService } from '../../common/prisma/prisma.module';
+import { InjectConfig } from '../../config/config.module';
+import type { Env } from '../../config/env';
 import { type AddressDto, AddressesService } from '../addresses/addresses.service';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { PaymentsService } from '../payments/payments.service';
 import { SlotsService } from '../slots/slots.service';
+import { checkSocietyJoin } from '../society/society-rules';
 import { UploadsService } from '../uploads/uploads.service';
 import { type Actor, BookingCore } from './booking-core';
 import { ACTIVE_STATUSES, CANCELLABLE, REFUND_ON_CANCEL, RESCHEDULABLE } from './booking-status';
@@ -54,6 +57,7 @@ export class BookingsService {
     private readonly core: BookingCore,
     private readonly dispatch: DispatchService,
     private readonly uploads: UploadsService,
+    @InjectConfig() private readonly config: Env,
     @InjectClock() private readonly clock: Clock,
   ) {}
 
@@ -96,7 +100,11 @@ export class BookingsService {
           await tx.$queryRaw`SELECT id FROM users WHERE id = ${customerId}::uuid FOR UPDATE`;
           const unpaid = await tx.booking.count({ where: { customerId, status: 'AWAITING_PAYMENT', createdAt: { gt: this.core.unpaidCutoff() } } });
           if (unpaid >= MAX_UNPAID_BOOKINGS) throw new AppError('CONFLICT', {}, 'pay for or cancel your unpaid booking first');
-          await this.slots.hold(tx, { categoryId: service.categoryId, pincode: address.pincode }, input.time);
+          // A society flat joins its building's day (one technician for all flats): no slot of its own, a lower fee.
+          const society = input.societyCode
+            ? await checkSocietyJoin(tx, { code: input.societyCode, customerId, categoryId: service.categoryId, pincode: address.pincode, isDemo, time: input.time, now: now.getTime() }, this.config)
+            : null;
+          if (!society) await this.slots.hold(tx, { categoryId: service.categoryId, pincode: address.pincode }, input.time);
           const b = await tx.booking.create({
             data: {
               code,
@@ -115,6 +123,7 @@ export class BookingsService {
               ...windowFields(input.time),
               preferWomenRated: input.preferWomenRated,
               allowTrainee: input.allowTrainee ?? false,
+              societyDayId: society?.id ?? null,
               preferredTechnicianId,
               isDemo,
               status: 'AWAITING_PAYMENT',
@@ -126,7 +135,7 @@ export class BookingsService {
             select: { id: true },
           });
           await tx.$executeRaw`UPDATE bookings SET location = (SELECT location FROM addresses WHERE id = ${address.id}::uuid) WHERE id = ${b.id}::uuid`;
-          await this.payments.createDue(tx, b.id, 'VISIT', service.visitFeePaise);
+          await this.payments.createDue(tx, b.id, 'VISIT', society ? BigInt(this.config.SOCIETY_VISIT_FEE_RUPEES) * 100n : service.visitFeePaise);
           await this.uploads.attach(tx, b.id, customerId, photoIds, 'problem.photos');
           if (audio) await this.uploads.attach(tx, b.id, customerId, [audio.id], 'problem.voiceNote.audioId');
           await this.core.event(tx, b.id, 'AWAITING_PAYMENT', actor);

@@ -1,5 +1,5 @@
 // Booking rows -> openapi.yaml Booking, as the customer sees it.
-import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Rating, Technician, TechnicianSkill, Upload, User } from '@prisma/client';
+import type { Booking, BookingEvent, BookingStatus, CancelReason, CategoryId, CloseReason, Payment, Prisma, Rating, SocietyDayState, Technician, TechnicianSkill, Upload, User } from '@prisma/client';
 import { fairPay, type FairPayDto } from '../earnings/fair-pay';
 import type { Shares } from '../earnings/earnings-rules';
 import type { FieldCipher } from '../../common/crypto/field-cipher';
@@ -15,6 +15,8 @@ export type BookingRow = Booking & {
   preferredTechnician: (Technician & { user: User }) | null;
   /** Included by BOOKING_INCLUDE (apprentice mode). */
   trainee?: (Technician & { user: User }) | null;
+  /** Included by BOOKING_INCLUDE (society repair day). */
+  societyDay?: { code: string; name: string; state: SocietyDayState } | null;
   quotes: QuoteRow[];
   rating: Rating | null;
   uploads: Upload[];
@@ -29,6 +31,7 @@ export const BOOKING_INCLUDE = {
   technician: { include: { user: true, skills: true } },
   preferredTechnician: { include: { user: true } },
   trainee: { include: { user: true } },
+  societyDay: { select: { code: true, name: true, state: true } },
   quotes: { include: { lines: true }, orderBy: [{ which: 'asc' }, { version: 'asc' }] },
   rating: true,
   uploads: { where: { state: 'READY' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
@@ -190,6 +193,15 @@ export interface BookingDto {
   readonly allowTrainee: boolean;
   /** The technician's apprentice on this visit, if they bring one. */
   readonly trainee: TraineeDto | null;
+  /** Society repair day: the building's shared day this flat belongs to. */
+  readonly society: SocietyRefDto | null;
+}
+
+/** openapi.yaml SocietyRef. */
+export interface SocietyRefDto {
+  readonly code: string;
+  readonly name: string;
+  readonly state: SocietyDayState;
 }
 
 export interface TripLocationDto {
@@ -295,5 +307,6 @@ export async function toBookingDto(b: BookingRow, cipher: FieldCipher, media: Ph
     fairPay: shares ? fairPay(shares, b) : null,
     allowTrainee: b.allowTrainee,
     trainee: b.trainee ? await traineeDto(b.trainee, cipher, media) : null,
+    society: b.societyDay ?? null,
   };
 }
