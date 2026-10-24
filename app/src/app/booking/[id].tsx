@@ -252,6 +252,11 @@ export default function BookingHub() {
       {showOtp ? <ArrivalOtpCard code={b.arrivalOtp} highlight={b.status === 'ARRIVED'} /> : null}
 
       {b.technician && !['CANCELLED', 'UNFULFILLED'].includes(b.status) ? <TechnicianCard tech={b.technician} booking={b} /> : null}
+      {b.society ? (
+        <Banner tone={b.society.state === 'CANCELLED' ? 'warning' : 'info'} icon="business-outline" testID="hub-society"
+          text={t(b.society.state === 'OPEN' ? 'hub.societyOpen' : b.society.state === 'CANCELLED' ? 'hub.societyCancelled' : 'hub.societyOn', { name: b.society.name })}
+          action={t('hub.societyOpenDay')} onAction={() => router.push(`/society/${b.society!.code}`)} />
+      ) : null}
       {b.trainee && b.technician && !['CANCELLED', 'UNFULFILLED', 'COMPLETED', 'CLOSED_NO_REPAIR'].includes(b.status) ? (
         <Card style={styles.trainee} testID="hub-trainee">
           <View style={styles.traineeRow}>

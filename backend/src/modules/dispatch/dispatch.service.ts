@@ -91,6 +91,8 @@ export class DispatchService {
       const offered = await this.prisma.$transaction(async (tx) => {
         const b = await this.core.lock(tx, bookingId);
         if (!b || !SEARCHING.includes(b.status)) return false;
+        // A society flat is offered only as its confirmed day's lead flat (accepting it takes every flat).
+        if (b.societyDayId && !(await tx.societyDay.count({ where: { id: b.societyDayId, state: 'CONFIRMED', leadBookingId: b.id } }))) return false;
         if (await tx.jobOffer.findFirst({ where: { bookingId, state: 'OPEN' }, select: { id: true } })) return false;
         const candidate = await this.bestCandidate(tx, b);
         if (!candidate) {
@@ -256,6 +258,7 @@ export class DispatchService {
       const metres = b.timeMode === 'INSTANT' ? await this.distanceM(tx, technicianId, bookingId) : null;
       const etaMin = metres === null ? null : PREP_MIN + travelMinutes(metres, now.getTime());
       await this.core.transition(tx, b, 'ASSIGNED', { technician: { connect: { userId: technicianId } }, assignedAt: now, etaMin }, { type: 'TECHNICIAN', id: technicianId }, { offerId, ...(via === 'IVR' ? { via: 'IVR' } : {}) });
+      if (b.societyDayId) await this.assignSocietyFlats(tx, b.societyDayId, technicianId, now);
       await tx.technician.update({ where: { userId: technicianId }, data: { missedOffersInRow: 0 } });
       await tx.dispatchQueueEntry.updateMany({ where: { bookingId, resolvedAt: null }, data: { resolvedAt: now } });
     });
@@ -404,6 +407,8 @@ export class DispatchService {
     const candidates = await this.prisma.booking.findMany({
       where: {
         status: 'ASSIGNED',
+        // A society day's technician works flat after flat; Housefi follows up a missed day, not this timer.
+        societyDayId: null,
         OR: [
           { timeMode: 'INSTANT', assignedAt: { lte: instantLate } },
           // Coarse filter; the exact window check is below.
@@ -443,7 +448,8 @@ export class DispatchService {
   /** Searching bookings without an open offer (nobody was free, a technician declined or went offline): try again. */
   async offerUnoffered(): Promise<number> {
     const due = await this.prisma.booking.findMany({
-      where: { status: { in: [...SEARCHING] }, offers: { none: { state: 'OPEN' } } },
+      // Society flats waiting for their day are left out (only a confirmed day's lead flat has a search time).
+      where: { status: { in: [...SEARCHING] }, offers: { none: { state: 'OPEN' } }, OR: [{ societyDayId: null }, { matchingStartedAt: { not: null } }] },
       // Warranty revisits first, then the longest waiting.
       orderBy: [{ priority: 'desc' }, { matchingStartedAt: 'asc' }],
       select: { id: true },
@@ -452,6 +458,22 @@ export class DispatchService {
     let n = 0;
     for (const b of due) if (await this.offerNext(b.id)) n++;
     return n;
+  }
+
+  /**
+   * Society repair day: the technician who accepted the lead flat gets every other paid flat waiting for the day (also
+   * flats paid later, from society.worker), and the day is theirs.
+   */
+  async assignSocietyFlats(tx: Prisma.TransactionClient, societyDayId: string, technicianId: string, now: Date): Promise<number> {
+    await tx.societyDay.update({ where: { id: societyDayId }, data: { state: 'ASSIGNED', technicianId } });
+    const waiting = await tx.booking.findMany({ where: { societyDayId, status: { in: [...SEARCHING] }, technicianId: null }, select: { id: true }, orderBy: { createdAt: 'asc' } });
+    for (const w of waiting) {
+      const flat = await this.core.lock(tx, w.id);
+      if (!flat || !SEARCHING.includes(flat.status)) continue;
+      await this.core.transition(tx, flat, 'ASSIGNED', { technician: { connect: { userId: technicianId } }, assignedAt: now }, { type: 'SYSTEM', id: null }, { societyDayId });
+      this.core.updates.publish(flat.id);
+    }
+    return waiting.length;
   }
 
   // ---------- internals ----------

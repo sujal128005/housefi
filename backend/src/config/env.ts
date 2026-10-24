@@ -278,6 +278,11 @@ export const envSchema = z
     APPRENTICE_JOBS_TARGET: int(5, 1),
     /** Apprentices one mentor can teach at a time. */
     MENTOR_MAX_APPRENTICES: int(2, 1, 10),
+    /** Society repair day: each flat's visit fee, the flats needed by the cutoff, the most flats, the cutoff hour (IST, the day before). */
+    SOCIETY_VISIT_FEE_RUPEES: int(25, 1),
+    SOCIETY_MIN_FLATS: int(4, 2),
+    SOCIETY_MAX_FLATS: int(20, 2),
+    SOCIETY_CUTOFF_HOUR: int(18, 0, 23),
     OFFER_TIMEOUT_SEC: int(45, 5),
     /** Offers also go to online technicians this close to the customer, whatever their PIN code (0 = PIN codes only). */
     DISPATCH_RADIUS_KM: int(10, 0, 50),

@@ -6,7 +6,7 @@ import {
   type CouponResult, type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
-  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson, QuoteCheckResult, QuoteRead, ApprenticeOverview, ApprenticePerson,
+  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson, QuoteCheckResult, QuoteRead, ApprenticeOverview, ApprenticePerson, SocietyDay,
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
@@ -105,6 +105,7 @@ const decodeNotification = (json: unknown): AppNotification => record<AppNotific
 const decodeEarnings = (json: unknown): Earnings => record<Earnings>(json, 'earnings', ['today', 'total', 'entries']);
 const decodePayoutAccount = (json: unknown): PayoutAccount => record<PayoutAccount>(json, 'payout account', ['rail', 'holderName', 'hint', 'updatedAt']);
 const decodeNothing = (): void => undefined;
+const decodeSociety = (json: unknown): SocietyDay => record<SocietyDay>(json, 'society day', ['code', 'name', 'categoryId', 'time', 'state', 'flats', 'minFlats', 'visitFee', 'cutoffAt']);
 const decodeApprentice = (json: unknown): ApprenticeOverview => record<ApprenticeOverview>(json, 'apprentice', ['shareRupees', 'jobsTarget', 'learner', 'mentor']);
 const decodeSkillCheck = (json: unknown): SkillCheck => record<SkillCheck>(json, 'skill check', ['level', 'required', 'canSubmit', 'trades', 'video', 'certificates', 'rules']);
 const decodeCourses = (json: unknown): CoursesOverview => record<CoursesOverview>(json, 'courses', ['courses', 'rating', 'freeFromRating', 'price']);
@@ -260,7 +261,7 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
       const photos = await uploadPhotos(handle, input.problem.photos, 'PROBLEM');
       const vn = input.problem.voiceNote;
       const voiceNote = vn ? { durationSec: Math.max(1, Math.round(vn.durationSec)), transcript: vn.transcript, ...(vn.audioId ? { audioId: vn.audioId } : {}) } : null;
-      const body = { serviceId: input.serviceId, problem: { issueIds: input.problem.issueIds, notes: input.problem.notes, voiceNote, photos }, addressId: input.addressId, time: input.time, preferWomenRated: input.preferWomenRated, ...(input.allowTrainee ? { allowTrainee: true } : {}), ...(input.repeatOf ? { repeatOf: input.repeatOf } : {}) };
+      const body = { serviceId: input.serviceId, problem: { issueIds: input.problem.issueIds, notes: input.problem.notes, voiceNote, photos }, addressId: input.addressId, time: input.time, preferWomenRated: input.preferWomenRated, ...(input.allowTrainee ? { allowTrainee: true } : {}), ...(input.societyCode ? { societyCode: input.societyCode } : {}), ...(input.repeatOf ? { repeatOf: input.repeatOf } : {}) };
       return call(handle, 'POST', apiPath`/bookings`, decodeBooking, body, idempotencyKey);
     },
     async pay(handle, bookingId, kind, method, idempotencyKey): Promise<PaymentResult> {
@@ -288,6 +289,12 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
     list: (handle) => call(handle, 'GET', apiPath`/bookings?scope=${'all'}`, (j) => list(j, decodeBooking, 'bookings')),
     cancel: (handle, id, reason) => call(handle, 'POST', apiPath`/bookings/${id}/cancel`, decodeBooking, { reason }),
     declineTrainee: (handle, id) => call(handle, 'POST', apiPath`/bookings/${id}/trainee/decline`, decodeBooking),
+    planSociety: (handle, input) => call(handle, 'POST', apiPath`/society-days`, decodeSociety, input),
+    society: (handle, code) => call(handle, 'GET', apiPath`/society-days/${code.trim().toUpperCase()}`, decodeSociety),
+    mySocieties: (handle) => call(handle, 'GET', apiPath`/society-days`, (j) => {
+      if (!Array.isArray(j)) throw new DecodeError('society days: expected a list');
+      return j.map(decodeSociety);
+    }),
     reschedule: (handle, id, time) => call(handle, 'POST', apiPath`/bookings/${id}/reschedule`, decodeBooking, { time }),
     decideQuote: (handle, id, which, answer) => call(handle, 'POST', apiPath`/bookings/${id}/quotes/${which}/answer`, decodeBooking, { answer }),
     rate: (handle, id, r) => call(handle, 'POST', apiPath`/bookings/${id}/rating`, decodeBooking, { satisfied: r.satisfied, stars: r.stars, tags: r.tags, comment: r.comment, byWoman: r.byWoman === true }),

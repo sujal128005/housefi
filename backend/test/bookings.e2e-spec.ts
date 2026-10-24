@@ -107,6 +107,7 @@ describe('bookings (e2e)', () => {
         fairPay: null,
         allowTrainee: false,
         trainee: null,
+        society: null,
       });
     });
 

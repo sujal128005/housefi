@@ -42,6 +42,8 @@ export const NewBooking = z
     preferWomenRated: z.boolean(),
     /** Apprentice mode: a trainee may come along with the technician (supervised, ID-checked, no extra cost). */
     allowTrainee: z.boolean().optional(),
+    /** Society repair day: the code of the building's day this flat joins (its window, its trade, a lower visit fee). */
+    societyCode: z.string().trim().min(1).max(10).optional(),
     /** "Book the same technician again": the customer's earlier, finished booking whose technician is asked first. */
     repeatOf: z.uuid().optional(),
   })

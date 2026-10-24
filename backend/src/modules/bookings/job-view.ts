@@ -5,7 +5,7 @@ import type { FieldCipher } from '../../common/crypto/field-cipher';
 import type { AddressDto } from '../addresses/addresses.service';
 import { ACTIVE_STATUSES } from './booking-status';
 import { jobCredits, rupees } from '../earnings/earnings-rules';
-import { BOOKING_INCLUDE, type BookingRow, EMPTY_ADDRESS, latest, payment, type PaymentDto, type PhotoSigner, type ProblemDto, type RatingDto, toProblemDto, toRatingDto, type TraineeDto, traineeDto } from './booking-view';
+import { BOOKING_INCLUDE, type BookingRow, EMPTY_ADDRESS, latest, payment, type PaymentDto, type PhotoSigner, type ProblemDto, type RatingDto, toProblemDto, toRatingDto, type SocietyRefDto, type TraineeDto, traineeDto } from './booking-view';
 import { approvedQuotes, latestQuote, type QuoteDto, toQuoteDto } from './quote-view';
 
 export const JOB_INCLUDE = { ...BOOKING_INCLUDE, customer: { select: { nameEnc: true } } } satisfies Prisma.BookingInclude;
@@ -52,6 +52,8 @@ export interface JobDto {
   readonly allowTrainee: boolean;
   /** The technician's apprentice on this job; helped: their answer after the job (null until given). */
   readonly trainee: (TraineeDto & { readonly helped: boolean | null }) | null;
+  /** Society repair day: one of the building's flats (the same technician does them all). */
+  readonly society: SocietyRefDto | null;
 }
 
 export interface JobViewOptions {
@@ -126,5 +128,6 @@ export async function toJobDto(b: JobRow, cipher: FieldCipher, opts: JobViewOpti
     fairPay: fairPay(opts, b),
     allowTrainee: b.allowTrainee,
     trainee: b.trainee ? { ...(await traineeDto(b.trainee, cipher, media)), helped: b.traineeHelped } : null,
+    society: b.societyDay ?? null,
   };
 }

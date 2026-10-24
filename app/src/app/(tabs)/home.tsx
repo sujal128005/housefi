@@ -174,6 +174,15 @@ export default function Home() {
             <Icon name="chevron-forward" size={18} color="inkSubtle" />
           </Tap>
 
+          <Tap onPress={() => router.push('/society')} style={styles.qcCard} haptic testID="home-society" accessibilityLabel={t('home.soc.title')}>
+            <Art3D name="house_garden" size={52} />
+            <View style={styles.flex}>
+              <Txt variant="bodyStrong">{t('home.soc.title')}</Txt>
+              <Txt variant="footnote" color="inkMuted">{t('home.soc.body')}</Txt>
+            </View>
+            <Icon name="chevron-forward" size={18} color="inkSubtle" />
+          </Tap>
+
           <View style={styles.block}>
             <SectionTitle title={t('home.services')} action={t('home.viewAll')} onAction={() => router.push('/services')} />
             {cats.error ? <ErrorView error={cats.error} onRetry={cats.reload} title={t('catalog.loadError')} /> : null}

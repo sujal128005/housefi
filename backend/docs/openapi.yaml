@@ -1001,6 +1001,44 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Booking' } } } }
         '409': { $ref: '#/components/responses/Error' }
+  /society-days:
+    post:
+      tags: [bookings, society]
+      summary: "Society repair day: plan a day for the building (trade, date and window, the organiser's address for the area)"
+      description: >-
+        Neighbours join by booking their flat with the code (POST /bookings, societyCode). At the cutoff (the evening
+        before, SOCIETY_CUTOFF_HOUR IST) a day with SOCIETY_MIN_FLATS paid flats is confirmed and offered to technicians;
+        the one who accepts gets every flat. Otherwise every flat is cancelled and refunded.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, categoryId, addressId, window]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 60 }
+                categoryId: { $ref: '#/components/schemas/CategoryId' }
+                addressId: { type: string }
+                window: { $ref: '#/components/schemas/VisitWindow' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/SocietyDay' } } } }
+        '422': { $ref: '#/components/responses/Error' }
+    get:
+      tags: [bookings, society]
+      summary: Society days the customer planned or joined
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/SocietyDay' } } } } }
+  /society-days/{code}:
+    get:
+      tags: [bookings, society]
+      summary: A society day by its code (the area, date, trade and flat count; nobody's flat or name)
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/SocietyDay' } } } }
+        '404': { $ref: '#/components/responses/Error' }
   /tech/passport:
     get:
       tags: [technician, identity]
@@ -1845,6 +1883,11 @@ components:
         time: { $ref: '#/components/schemas/VisitTime' }
         preferWomenRated: { type: boolean }
         allowTrainee: { type: boolean, description: "Apprentice mode: a trainee may come along (supervised, ID-checked, no extra cost). Default false" }
+        societyCode:
+          type: string
+          description: >-
+            Society repair day: books this flat into the building's day with this code (its trade, PIN code and window
+            must match; a lower visit fee; no slot of its own). 404 unknown code, 409 closed, full or already joined.
         repeatOf: { type: string, format: uuid, description: "Book the same technician again: the customer's own earlier booking (completed, or closed without a repair) whose technician is offered the job first. If they decline or miss it, the search goes on as usual." }
     PaymentMethod: { type: string, enum: [UPI, CARD, NETBANKING, CASH] }
     Payment:
@@ -2098,6 +2141,7 @@ components:
         fairPay: { oneOf: [{ $ref: '#/components/schemas/FairPay' }, { type: 'null' }], description: Where the customer's money goes; null before the visit fee is paid }
         allowTrainee: { type: boolean }
         trainee: { oneOf: [{ $ref: '#/components/schemas/Trainee' }, { type: 'null' }], description: "The technician's apprentice on this visit" }
+        society: { oneOf: [{ $ref: '#/components/schemas/SocietyRef' }, { type: 'null' }], description: "Society repair day: the building's day this flat belongs to" }
     TechProfileInput:
       type: object
       required: [name, gender, experienceYears, skills, pincode, vehicle]
@@ -2459,6 +2503,33 @@ components:
         coupon: { type: integer }
         labourSharePercent: { type: integer }
         withBill: { type: boolean, description: False while only the visit fee is paid }
+    SocietyRef:
+      type: object
+      required: [code, name, state]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        state: { type: string, enum: [OPEN, CONFIRMED, ASSIGNED, CANCELLED] }
+    SocietyDay:
+      type: object
+      required: [code, name, categoryId, area, time, state, flats, joined, minFlats, maxFlats, visitFee, usualVisitFee, cutoffAt, organiser, myBookingId, technician]
+      properties:
+        code: { type: string, description: 6 characters to share with neighbours }
+        name: { type: string }
+        categoryId: { $ref: '#/components/schemas/CategoryId' }
+        area: { type: object, required: [locality, city, pincode], properties: { locality: { type: string }, city: { type: string }, pincode: { type: string } } }
+        time: { $ref: '#/components/schemas/VisitTime' }
+        state: { type: string, enum: [OPEN, CONFIRMED, ASSIGNED, CANCELLED] }
+        flats: { type: integer, description: Flats with the visit fee paid }
+        joined: { type: integer, description: Flats booked, paid or not }
+        minFlats: { type: integer }
+        maxFlats: { type: integer }
+        visitFee: { type: integer, description: Each flat's visit fee (rupees) }
+        usualVisitFee: { type: integer }
+        cutoffAt: { $ref: '#/components/schemas/EpochMs' }
+        organiser: { type: boolean }
+        myBookingId: { type: [string, 'null'] }
+        technician: { oneOf: [{ type: object, required: [name], properties: { name: { type: string } } }, { type: 'null' }] }
     Trainee:
       type: object
       required: [id, name, gender, techCode, photo]
@@ -2569,6 +2640,7 @@ components:
                 - { $ref: '#/components/schemas/Trainee' }
                 - { type: object, required: [helped], properties: { helped: { type: [boolean, 'null'], description: "The technician's answer after the job" } } }
             - { type: 'null' }
+        society: { oneOf: [{ $ref: '#/components/schemas/SocietyRef' }, { type: 'null' }] }
     QuoteInput:
       type: object
       required: [which, diagnosis, lines]
