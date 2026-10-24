@@ -2470,10 +2470,11 @@ components:
         photo: { type: [string, 'null'] }
     ApprenticePerson:
       type: object
-      required: [id, name, photo, techCode, rating, jobsDone, level, phone]
+      required: [id, name, gender, photo, techCode, rating, jobsDone, level, phone]
       properties:
         id: { type: string }
         name: { type: string }
+        gender: { type: string, enum: [M, F] }
         photo: { type: [string, 'null'] }
         techCode: { type: string }
         rating: { type: [number, 'null'] }

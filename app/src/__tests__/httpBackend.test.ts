@@ -352,6 +352,41 @@ describe('live client: quote checker', () => {
   });
 });
 
+describe('live client: apprentice mode', () => {
+  const OVERVIEW = { shareRupees: 100, jobsTarget: 5, learner: { eligible: true, block: null, trades: ['PLUMBING'], link: null, helped: [], jobs: [] }, mentor: { trades: [], open: false, max: 2, requests: [], apprentices: [] } };
+
+  it('pairs with a mentor, and the mentor brings, takes off and confirms the trainee', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    t.routes['GET /tech/apprentice'] = () => json(200, OVERVIEW);
+    expect((await t.backend.tech.apprentice(s.token)).learner.trades).toEqual(['PLUMBING']);
+    t.routes['GET /tech/apprentice/mentors?categoryId=PLUMBING'] = () => json(200, [{ id: 'm1', name: 'Swathi N.', gender: 'F', photo: null, techCode: 'N9', rating: 4.8, jobsDone: 40, level: 'SKILLED', phone: null }]);
+    expect(await t.backend.tech.mentors(s.token, 'PLUMBING')).toHaveLength(1);
+    t.routes['POST /tech/apprentice/requests'] = () => json(200, OVERVIEW);
+    await t.backend.tech.requestMentor(s.token, 'm1', 'PLUMBING');
+    expect(t.calls.at(-1)).toMatchObject({ method: 'POST', url: '/tech/apprentice/requests', body: { mentorId: 'm1', categoryId: 'PLUMBING' } });
+    t.routes['PUT /tech/apprentice/mentoring'] = () => json(200, OVERVIEW);
+    await t.backend.tech.setMentoring(s.token, true);
+    expect(t.calls.at(-1)).toMatchObject({ method: 'PUT', body: { open: true } });
+
+    t.routes['POST /tech/jobs/j1/trainee'] = () => json(409, { error: { code: 'CONFLICT', message: 'x' } });
+    await expect(t.backend.tech.addTrainee(s.token, 'j1', 'a1')).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(t.calls.at(-1)).toMatchObject({ method: 'POST', url: '/tech/jobs/j1/trainee', body: { apprenticeId: 'a1' } });
+  });
+
+  it('sends the consent with a new booking only when given, and "not today" for the customer', async () => {
+    const input = { serviceId: 'plumb-tap', addressId: 'ad1', time: { mode: 'INSTANT' as const, window: null }, preferWomenRated: false, problem: { issueIds: ['tap-leak'], notes: '', voiceNote: null, photos: [] } };
+    const t = setup();
+    const s = await signIn(t.backend);
+    await t.backend.bookings.create(s.token, { ...input, allowTrainee: true }, 'idem-trainee-1');
+    expect(t.calls.filter((c) => c.url === '/bookings').at(-1)?.body).toMatchObject({ allowTrainee: true });
+    await t.backend.bookings.create(s.token, input, 'idem-trainee-2');
+    expect(t.calls.filter((c) => c.url === '/bookings').at(-1)?.body).not.toHaveProperty('allowTrainee');
+    t.routes['POST /bookings/b1/trainee/decline'] = () => json(404, { error: { code: 'NOT_FOUND', message: 'x' } });
+    await expect(t.backend.bookings.declineTrainee(s.token, 'b1')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
+
 describe('live client: payout details', () => {
   it('reads "not added yet" as null, and saves the details with PUT', async () => {
     const t = setup();

@@ -96,7 +96,7 @@ describe('apprentice mode (e2e)', () => {
     const me = await overview(apprentice);
     expect(me).toMatchObject({ shareRupees: 100, jobsTarget: 5, learner: { eligible: true, block: null, trades: ['PLUMBING'], link: null, helped: [], jobs: [] } });
     const mentors = (await api().get('/v1/tech/apprentice/mentors?categoryId=PLUMBING').set(as(apprentice.token)).expect(200)).body;
-    expect(mentors).toEqual([{ id: mentor.id, name: 'Swathi N.', photo: expect.any(String), techCode: expect.any(String), rating: null, jobsDone: 0, level: 'SKILLED', phone: null }]);
+    expect(mentors).toEqual([{ id: mentor.id, name: 'Swathi N.', gender: 'F', photo: expect.any(String), techCode: expect.any(String), rating: null, jobsDone: 0, level: 'SKILLED', phone: null }]);
 
     // Only trades not passed yet, and one open request at a time.
     await api().post('/v1/tech/apprentice/requests').set(as(apprentice.token)).send({ mentorId: mentor.id, categoryId: 'CLEANING' }).expect(422);

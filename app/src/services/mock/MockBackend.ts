@@ -17,7 +17,7 @@ import {
 import { displayName, isValidPhoto, newTechCode, newVerifyToken, VERIFY_TOKEN_RE, type RandomBytes } from '../../domain/identity';
 import type {
   Address, AddressInput, AssignedTechnician, Booking, BookingStatus, CancelReason, CategoryId, Customer, Earnings, Job, JobOffer, Payment,
-  PaymentMethod, PayoutAccount, Quote, QuoteLine, Session, StatusEvent, SkillPassport, MyPassport, TechIdCard, TechIssue, TechProfile, TechProfileInput, Technician, TechVerifyResult,
+  PaymentMethod, PayoutAccount, Quote, QuoteLine, Session, StatusEvent, SkillPassport, MyPassport, ApprenticeOverview, TechIdCard, TechIssue, TechProfile, TechProfileInput, Technician, TechVerifyResult,
   VisitTime,
 } from '../../domain/types';
 import { payoutHint, payoutProblems, tidyPayout } from '../../domain/payout';
@@ -1174,6 +1174,13 @@ export function createMockBackend(opts: MockOptions): Backend {
         return store(list, index, nb);
       },
 
+      async declineTrainee(token, bookingId) {
+        await request('WRITE');
+        const { list, index, b } = await touch(token, bookingId);
+        // The test double has no apprentices: "not today" only clears the consent.
+        return store(list, index, { ...b, allowTrainee: false, trainee: null });
+      },
+
       async reschedule(token, bookingId, time: VisitTime) {
         const s = await request('WRITE');
         const { list, index, b } = await touch(token, bookingId);
@@ -1429,6 +1436,41 @@ export function createMockBackend(opts: MockOptions): Backend {
         const next = putTech({ ...techFor(s, token), passportPublic: on });
         await save();
         return myPassport(next);
+      },
+
+      // Apprentice mode: the test double has no mentors or apprentices (the live server pairs them).
+      async apprentice(token) {
+        const tech = techFor(await request('READ'), token);
+        return {
+          shareRupees: 100, jobsTarget: 5,
+          learner: { eligible: false, block: 'NO_TRADE', trades: [], link: null, helped: [], jobs: [] },
+          mentor: { trades: tech.verification === 'APPROVED' ? tech.skills : [], open: false, max: 2, requests: [], apprentices: [] },
+        } satisfies ApprenticeOverview;
+      },
+      async mentors() {
+        await request('READ');
+        return [];
+      },
+      async requestMentor() {
+        throw new ApiError('NOT_FOUND');
+      },
+      async answerApprentice() {
+        throw new ApiError('NOT_FOUND');
+      },
+      async endApprenticeship() {
+        throw new ApiError('NOT_FOUND');
+      },
+      async setMentoring() {
+        throw new ApiError('CONFLICT');
+      },
+      async addTrainee() {
+        throw new ApiError('NOT_FOUND');
+      },
+      async removeTrainee() {
+        throw new ApiError('NOT_FOUND');
+      },
+      async confirmTrainee() {
+        throw new ApiError('NOT_FOUND');
       },
 
       async requestIdentityCorrection(token, kind, note) {

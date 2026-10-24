@@ -14,6 +14,8 @@ export interface Draft {
   readonly addressId: string | null;
   readonly time: VisitTime | null;
   readonly preferWomenRated: boolean;
+  /** Apprentice mode: a trainee may come along. */
+  readonly allowTrainee: boolean;
   readonly method: PaymentMethod;
   /** "Book the same technician again": the earlier booking and its technician's name (asked first). */
   readonly repeat: { readonly bookingId: string; readonly name: string } | null;
@@ -32,6 +34,7 @@ interface DraftActions {
   readonly setAddress: (id: string | null) => void;
   readonly setTime: (t: VisitTime | null) => void;
   readonly setPreferWomenRated: (v: boolean) => void;
+  readonly setAllowTrainee: (v: boolean) => void;
   readonly setMethod: (m: PaymentMethod) => void;
   /** After a booking is placed: keeps the address and payment method for the next one. */
   readonly clear: () => void;
@@ -44,7 +47,7 @@ interface DraftValue extends DraftActions {
 }
 
 const EMPTY_PROBLEM: ProblemDescription = { issueIds: [], notes: '', voiceNote: null, photos: [] };
-const EMPTY: Draft = { serviceId: null, problem: EMPTY_PROBLEM, addressId: null, time: null, preferWomenRated: false, method: 'UPI', repeat: null };
+const EMPTY: Draft = { serviceId: null, problem: EMPTY_PROBLEM, addressId: null, time: null, preferWomenRated: false, allowTrainee: false, method: 'UPI', repeat: null };
 
 const Ctx = createContext<DraftValue | null>(null);
 
@@ -83,6 +86,7 @@ export function BookingDraftProvider({ children }: { readonly children: ReactNod
       setAddress: (addressId) => setDraft((d) => (d.addressId === addressId ? d : { ...d, addressId })),
       setTime: (time) => setDraft((d) => ({ ...d, time })),
       setPreferWomenRated: (preferWomenRated) => setDraft((d) => ({ ...d, preferWomenRated })),
+      setAllowTrainee: (allowTrainee) => setDraft((d) => ({ ...d, allowTrainee })),
       setMethod: (method) => setDraft((d) => ({ ...d, method })),
       clear: () => setDraft((d) => ({ ...EMPTY, addressId: d.addressId, method: d.method })),
       reset: () => setDraft(EMPTY),

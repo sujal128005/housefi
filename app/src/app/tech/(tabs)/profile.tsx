@@ -162,6 +162,8 @@ export default function TechProfile() {
             <Divider />
             <ListRow icon="ribbon-outline" title={t('passport.open')} subtitle={t('passport.openSub')} onPress={() => router.push('/tech/passport')} testID="tprofile-passport" />
             <Divider />
+            <ListRow icon="people-outline" title={t('appr.title')} subtitle={t('appr.openSub')} onPress={() => router.push('/tech/apprentice')} testID="tprofile-apprentice" />
+            <Divider />
             <ListRow icon="help-buoy-outline" title={t('id.correction')} subtitle={t('id.correctionSub')} onPress={() => setFix(true)} testID="tprofile-correction" />
             <Divider />
           </>

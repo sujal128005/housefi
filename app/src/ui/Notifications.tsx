@@ -31,6 +31,7 @@ const ART: Record<NotificationKind, ArtName> = {
   PROFILE_SUSPENDED: 'locked', PROFILE_REINSTATED: 'verify_ok', PROFILE_REJECTED: 'verify_fix',
   BOOKING_TOMORROW: 'calendar', JOB_TOMORROW: 'calendar', JOB_DAY_PLAN: 'spiral_calendar',
   CHAT_MESSAGE: 'memo', SUPPORT_REPLY: 'handshake', ANNOUNCEMENT: 'alarm',
+  APPRENTICE_REQUEST: 'handshake', APPRENTICE_ACCEPTED: 'handshake', TRAINEE_JOB: 'tech_man', TRAINEE_REMOVED: 'package',
 };
 
 /** Notification text in the reader's language. */

@@ -30,6 +30,7 @@ export interface ApprenticePersonDto {
   readonly id: string;
   /** First name and last initial. */
   readonly name: string;
+  readonly gender: 'M' | 'F';
   readonly photo: string | null;
   readonly techCode: string;
   readonly rating: number | null;
@@ -308,6 +309,7 @@ export class ApprenticeService {
     return {
       id: t.userId,
       name: await this.shortName(t.user),
+      gender: t.gender,
       photo: t.photoUploadId && t.photoStatus === 'APPROVED' ? await this.media.photoUrl(t.photoUploadId) : null,
       techCode: t.techCode ?? '',
       rating: t.ratingAvg !== null ? Number(t.ratingAvg) : null,

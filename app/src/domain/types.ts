@@ -293,6 +293,10 @@ export interface Booking {
   readonly warrantyClaim?: { readonly id: string; readonly code: string } | null;
   /** Fair-pay meter: where the customer's money goes (from the server; null before the visit fee is paid). */
   readonly fairPay?: FairPay | null;
+  /** Apprentice mode: the customer agreed that a trainee may come along. */
+  readonly allowTrainee?: boolean;
+  /** The technician's apprentice on this visit. */
+  readonly trainee?: Trainee | null;
 }
 
 export interface Customer {
@@ -712,6 +716,71 @@ export interface QuoteCheckResult {
   readonly lines: readonly (QuoteCheckLine & { readonly listPrice: number | null; readonly overList: number })[];
 }
 
+/** Apprentice mode: the technician's apprentice on a visit. */
+export interface Trainee {
+  readonly id: string;
+  /** First name and last initial. */
+  readonly name: string;
+  readonly gender: Gender;
+  readonly techCode: string;
+  readonly photo: string | null;
+}
+
+/** The other side of an apprenticeship (the phone only once it is active). */
+export interface ApprenticePerson {
+  readonly id: string;
+  readonly name: string;
+  readonly gender: Gender;
+  readonly photo: string | null;
+  readonly techCode: string;
+  readonly rating: number | null;
+  readonly jobsDone: number;
+  readonly level: SkillLevel | null;
+  readonly phone: string | null;
+}
+
+export interface ApprenticeLink {
+  readonly id: string;
+  readonly categoryId: CategoryId;
+  readonly state: 'REQUESTED' | 'ACTIVE' | 'DECLINED' | 'ENDED';
+  readonly at: number;
+  readonly other: ApprenticePerson;
+}
+
+/** A job the apprentice joins (the address only while it is on). */
+export interface TraineeJob {
+  readonly id: string;
+  readonly code: string;
+  readonly serviceId: string;
+  readonly categoryId: CategoryId;
+  readonly status: BookingStatus;
+  readonly time: VisitTime;
+  readonly address: Omit<Address, 'id' | 'label'> | null;
+  readonly mentor: { readonly name: string; readonly phone: string };
+  readonly helped: boolean | null;
+  readonly earning: number;
+}
+
+export interface ApprenticeOverview {
+  readonly shareRupees: number;
+  readonly jobsTarget: number;
+  readonly learner: {
+    readonly eligible: boolean;
+    readonly block: 'IDENTITY' | 'NOT_ACTIVE' | 'NO_TRADE' | null;
+    readonly trades: readonly CategoryId[];
+    readonly link: ApprenticeLink | null;
+    readonly helped: readonly { readonly categoryId: CategoryId; readonly jobs: number }[];
+    readonly jobs: readonly TraineeJob[];
+  };
+  readonly mentor: {
+    readonly trades: readonly CategoryId[];
+    readonly open: boolean;
+    readonly max: number;
+    readonly requests: readonly ApprenticeLink[];
+    readonly apprentices: readonly ApprenticeLink[];
+  };
+}
+
 /** Where the customer's money goes, in rupees: total = technician + parts + housefi. */
 export interface FairPay {
   readonly total: number;
@@ -723,6 +792,8 @@ export interface FairPay {
   readonly housefi: number;
   /** A coupon's discount, paid by Housefi. */
   readonly coupon: number;
+  /** Apprentice mode: the trainee's pay, from Housefi's part (older servers leave it out). */
+  readonly trainee?: number;
   readonly labourSharePercent: number;
   /** False while only the visit fee is paid. */
   readonly withBill: boolean;
@@ -763,6 +834,9 @@ export interface Job {
   readonly warrantyOf?: string | null;
   /** Fair-pay meter: the same split the customer sees. */
   readonly fairPay?: FairPay | null;
+  readonly allowTrainee?: boolean;
+  /** The technician's apprentice on this job; helped: the technician's answer after the job. */
+  readonly trainee?: (Trainee & { readonly helped: boolean | null }) | null;
 }
 
 /** A part on Housefi's price list (standard price for the trade). */

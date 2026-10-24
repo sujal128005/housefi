@@ -26,6 +26,7 @@ import {
 } from '../../../ui';
 import { PriceCheckPill, QuoteLines, QuoteSplit } from '../../../ui/BookingParts';
 import { FairPayMeter } from '../../../ui/FairPayMeter';
+import { TraineePanel } from '../../../ui/TraineePanel';
 import { Celebrate, Pulse, RideIn, useReducedMotion } from '../../../ui/motion';
 import { PhotoThumb } from '../../../ui/PhotoThumb';
 import { addressLine, visitTimeText } from '../../../ui/present';
@@ -289,6 +290,8 @@ export default function JobScreen() {
         </Card>
       ) : null}
       {['PAYMENT_DUE', 'COMPLETED'].includes(j.status) ? <FairPayMeter split={j.fairPay} viewer="technician" /> : null}
+
+      <TraineePanel job={j} onChange={setJob} />
 
       <ErrorBanner error={error} />
 
