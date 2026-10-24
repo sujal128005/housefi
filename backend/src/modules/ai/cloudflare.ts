@@ -32,6 +32,7 @@ import {
   photoCatalog,
 } from './claude';
 import { NoModelPhotoClassifier, type PhotoClassifier, type PhotoSuggestionDto } from './models';
+import { NOT_READ, QUOTE_SYSTEM, quoteAnswer, quoteCatalog, quoteOutput, type QuoteReadDto, type QuoteReader } from './quote-check';
 
 export const CLOUDFLARE_AI_URL = 'https://api.cloudflare.com/client/v4/accounts';
 
@@ -42,6 +43,8 @@ export const CLOUDFLARE_AI_FETCH = Symbol('CLOUDFLARE_AI_FETCH');
 const MAX_VISION_BYTES = 3 * 1024 * 1024;
 /** Enough for the JSON answer; the reply text itself is clamped afterwards. */
 const MAX_ANSWER_TOKENS = 600;
+/** A quote can have up to 20 lines. */
+const QUOTE_ANSWER_TOKENS = 2000;
 
 /** A model answer that cannot be used. Only this short reason reaches the logs, never the answer itself. */
 class Unusable extends Error {}
@@ -204,5 +207,61 @@ export class CloudflarePhotoClassifier implements PhotoClassifier {
     const entries = await photoCatalog(this.prisma);
     this.catalog = { at: now, entries };
     return entries;
+  }
+}
+
+/** Reads a photographed repair quote into lines (quote-check.ts); the rules compare the prices. */
+@Injectable()
+export class CloudflareQuoteReader implements QuoteReader {
+  private readonly log = new Logger(CloudflareQuoteReader.name);
+
+  constructor(
+    private readonly ai: WorkersAi,
+    private readonly prisma: PrismaService,
+    @Inject(OBJECT_STORE) private readonly store: ObjectStore,
+    @InjectConfig() private readonly config: Env,
+  ) {}
+
+  async read(input: { photoId: string; customerId: string }): Promise<QuoteReadDto> {
+    if (!this.ai.enabled) return NOT_READ;
+    try {
+      const photo = await ownPhoto(this.prisma, this.store, input, MAX_VISION_BYTES);
+      if (!photo) return NOT_READ;
+      const catalog = await quoteCatalog(this.prisma);
+      const serviceIds = catalog.services.map((s) => s.id);
+      const partIds = catalog.parts.map((p) => p.id);
+      if (serviceIds.length === 0) return NOT_READ;
+      const schema = z.toJSONSchema(quoteOutput(serviceIds, partIds));
+      const answer = await this.ai.run(this.config.CLOUDFLARE_AI_VISION_MODEL, {
+        messages: [
+          { role: 'system', content: `${QUOTE_SYSTEM}
+
+Answer only with JSON matching this schema: ${JSON.stringify(schema)}` },
+          {
+            role: 'user',
+            content: [
+              { type: 'image_url', image_url: { url: `data:${photo.mediaType};base64,${Buffer.from(photo.bytes).toString('base64')}` } },
+              { type: 'text', text: `<catalog>${JSON.stringify(catalog.services)}</catalog>
+<parts>${JSON.stringify(catalog.parts)}</parts>` },
+            ],
+          },
+        ],
+        guided_json: schema,
+        max_tokens: QUOTE_ANSWER_TOKENS,
+        temperature: 0,
+      });
+      // Ids outside the catalog and the price list are dropped by quoteAnswer, not trusted.
+      const loose = z
+        .object({
+          readable: z.boolean(),
+          serviceId: z.string().nullable(),
+          lines: z.array(z.object({ name: z.string(), kind: z.string(), qty: z.number(), amount: z.number(), partId: z.string().nullable() })),
+        })
+        .parse(answer);
+      return quoteAnswer(loose, serviceIds, partIds);
+    } catch (err) {
+      this.log.warn(`quote reader unavailable, the customer types the lines (${failureKind(err)})`);
+      return NOT_READ;
+    }
   }
 }

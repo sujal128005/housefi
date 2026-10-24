@@ -177,6 +177,17 @@ exam score, video, HQ), Housefi courses and checked certificates. Off by default
 switched on it appears on the public QR page (`GET /verify/technicians/{token}` → `passport`, shown by the website's
 `/t/` page). API: `GET`/`PUT /tech/passport` in `src/modules/identity/`. Never phone numbers or addresses.
 
+**Fair-pay meter** (bill, receipt, technician's job): `fairPay` on bookings and jobs, worked out in
+`backend/src/modules/earnings/fair-pay.ts` with the ledger's own rules (`jobCredits`), so the technician's part always
+equals their earnings. Shares come from `TECH_VISIT_SHARE_RUPEES` / `TECH_LABOUR_SHARE_PERCENT`; coupons are Housefi's.
+App: `app/src/ui/FairPayMeter.tsx`. If GST is ever charged, add a tax line there and in the app.
+
+**Quote checker** (customer home → "Got a quote? Check it", `app/src/app/quote-check.tsx`): `POST /ai/read-quote` (the
+vision model of `AI_PROVIDER` only reads the photo into lines; `ClaudeQuoteReader` / `CloudflareQuoteReader`; rules:
+the customer types) then `POST /ai/check-quote` (fixed rules in `backend/src/modules/ai/quote-check.ts`: Housefi's
+usual price = visit fee + service repair range, fair up to the top, "a bit high" to 1.5×; listed parts per piece with
+10% leeway). Nothing is stored.
+
 **Telephony** (masked calls, keypad job offers): `TelephonyProvider` in `src/modules/telephony/telephony-provider.ts`
 (Exotel and a fake). `TELEPHONY_PROVIDER=off` until Exotel is set up (calls fall back to "call me back").
 

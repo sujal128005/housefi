@@ -2,7 +2,7 @@
 // (services/http/HttpBackend.ts). The in-memory implementation in services/mock is a test double only: no screen or
 // build of the app uses it.
 import type {
-  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, MyPassport, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
+  Address, AddressInput, Booking, CancelReason, Category, CategoryId, Customer, Earnings, Job, JobOffer, OfferRejectReason, PaymentMethod, Photo, ProblemDescription, QuoteLine, Rating, Service, Session, Slot, MyPassport, QuoteCheckLine, QuoteCheckResult, QuoteRead, TechIdCard, TechIssue, TechProfile, TechProfileInput, TechSession, TechVerifyResult, VisitTime, Part, PayoutAccount, PayoutAccountInput, CertificateInput, SkillCheck, SkillExam, SkillLevel, SkillVideoInput, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
   Greeting, Locality, NearPlace, PincodePlaces,
 } from '../domain/types';
 import type { MatchingScenario, PaymentOutcome } from '../domain/rules';
@@ -276,6 +276,10 @@ export interface AiApi {
   /** Uploads the recording and writes down what was said (Telugu or English; up to 30 s). */
   transcribe(token: string, recording: Recording, serviceId: string | null, locale: 'en' | 'te'): Promise<Transcript>;
   chat(token: string, message: string, locale: 'en' | 'te'): Promise<ChatReply>;
+  /** Quote checker: uploads the photo of a quote and reads it into lines (readable false: the customer types them). */
+  readQuote(token: string, photo: Photo): Promise<QuoteRead>;
+  /** Quote checker: the confirmed lines against Housefi's usual price and price list. */
+  checkQuote(token: string, serviceId: string, lines: readonly QuoteCheckLine[]): Promise<QuoteCheckResult>;
 }
 
 // ---------- technician ----------

@@ -681,6 +681,37 @@ export type OfferRejectReason = 'TOO_FAR' | 'BUSY' | 'NOT_MY_SKILL' | 'OTHER';
 export type TechIssue = 'CUSTOMER_UNAVAILABLE' | 'WRONG_ADDRESS' | 'UNSAFE' | 'CANNOT_COMPLETE' | 'PAYMENT_PROBLEM' | 'OTHER';
 
 /** A booking as the assigned technician sees it. */
+/** Quote checker: one line of a quote (any company's), as read from a photo or typed by the customer. */
+export interface QuoteCheckLine {
+  readonly name: string;
+  readonly kind: 'LABOUR' | 'MATERIAL';
+  readonly qty: number;
+  /** The line total in whole rupees. */
+  readonly amount: number;
+  /** A part from Housefi's price list, when the reader recognised one. */
+  readonly partId: string | null;
+}
+
+/** What the reader made of a photographed quote; readable false: the customer types the lines. */
+export interface QuoteRead {
+  readonly readable: boolean;
+  readonly serviceId: string | null;
+  readonly lines: readonly QuoteCheckLine[];
+}
+
+/** The quote against Housefi's usual price (visit fee included) and price list. Rupees. */
+export interface QuoteCheckResult {
+  readonly serviceId: string;
+  readonly total: number;
+  readonly usualMin: number;
+  readonly usualMax: number;
+  readonly visitFee: number;
+  readonly verdict: 'FAIR' | 'A_BIT_HIGH' | 'HIGH';
+  /** Rupees above usualMax (0 when fair). */
+  readonly over: number;
+  readonly lines: readonly (QuoteCheckLine & { readonly listPrice: number | null; readonly overList: number })[];
+}
+
 /** Where the customer's money goes, in rupees: total = technician + parts + housefi. */
 export interface FairPay {
   readonly total: number;
