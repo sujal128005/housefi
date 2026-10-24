@@ -6,7 +6,7 @@ import {
   type CouponResult, type OtpChallenge, type PaymentResult, type SupportConversation, type TechApi,
 } from '../api';
 import type {
-  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson,
+  Address, Booking, Category, Customer, Earnings, Greeting, Job, JobOffer, Locality, NearPlace, Part, PayoutAccount, Photo, PincodePlaces, ProblemDescription, Service, SkillCheck, SkillExam, Slot, TechProfile, VoiceNote, Course, CourseQuiz, CourseQuizResult, CoursesOverview, Lesson, QuoteCheckResult, QuoteRead,
 } from '../../domain/types';
 import type { RandomBytes } from '../../domain/identity';
 import { createVault, roleOf, type Credentials, type Role } from './credentials';
@@ -317,6 +317,16 @@ export function createHttpBackend(deps: HttpBackendDeps): Backend {
       const photoId = await uploader.upload(handle, 'photos', photo.uri, 'PROBLEM');
       return call(handle, 'POST', apiPath`/ai/classify-photo`, (j) => record(j, 'photo suggestion', ['serviceId', 'alternatives']), { photoId });
     },
+    async readQuote(handle, photo) {
+      if (!photo.uri || !isLocalFile(photo.uri)) return { readable: false, serviceId: null, lines: [] };
+      const photoId = await uploader.upload(handle, 'photos', photo.uri, 'PROBLEM');
+      return call(handle, 'POST', apiPath`/ai/read-quote`, (j) => record<QuoteRead>(j, 'quote reading', ['readable', 'serviceId', 'lines']), { photoId });
+    },
+    checkQuote: (handle, serviceId, lines) =>
+      call(handle, 'POST', apiPath`/ai/check-quote`, (j) => record<QuoteCheckResult>(j, 'quote check', ['verdict', 'total', 'usualMin', 'usualMax', 'over', 'lines']), {
+        serviceId,
+        lines: lines.map((l) => ({ name: l.name, kind: l.kind, qty: l.qty, amount: l.amount, partId: l.partId })),
+      }),
     async transcribe(handle, recording, serviceId, locale) {
       const audioId = await uploader.upload(handle, 'audio', recording.uri);
       const text = await call(handle, 'POST', apiPath`/ai/transcribe`, (j) => str(obj(j, 'transcript'), 'text'), { audioId, serviceId, locale }).catch((e) => {

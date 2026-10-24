@@ -1288,6 +1288,26 @@ export function createMockBackend(opts: MockOptions): Backend {
         return { serviceId: null, confidence: 0, alternatives: TOP_PROBLEMS.map((p) => p.serviceId).slice(0, 4) };
       },
 
+      async readQuote() {
+        await delay();
+        // The test double cannot read photos: the customer types the lines.
+        return { readable: false, serviceId: null, lines: [] };
+      },
+
+      async checkQuote(_token, serviceId, lines) {
+        await delay();
+        const svc = serviceById(serviceId);
+        if (!svc || lines.length === 0) throw new ApiError('VALIDATION');
+        // Same rules as the server: usual = visit fee + repair from ... 4 × repair from; up to 1.5 × that is "a bit high".
+        const total = lines.reduce((sum, l) => sum + l.amount, 0);
+        const usualMax = svc.visitFee + svc.repairFrom * 4;
+        const verdict = total <= usualMax ? 'FAIR' : total * 2 <= usualMax * 3 ? 'A_BIT_HIGH' : 'HIGH';
+        return {
+          serviceId, total, usualMin: svc.visitFee + svc.repairFrom, usualMax, visitFee: svc.visitFee, verdict, over: verdict === 'FAIR' ? 0 : total - usualMax,
+          lines: lines.map((l) => ({ ...l, partId: null, listPrice: null, overList: 0 })),
+        };
+      },
+
       async transcribe(_token, _recording, serviceId, locale) {
         await delay();
         const cat = serviceId ? serviceById(serviceId)?.categoryId : undefined;

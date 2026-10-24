@@ -165,6 +165,15 @@ export default function Home() {
             </Appear>
           ) : null}
 
+          <Tap onPress={() => router.push('/quote-check')} style={styles.qcCard} haptic testID="home-quote-check" accessibilityLabel={t('home.qc.title')}>
+            <Art3D name="receipt" size={52} />
+            <View style={styles.flex}>
+              <Txt variant="bodyStrong">{t('home.qc.title')}</Txt>
+              <Txt variant="footnote" color="inkMuted">{t('home.qc.body')}</Txt>
+            </View>
+            <Icon name="chevron-forward" size={18} color="inkSubtle" />
+          </Tap>
+
           <View style={styles.block}>
             <SectionTitle title={t('home.services')} action={t('home.viewAll')} onAction={() => router.push('/services')} />
             {cats.error ? <ErrorView error={cats.error} onRetry={cats.reload} title={t('catalog.loadError')} /> : null}
@@ -231,6 +240,7 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
+  qcCard: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
   root: { flex: 1, backgroundColor: colors.canvas },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.canvas, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   flex: { flex: 1 },

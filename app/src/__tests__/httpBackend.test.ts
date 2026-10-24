@@ -328,6 +328,30 @@ describe('live client: bookings, uploads, payments', () => {
   });
 });
 
+describe('live client: quote checker', () => {
+  it('uploads the quote photo, reads it, and sends the confirmed lines to be checked', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    const lines = [{ name: 'Labour', kind: 'LABOUR', qty: 1, amount: 600, partId: null }] as const;
+    t.routes['POST /ai/read-quote'] = () => json(200, { readable: true, serviceId: 'plumb-tap', lines });
+    expect(await t.backend.ai.readQuote(s.token, { id: 'q1', uri: 'file:///quote.jpg' })).toEqual({ readable: true, serviceId: 'plumb-tap', lines });
+    expect(t.calls.find((c) => c.url === '/uploads/photos')?.body).toMatchObject({ stage: 'PROBLEM' });
+    expect(t.calls.at(-1)).toMatchObject({ method: 'POST', url: '/ai/read-quote', body: { photoId: expect.stringMatching(/^up-PROBLEM/) } });
+
+    const result = { serviceId: 'plumb-tap', total: 600, usualMin: 198, usualMax: 645, visitFee: 49, verdict: 'FAIR', over: 0, lines: [{ ...lines[0], listPrice: null, overList: 0 }] };
+    t.routes['POST /ai/check-quote'] = () => json(200, result);
+    expect(await t.backend.ai.checkQuote(s.token, 'plumb-tap', lines)).toEqual(result);
+    expect(t.calls.at(-1)).toMatchObject({ method: 'POST', url: '/ai/check-quote', body: { serviceId: 'plumb-tap', lines } });
+  });
+
+  it('does not upload a photo that is not a local file', async () => {
+    const t = setup();
+    const s = await signIn(t.backend);
+    expect(await t.backend.ai.readQuote(s.token, { id: 'q1', sample: 1 })).toEqual({ readable: false, serviceId: null, lines: [] });
+    expect(t.calls.filter((c) => c.url === '/uploads/photos')).toHaveLength(0);
+  });
+});
+
 describe('live client: payout details', () => {
   it('reads "not added yet" as null, and saves the details with PUT', async () => {
     const t = setup();
