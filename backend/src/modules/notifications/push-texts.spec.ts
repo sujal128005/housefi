@@ -1,7 +1,7 @@
 import { NotificationKind } from '@prisma/client';
 import { pushText } from './push-texts';
 
-const PARAMS = { code: 'HF-48291', amount: 320, etaMin: 12, earning: 30, version: 1, minutes: 9, startHour: 10, endHour: 12, count: 3, title: 'Rain today', body: 'Technicians may be late', titleTe: 'ఈరోజు వర్షం', bodyTe: 'ఆలస్యం కావచ్చు' };
+const PARAMS = { code: 'HF-48291', amount: 320, etaMin: 12, earning: 30, version: 1, minutes: 9, startHour: 10, endHour: 12, count: 3, title: 'Rain today', body: 'Technicians may be late', titleTe: 'ఈరోజు వర్షం', bodyTe: 'ఆలస్యం కావచ్చు', name: 'Ravi K.' };
 
 describe('push texts', () => {
   it.each(Object.values(NotificationKind))('%s has English and Telugu text with every value filled in', (kind) => {
