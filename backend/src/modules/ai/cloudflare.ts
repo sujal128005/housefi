@@ -1,5 +1,5 @@
 // Free open models behind the AI interfaces: Cloudflare Workers AI (AI_PROVIDER=cloudflare) and the backups in
-// AI_BACKUPS (Groq, Cerebras), asked one after another by open-models.ts. Same guarantees as claude.ts, whose
+// AI_BACKUPS (Groq, Ollama, Cerebras), asked one after another by open-models.ts. Same guarantees as claude.ts, whose
 // instructions, answer shape and checks are shared:
 // - The support chat sees only the caller's own booking facts, has no tools, and answers in a fixed JSON shape. The
 //   rules answer instead when the model is slow, unavailable or off-format, and always for danger.

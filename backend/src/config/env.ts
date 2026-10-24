@@ -219,18 +219,24 @@ export const envSchema = z
     CLOUDFLARE_AI_VISION_MODEL: z.string().default('@cf/mistralai/mistral-small-3.1-24b-instruct'),
     /**
      * Free backups, tried in this order when the main model is slow, down or off-format: a comma list of "groq",
-     * "cerebras" and "cloudflare" (open-models.ts). Groq reads chat and photos; Cerebras answers chat only.
+     * "ollama", "cerebras" and "cloudflare" (open-models.ts). Groq reads chat and photos; Ollama answers chat (photos
+     * too when OLLAMA_VISION_MODEL is set); Cerebras answers chat only (its free plan now needs a $5 top-up).
      */
     AI_BACKUPS: z
       .string()
       .default('')
       .transform((v) => v.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean))
-      .pipe(z.array(z.enum(['groq', 'cerebras', 'cloudflare']))),
+      .pipe(z.array(z.enum(['groq', 'ollama', 'cerebras', 'cloudflare']))),
     /** Groq (free plan, keeps no requests by default): an API key from console.groq.com. */
     GROQ_API_KEY: z.string().optional(),
     GROQ_CHAT_MODEL: z.string().default('llama-3.3-70b-versatile'),
     GROQ_VISION_MODEL: z.string().default('qwen/qwen3.8-27b'),
-    /** Cerebras (free plan, keeps no requests): an API key from cloud.cerebras.ai. Chat only. */
+    /** Ollama's cloud (free plan, never logs or trains on requests): an API key from ollama.com → Settings → Keys. */
+    OLLAMA_API_KEY: z.string().optional(),
+    OLLAMA_CHAT_MODEL: z.string().default('gpt-oss:120b'),
+    /** Empty: Ollama answers chat only. A cloud model that reads images (e.g. one listed at ollama.com/search?c=cloud). */
+    OLLAMA_VISION_MODEL: z.string().default(''),
+    /** Cerebras (keeps no requests): an API key from cloud.cerebras.ai. Chat only. */
     CEREBRAS_API_KEY: z.string().optional(),
     CEREBRAS_CHAT_MODEL: z.string().default('gpt-oss-120b'),
     /** The whole question, all models together; past it the rules answer instead. */
@@ -346,6 +352,7 @@ export const envSchema = z
       require('CLOUDFLARE_AI_TOKEN', 'when AI_PROVIDER=cloudflare or AI_BACKUPS has cloudflare');
     }
     if (e.AI_BACKUPS.includes('groq')) require('GROQ_API_KEY', 'when AI_BACKUPS has groq');
+    if (e.AI_BACKUPS.includes('ollama')) require('OLLAMA_API_KEY', 'when AI_BACKUPS has ollama');
     if (e.AI_BACKUPS.includes('cerebras')) require('CEREBRAS_API_KEY', 'when AI_BACKUPS has cerebras');
     if (e.SPEECH_TO_TEXT_PROVIDER === 'sarvam') require('SARVAM_API_KEY', 'when SPEECH_TO_TEXT_PROVIDER=sarvam');
     if (e.TELEPHONY_PROVIDER === 'exotel') {

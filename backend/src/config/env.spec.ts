@@ -185,6 +185,7 @@ describe('hardening rules', () => {
   it('needs a key for each free backup, and knows only groq, cerebras and cloudflare', () => {
     expect(problemsOf({ ...base, AI_BACKUPS: 'groq,cerebras' })).toEqual(['GROQ_API_KEY: required when AI_BACKUPS has groq', 'CEREBRAS_API_KEY: required when AI_BACKUPS has cerebras']);
     expect(problemsOf({ ...base, AI_BACKUPS: ' Groq , cerebras ', GROQ_API_KEY: 'gsk', CEREBRAS_API_KEY: 'csk' })).toEqual([]);
+    expect(problemsOf({ ...base, AI_BACKUPS: 'ollama' })).toEqual(['OLLAMA_API_KEY: required when AI_BACKUPS has ollama']);
     expect(problemsOf({ ...base, AI_BACKUPS: 'gemini' })).toHaveLength(1);
     expect(problemsOf({ ...base, AI_PROVIDER: 'cloudflare', CLOUDFLARE_ACCOUNT_ID: 'not-an-id', CLOUDFLARE_AI_TOKEN: 'cf-token' })).toHaveLength(1);
     const env = parseEnv({ ...base, AI_PROVIDER: 'cloudflare', CLOUDFLARE_ACCOUNT_ID: 'a'.repeat(32), CLOUDFLARE_AI_TOKEN: 'cf-token' });

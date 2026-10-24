@@ -1,5 +1,5 @@
 // Free open models, one after another: Cloudflare Workers AI (AI_PROVIDER=cloudflare) and the backups in AI_BACKUPS
-// (Groq, Cerebras: OpenAI-style chat completions; Cloudflare can be a backup too). Each question goes to the first
+// (Groq, Ollama, Cerebras: OpenAI-style chat completions; Cloudflare can be a backup too). Each question goes to the first
 // healthy model that can answer it (photos only to models that read images); an answer that fails, times out or comes
 // back in the wrong shape moves on to the next. A model that just failed waits at the back of the line for
 // AI_COOLDOWN_MS, so customers are not kept waiting on a service that is down. Every try has AI_ATTEMPT_TIMEOUT_MS and
@@ -14,6 +14,7 @@ import type { Env } from '../../config/env';
 export const CLOUDFLARE_AI_URL = 'https://api.cloudflare.com/client/v4/accounts';
 export const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 export const CEREBRAS_URL = 'https://api.cerebras.ai/v1/chat/completions';
+export const OLLAMA_URL = 'https://ollama.com/v1/chat/completions';
 
 /** The free models' chat, photo reader and quote reader (cloudflare.ts): Claude's backup before the rules. */
 export const FREE_CHAT = Symbol('FREE_CHAT');
@@ -23,7 +24,7 @@ export const FREE_QUOTE_READER = Symbol('FREE_QUOTE_READER');
 /** Injected so tests never reach the real services (Cloudflare and the backups share it). */
 export const CLOUDFLARE_AI_FETCH = Symbol('CLOUDFLARE_AI_FETCH');
 
-export type ModelName = 'cloudflare' | 'groq' | 'cerebras';
+export type ModelName = 'cloudflare' | 'groq' | 'ollama' | 'cerebras';
 export type ModelKind = 'chat' | 'vision';
 
 /** A question in the OpenAI chat format; the system message already asks for JSON in `schema`'s shape. */
@@ -153,11 +154,16 @@ export class WorkersAi {
         },
       };
     }
-    const key = name === 'groq' ? c.GROQ_API_KEY : c.CEREBRAS_API_KEY;
+    const key = name === 'groq' ? c.GROQ_API_KEY : name === 'ollama' ? c.OLLAMA_API_KEY : c.CEREBRAS_API_KEY;
     if (!key) return null;
-    const url = name === 'groq' ? GROQ_URL : CEREBRAS_URL;
-    // Cerebras has no image model: it answers chat only.
-    const models = name === 'groq' ? { chat: c.GROQ_CHAT_MODEL, vision: c.GROQ_VISION_MODEL } : { chat: c.CEREBRAS_CHAT_MODEL };
+    const url = name === 'groq' ? GROQ_URL : name === 'ollama' ? OLLAMA_URL : CEREBRAS_URL;
+    // Cerebras has no image model; Ollama reads photos only with OLLAMA_VISION_MODEL set.
+    const models: Partial<Record<ModelKind, string>> =
+      name === 'groq'
+        ? { chat: c.GROQ_CHAT_MODEL, vision: c.GROQ_VISION_MODEL }
+        : name === 'ollama'
+          ? { chat: c.OLLAMA_CHAT_MODEL, ...(c.OLLAMA_VISION_MODEL ? { vision: c.OLLAMA_VISION_MODEL } : {}) }
+          : { chat: c.CEREBRAS_CHAT_MODEL };
     return {
       name,
       models,
