@@ -1616,6 +1616,7 @@ export const en = {
   'hub.societyCancelled': "The society day at {name} did not happen. Your visit fee was refunded.",
   'hub.societyOpenDay': "See the day",
   'tj.society': "Society repair day at {name}: every flat that day is yours, one after another.",
+  'confirmed.societyBody': "Your flat is in the society day at {name}. The day is confirmed when enough neighbours join; you will get a notification.",
 } as const;
 
 export type StringKey = keyof typeof en;

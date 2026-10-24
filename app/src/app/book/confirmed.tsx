@@ -11,7 +11,7 @@ import { useBackend, useIsDemo, useQuery } from '../../services/ServicesProvider
 import { useSession } from '../../state/AppState';
 import { useDraft } from '../../state/BookingDraft';
 import { radius, space } from '../../theme/tokens';
-import { Banner, Button, Card, ErrorView, Header, Screen, Skeleton, StatusPill, Txt } from '../../ui';
+import { Banner, Button, Card, ErrorView, Header, Pill, Screen, Skeleton, StatusPill, Txt } from '../../ui';
 import { ArrivalOtpCard } from '../../ui/BookingParts';
 import { Appear, Celebrate } from '../../ui/motion';
 import { visitTimeText } from '../../ui/present';
@@ -63,7 +63,8 @@ export default function Confirmed() {
           </View>
           <Appear>
             <Txt variant="title1" align="center" heading>{t('confirmed.title')}</Txt>
-            <Txt variant="body" color="inkMuted" align="center">{t('confirmed.body')}</Txt>
+            {/* A society flat waits for its neighbours, not for a technician search. */}
+            <Txt variant="body" color="inkMuted" align="center">{b?.society?.state === 'OPEN' ? t('confirmed.societyBody', { name: b.society.name }) : t('confirmed.body')}</Txt>
           </Appear>
         </>
       ) : null}
@@ -77,7 +78,7 @@ export default function Confirmed() {
                 <Txt variant="caption" color="inkMuted">{t('confirmed.id')}</Txt>
                 <Txt variant="title2" testID="booking-code" selectable>{b.code}</Txt>
               </View>
-              <StatusPill status={b.status} />
+              {b.society?.state === 'OPEN' ? <Pill tone="info" icon="business-outline" label={t('soc.state.OPEN')} /> : <StatusPill status={b.status} />}
             </View>
             <Txt variant="bodyStrong">{svc ? l(svc.name) : ''}</Txt>
             <Txt variant="callout" color="inkMuted">{visitTimeText(b.time, locale, t)}</Txt>
